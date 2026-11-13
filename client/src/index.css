@@ -1,8 +1,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
-@import "@fontsource-variable/public-sans/wght.css";
-@import "@fontsource-variable/archivo/wdth.css";
+@import "@fontsource-variable/montserrat/wght.css";
 
 /*
  * TRACES design tokens.
@@ -14,11 +13,11 @@
  *   ilocos  #1D4B70  sidebar (shadow side of the building blue #2D6C98)
  *   navy    #004AAD  primary actions (TRACES frame)
  *   cyan    #00AEEF  location markers, focus (DOST mark)
- * Type: Archivo (wide, signage-like) for headings, Public Sans for interface text and figures.
+ * Type: Montserrat throughout (free stand-in for Gotham). Medium weight for text, bold and extra-bold for headings.
  */
 @theme inline {
-    --font-sans: 'Public Sans Variable', ui-sans-serif, system-ui, sans-serif;
-    --font-heading: 'Archivo Variable', var(--font-sans);
+    --font-sans: 'Montserrat Variable', ui-sans-serif, system-ui, sans-serif;
+    --font-heading: var(--font-sans);
     --color-ink: #16263a;
     --color-paper: #f4f7fa;
     --color-sky: #bbccd9;
@@ -107,15 +106,15 @@
     }
     html {
         @apply font-sans antialiased;
-        font-feature-settings: "tnum" 0;
     }
     body {
         @apply bg-background text-foreground;
+        font-weight: 500; /* Medium is the base weight, as with Gotham Medium */
     }
     h1, h2, h3 {
         font-family: var(--font-heading);
-        font-stretch: 112%;
-        letter-spacing: -0.01em;
+        font-weight: 700;
+        letter-spacing: -0.015em;
         text-wrap: balance;
     }
 }
@@ -127,7 +126,7 @@
     }
     .font-display {
         font-family: var(--font-heading);
-        font-stretch: 118%;
+        font-weight: 800;
     }
 }
 

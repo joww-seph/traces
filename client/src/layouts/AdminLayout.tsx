@@ -56,7 +56,7 @@ function SidebarContents({ onLogout, showBrand = true }: { onLogout: () => void;
         <img src="/traces-logo.png" alt="" className="size-10 rounded-[3px] bg-white p-0.5" />
         <span className="grid leading-tight">
           <span className="font-display text-lg font-bold text-white">TRACES</span>
-          <span className="text-xs text-sidebar-foreground/70">Supply Unit, DOST Region 1</span>
+          <span className="text-xs text-sidebar-foreground/70">Supply Unit, DOST-1</span>
         </span>
       </NavLink>}
 

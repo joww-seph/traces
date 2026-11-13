@@ -14,28 +14,29 @@ import { Label } from '@/components/ui/label'
 
 type Form = z.infer<typeof loginInput>
 
-// The DOST Ilocos building, the region's own landmark.
+// Logos, wordmark and full name, centred. Sized up on the desktop panel, compact on phones.
+function BrandBlock({ large }: { large?: boolean }) {
+  return (
+    <div className="flex flex-col items-center text-center">
+      <div className={large ? 'flex items-center gap-5' : 'flex items-center gap-3'}>
+        <Dost1Mark className={large ? 'h-24 w-auto' : 'h-14 w-auto'} />
+        <span aria-hidden className={large ? 'h-16 w-px bg-ink/25' : 'h-10 w-px bg-ink/20'} />
+        <TracesMark className={large ? 'h-24 w-auto rounded-sm' : 'h-14 w-auto rounded-sm'} />
+      </div>
+      <h1 className={large ? 'mt-8 text-7xl leading-none font-extrabold text-ink' : 'mt-4 text-4xl leading-none font-extrabold text-ink'}>TRACES</h1>
+      <p className={large ? 'mt-4 max-w-md text-2xl leading-snug font-semibold text-ink/85' : 'mt-2 max-w-xs text-sm leading-snug font-semibold text-ink/70'}>
+        Tagged Records of Accountable Equipment and Supplies
+      </p>
+    </div>
+  )
+}
+
+// Desktop only: the DOST Ilocos building fills the left half. Phones skip the illustration so the form is reachable at once.
 function BrandPanel() {
   return (
-    <section aria-label="TRACES" className="relative isolate flex min-h-[29rem] flex-col overflow-hidden bg-sky sm:min-h-[34rem] lg:min-h-screen">
+    <section aria-label="TRACES" className="relative isolate hidden min-h-screen items-center justify-center overflow-hidden bg-sky px-10 pb-56 lg:flex">
       <img src="/login-bg.webp" alt="" className="absolute inset-0 -z-10 size-full object-cover object-bottom duration-700 animate-in fade-in slide-in-from-bottom-4" />
-
-      <div className="flex flex-col gap-6 px-6 pt-8 pb-40 sm:px-10 lg:px-14 lg:pt-16 xl:px-20">
-        <div className="flex items-center gap-4">
-          <Dost1Mark className="h-14 w-auto lg:h-20" />
-          <span aria-hidden className="h-12 w-px bg-ink/25 lg:h-16" />
-          <TracesMark className="h-14 w-auto rounded-sm lg:h-20" />
-        </div>
-        <div className="max-w-xl">
-          <h1 className="font-display text-5xl leading-none font-extrabold text-ink lg:text-7xl">TRACES</h1>
-          <p className="mt-3 font-display text-lg leading-snug font-semibold text-ink/85 lg:text-2xl">
-            Tagged Records of Accountable Equipment and Supplies
-          </p>
-          <p className="mt-4 hidden max-w-md text-[15px] leading-relaxed text-ink/70 lg:block">
-            Every ICS and PAR line becomes its own property card, registry entry and QR sticker, kept by the Supply Unit of DOST Region 1.
-          </p>
-        </div>
-      </div>
+      <BrandBlock large />
     </section>
   )
 }
@@ -64,19 +65,21 @@ export default function Login() {
   })
 
   return (
-    <div className="grid min-h-screen bg-background lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
+    <div className="grid min-h-dvh bg-background lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
       <BrandPanel />
 
-      <main className="relative flex flex-col px-6 py-10 sm:px-10 lg:px-16">
+      <main className="relative flex min-h-dvh flex-col px-5 pt-8 pb-6 sm:px-10 lg:px-16 lg:py-10">
         <div className="m-auto w-full max-w-sm">
-          <h2 className="text-3xl font-bold">Sign in</h2>
+          <div className="mb-8 lg:hidden"><BrandBlock /></div>
+          <h2 className="text-2xl font-bold lg:text-3xl">Sign in</h2>
           <p className="mt-2 text-sm text-muted-foreground">Use the email and password the IT superadmin set up for you.</p>
 
           <form onSubmit={onSubmit} className="mt-8 grid gap-5" noValidate>
             <div className="grid gap-2">
               <Label htmlFor="email">Email address</Label>
-              <Input id="email" type="email" autoComplete="username" autoFocus placeholder="name@dost1.gov.ph"
-                className="h-11 px-3.5 text-base" aria-invalid={!!errors.email} aria-describedby={errors.email ? 'email-error' : undefined}
+              <Input id="email" type="email" inputMode="email" autoComplete="username" autoCapitalize="none" spellCheck={false}
+                autoFocus={typeof window !== 'undefined' && window.matchMedia('(min-width: 1024px)').matches} placeholder="name@dost1.gov.ph"
+                className="h-12 px-3.5 text-base" aria-invalid={!!errors.email} aria-describedby={errors.email ? 'email-error' : undefined}
                 {...form.register('email')} />
               {errors.email && <p id="email-error" className="text-sm text-destructive">Enter your email address, like name@dost1.gov.ph.</p>}
             </div>
@@ -85,11 +88,11 @@ export default function Login() {
               <Label htmlFor="password">Password</Label>
               <div className="relative">
                 <Input id="password" type={showPassword ? 'text' : 'password'} autoComplete="current-password"
-                  className="h-11 pr-11 pl-3.5 text-base" aria-invalid={!!errors.password}
+                  className="h-12 pr-12 pl-3.5 text-base" enterKeyHint="go" aria-invalid={!!errors.password}
                   aria-describedby={errors.password ? 'password-error' : undefined} {...form.register('password')} />
                 <button type="button" onClick={() => setShowPassword((s) => !s)}
                   aria-label={showPassword ? 'Hide password' : 'Show password'} aria-pressed={showPassword}
-                  className="absolute inset-y-0 right-0 grid w-11 place-items-center rounded-r-lg text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring">
+                  className="absolute inset-y-0 right-0 grid w-12 place-items-center rounded-r-lg text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring">
                   {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
                 </button>
               </div>
@@ -102,7 +105,7 @@ export default function Login() {
               </p>
             )}
 
-            <Button type="submit" size="lg" className="h-11 text-base" disabled={isSubmitting}>
+            <Button type="submit" size="lg" className="h-12 text-base" disabled={isSubmitting}>
               {isSubmitting && <LoaderCircle className="animate-spin" />}
               {isSubmitting ? 'Signing in' : 'Sign in'}
             </Button>
@@ -113,9 +116,8 @@ export default function Login() {
           </p>
         </div>
 
-        <footer className="mx-auto mt-10 flex w-full max-w-sm items-center justify-between gap-4 border-t pt-6">
+        <footer className="mx-auto mt-8 flex w-full max-w-sm justify-center border-t pt-5">
           <DostIlocosLockup className="h-8 w-auto" />
-          <span className="text-right text-xs text-muted-foreground">Supply Unit<br />Property records</span>
         </footer>
       </main>
     </div>
