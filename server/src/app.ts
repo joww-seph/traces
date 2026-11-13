@@ -7,6 +7,7 @@ import { sessionMiddleware } from './middleware/session.js'
 import { adminSettingsRouter } from './routes/admin/settings.js'
 import { authRouter } from './routes/auth.js'
 import { documentsRouter } from './routes/documents.js'
+import { linesRouter } from './routes/lines.js'
 import { officersRouter } from './routes/officers.js'
 import { settingsRouter } from './routes/settings.js'
 
@@ -23,7 +24,7 @@ export function createApp() {
     res.json({ ok: true, db: true })
   })
 
-  app.use('/api', authRouter(), settingsRouter(), officersRouter(), documentsRouter(), adminSettingsRouter())
+  app.use('/api', authRouter(), settingsRouter(), officersRouter(), documentsRouter(), linesRouter(), adminSettingsRouter())
   // routers mount here as they are built
   app.use('/api', notFound)
   app.use(errorHandler)
