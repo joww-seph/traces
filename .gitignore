@@ -8,3 +8,4 @@ backups
 .DS_Store
 .vscode
 .playwright-mcp
+docs/ACCOUNTS.md

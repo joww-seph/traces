@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url'
 import express from 'express'
 import helmet from 'helmet'
 import { pool } from './db/client.js'
@@ -9,6 +10,7 @@ import { authRouter } from './routes/auth.js'
 import { documentsRouter } from './routes/documents.js'
 import { linesRouter } from './routes/lines.js'
 import { officersRouter } from './routes/officers.js'
+import { propertiesRouter } from './routes/properties.js'
 import { settingsRouter } from './routes/settings.js'
 
 export function createApp() {
@@ -24,9 +26,16 @@ export function createApp() {
     res.json({ ok: true, db: true })
   })
 
-  app.use('/api', authRouter(), settingsRouter(), officersRouter(), documentsRouter(), linesRouter(), adminSettingsRouter())
+  app.use('/api', authRouter(), settingsRouter(), officersRouter(), documentsRouter(), linesRouter(), propertiesRouter(), adminSettingsRouter())
   // routers mount here as they are built
   app.use('/api', notFound)
+
+  // Production: one process serves the API and the built React app (same origin, so no CORS).
+  if (process.env.NODE_ENV === 'production') {
+    const dist = fileURLToPath(new URL('../../client/dist', import.meta.url)) // same depth from src/ and from the bundled dist/
+    app.use(express.static(dist, { index: false }))
+    app.use((req, res, next) => (req.method === 'GET' && !req.path.startsWith('/assets/') ? res.sendFile('index.html', { root: dist, headers: { 'Cache-Control': 'no-cache' } }) : next()))
+  }
   app.use(errorHandler)
   return app
 }

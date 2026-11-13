@@ -5,6 +5,7 @@ import { useFieldArray, useForm } from 'react-hook-form'
 import { useNavigate, useParams } from 'react-router'
 import { toast } from 'sonner'
 import { ApiError, api } from '@/api'
+import { NativeSelect } from '@/components/NativeSelect'
 import { PdfRegionPicker, type Region } from '@/components/PdfRegionPicker'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -14,7 +15,8 @@ import { Label } from '@/components/ui/label'
 import { useSettings } from '@/lib/queries'
 import type { DocDetail } from '@/pages/documents/Detail'
 
-type Row = { propertyNo: string; kind: 'main' | 'component'; componentLabel: string; existing: boolean }
+type Condition = 'serviceable' | 'unserviceable'
+type Row = { propertyNo: string; kind: 'main' | 'component'; componentLabel: string; serialNo: string; condition: Condition; existing: boolean }
 type Values = {
   qty: string; unit: string; unitCost: string; article: string; description: string
   estUsefulLifeYears: string; dateAcquired: string; iarNo: string; iarDate: string; properties: Row[]
@@ -23,12 +25,12 @@ type LineDto = {
   id: string; documentId: string; qty: number; unit: string; unitCostCentavos: number; article: string; description: string
   estUsefulLifeYears: number | null; dateAcquired: string | null; iarNo: string | null; iarDate: string | null
   category: 'semi' | 'ppe'; region: Region | null
-  properties: { propertyNo: string; componentLabel: string | null }[]
+  properties: { propertyNo: string; componentLabel: string | null; serialNo: string | null; condition: Condition }[]
 }
 
 const EMPTY: Values = {
   qty: '1', unit: '', unitCost: '', article: '', description: '', estUsefulLifeYears: '', dateAcquired: '', iarNo: '', iarDate: '',
-  properties: [{ propertyNo: '', kind: 'main', componentLabel: '', existing: false }],
+  properties: [{ propertyNo: '', kind: 'main', componentLabel: '', serialNo: '', condition: 'serviceable', existing: false }],
 }
 // form field behind each server-side line field name
 const FIELD: Record<string, keyof Values> = {
@@ -65,7 +67,7 @@ export default function LineForm() {
     form.reset({
       qty: String(l.qty), unit: l.unit, unitCost: (l.unitCostCentavos / 100).toFixed(2), article: l.article, description: l.description,
       estUsefulLifeYears: l.estUsefulLifeYears?.toString() ?? '', dateAcquired: l.dateAcquired ?? '', iarNo: l.iarNo ?? '', iarDate: l.iarDate ?? '',
-      properties: l.properties.map((p) => ({ propertyNo: p.propertyNo, kind: p.componentLabel ? 'component' : 'main', componentLabel: p.componentLabel ?? '', existing: true })),
+      properties: l.properties.map((p) => ({ propertyNo: p.propertyNo, kind: p.componentLabel ? 'component' : 'main', componentLabel: p.componentLabel ?? '', serialNo: p.serialNo ?? '', condition: p.condition, existing: true })),
     })
     setRegion(l.region)
   }, [lineQ.data, form])
@@ -83,12 +85,18 @@ export default function LineForm() {
     let no = last?.propertyNo.trim() ?? ''
     for (let i = 0; i < n; i++) {
       if (no) { try { no = nextInSequence(no) } catch { no = '' } }
-      rows.append({ propertyNo: no, kind: 'main', componentLabel: '', existing: false })
+      rows.append({ propertyNo: no, kind: 'main', componentLabel: '', serialNo: '', condition: 'serviceable', existing: false })
     }
   }
 
   const save = useMutation({
-    mutationFn: (body: object) => (editing ? api.patch<{ warning?: { message: string } }>(`/api/lines/${lineId}`, body) : api.post<{ warning?: { message: string } }>(`/api/documents/${docId}/lines`, body)),
+    mutationFn: async ({ body, propPatches = [] }: { body: object; propPatches?: { propertyNo: string; patch: object }[] }) => {
+      type Res = { warning?: { message: string } }
+      const res = editing ? await api.patch<Res>(`/api/lines/${lineId}`, body) : await api.post<Res>(`/api/documents/${docId}/lines`, body)
+      // serial / label / condition of properties that already existed go through the property endpoint
+      for (const p of propPatches) await api.patch(`/api/properties/${encodeURIComponent(p.propertyNo)}`, p.patch)
+      return res
+    },
     onSuccess: (res) => {
       qc.invalidateQueries({ queryKey: ['document', docId] })
       qc.invalidateQueries({ queryKey: ['line', lineId] })
@@ -119,7 +127,10 @@ export default function LineForm() {
     const comp = values.properties.findIndex((r) => r.kind === 'component' && !r.componentLabel.trim())
     if (comp >= 0) return setError(`properties.${comp}.componentLabel`, { message: 'A component needs a label' })
 
-    const props = values.properties.map((r) => ({ propertyNo: r.propertyNo.trim(), componentLabel: r.kind === 'component' ? r.componentLabel.trim() : undefined }))
+    const props = values.properties.map((r) => ({
+      propertyNo: r.propertyNo.trim(), componentLabel: r.kind === 'component' ? r.componentLabel.trim() : undefined,
+      serialNo: opt(r.serialNo), condition: r.condition,
+    }))
     const line = {
       qty: Number(values.qty), unit: values.unit.trim(), unitCostCentavos, article: values.article.trim(), description: values.description.trim(),
       estUsefulLifeYears: isIcs && values.estUsefulLifeYears ? Number(values.estUsefulLifeYears) : undefined,
@@ -136,11 +147,21 @@ export default function LineForm() {
       }
       return
     }
-    if (!editing) return save.mutate(parsed.data)
+    if (!editing) return save.mutate({ body: parsed.data })
+    const original = lineQ.data!.properties
+    const propPatches = values.properties.flatMap((r, i) => {
+      const was = r.existing ? original.find((o) => o.propertyNo === r.propertyNo) : undefined
+      if (!was) return []
+      const patch = {
+        ...(opt(r.serialNo) !== (was.serialNo ?? undefined) && { serialNo: opt(r.serialNo) ?? null }),
+        ...(r.kind === 'component' && props[i].componentLabel !== was.componentLabel && { componentLabel: props[i].componentLabel }),
+        ...(r.condition !== was.condition && { condition: r.condition }),
+      }
+      return Object.keys(patch).length ? [{ propertyNo: r.propertyNo, patch }] : []
+    })
     save.mutate({
-      line, region,
-      addProperties: props.filter((_, i) => !values.properties[i].existing),
-      removePropertyNos: removed,
+      body: { line, region, addProperties: props.filter((_, i) => !values.properties[i].existing), removePropertyNos: removed },
+      propPatches,
     })
   })
 
@@ -198,20 +219,26 @@ export default function LineForm() {
                     <Input aria-label={`Property number ${i + 1}`} placeholder="2026-09ICT-0199" readOnly={row?.existing} aria-invalid={!!rowErr?.propertyNo}
                       className={row?.existing ? 'bg-muted' : ''} {...register(`properties.${i}.propertyNo`)} />
                     {row?.kind === 'component' && (
-                      <Input aria-label={`Component label ${i + 1}`} placeholder="Label (e.g. Mouse)" readOnly={row.existing} aria-invalid={!!rowErr?.componentLabel}
+                      <Input aria-label={`Component label ${i + 1}`} placeholder="Label (e.g. Mouse)" aria-invalid={!!rowErr?.componentLabel}
                         {...register(`properties.${i}.componentLabel`)} />
                     )}
                     <Button type="button" variant="ghost" size="sm" aria-label={`Remove property ${i + 1}`} disabled={rows.fields.length === 1}
                       onClick={() => { if (row?.existing) setRemoved([...removed, row.propertyNo]); rows.remove(i) }}>Remove</Button>
                   </div>
-                  {row?.kind === 'main' && <p className="text-xs text-muted-foreground">Main unit</p>}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Input aria-label={`Serial number ${i + 1}`} placeholder="Serial no. (optional)" className="h-7 min-w-40 flex-1" {...register(`properties.${i}.serialNo`)} />
+                    <NativeSelect aria-label={`Condition ${i + 1}`} className="h-7 w-auto" {...register(`properties.${i}.condition`)}>
+                      <option value="serviceable">Serviceable</option><option value="unserviceable">Unserviceable</option>
+                    </NativeSelect>
+                    {row?.kind === 'main' && <span className="text-xs text-muted-foreground">Main unit</span>}
+                  </div>
                   {rowErr?.propertyNo && <p className="text-xs text-destructive">{rowErr.propertyNo.message}</p>}
                   {rowErr?.componentLabel && <p className="text-xs text-destructive">{rowErr.componentLabel.message}</p>}
                 </div>
               )
             })}
             <div className="flex flex-wrap items-center gap-2">
-              <Button type="button" variant="outline" size="sm" onClick={() => rows.append({ propertyNo: '', kind: 'component', componentLabel: '', existing: false })}>Add component</Button>
+              <Button type="button" variant="outline" size="sm" onClick={() => rows.append({ propertyNo: '', kind: 'component', componentLabel: '', serialNo: '', condition: 'serviceable', existing: false })}>Add component</Button>
               <span className="text-xs text-muted-foreground">or add</span>
               <Input aria-label="Number of units" className="h-7 w-16" inputMode="numeric" value={units} onChange={(e) => setUnits(e.target.value)} />
               <Button type="button" variant="outline" size="sm" onClick={addUnits}>units in sequence</Button>
