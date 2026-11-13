@@ -3,7 +3,10 @@ import { formatLongDate, formatPeso } from '@traces/shared'
 import type { ColDef, ColGroupDef } from 'ag-grid-community'
 import { useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
+import { Plus, QrCode } from 'lucide-react'
 import { api } from '@/api'
+import { EmptyState, PageHeader } from '@/components/PageHeader'
+import { TypeBadge } from '@/components/TypeBadge'
 import { FormGrid, moneyCol } from '@/components/FormGrid'
 import { PdfViewer } from '@/components/PdfViewer'
 import { Button } from '@/components/ui/button'
@@ -25,8 +28,8 @@ const propertyNos = (l: DocLine) => l.properties.map((p) => p.propertyNo).join('
 
 // Column maps from design §4: ICS and PAR line layouts.
 const icsColumns: (ColDef<DocLine> | ColGroupDef<DocLine>)[] = [
-  { field: 'qty', headerName: 'Quantity', type: 'rightAligned', width: 100 },
-  { field: 'unit', headerName: 'Unit', width: 90 },
+  { field: 'qty', headerName: 'Quantity', type: 'rightAligned', width: 116 },
+  { field: 'unit', headerName: 'Unit', width: 96 },
   { headerName: 'Amount', children: [
     moneyCol('unitCostCentavos', 'Unit Cost', { width: 130 }) as ColDef<DocLine>,
     moneyCol('total', 'Total Cost', { width: 140, valueGetter: (p) => p.data && p.data.qty * p.data.unitCostCentavos }) as ColDef<DocLine>,
@@ -36,8 +39,8 @@ const icsColumns: (ColDef<DocLine> | ColGroupDef<DocLine>)[] = [
   { field: 'estUsefulLifeYears', headerName: 'Estimated Useful Life', minWidth: 140 },
 ]
 const parColumns: (ColDef<DocLine> | ColGroupDef<DocLine>)[] = [
-  { field: 'qty', headerName: 'Quantity', type: 'rightAligned', width: 100 },
-  { field: 'unit', headerName: 'Unit', width: 90 },
+  { field: 'qty', headerName: 'Quantity', type: 'rightAligned', width: 116 },
+  { field: 'unit', headerName: 'Unit', width: 96 },
   { field: 'description', headerName: 'Description', flex: 2, minWidth: 220, cellClass: 'traces-pre' },
   { headerName: 'Property Number', valueGetter: (p) => p.data && propertyNos(p.data), cellClass: 'traces-pre', minWidth: 190 },
   { field: 'dateAcquired', headerName: 'Date Acquired', valueFormatter: (p) => (p.value ? formatLongDate(p.value) : ''), minWidth: 150 },
@@ -52,42 +55,65 @@ export default function DocumentDetail() {
   const [page, setPage] = useState(1)
   const columns = useMemo(() => (doc?.type === 'PAR' ? parColumns : icsColumns), [doc?.type])
 
-  if (isLoading) return <p className="text-sm text-muted-foreground">Loading…</p>
-  if (error || !doc) return <p className="text-sm text-destructive">Document not found.</p>
-  const nameOf = (oid: string) => officers.find((o) => o.id === oid)?.fullName ?? '…'
+  if (isLoading) return <p className="text-sm text-muted-foreground">Loading document</p>
+  if (error || !doc) {
+    return <EmptyState title="Document not found" action={<Button render={<Link to="/documents" />} nativeButton={false}>Back to ICS and PAR</Button>}>
+      It may have been deleted, or the link is wrong.
+    </EmptyState>
+  }
+  const officer = (oid: string) => officers.find((o) => o.id === oid)
   const total = doc.lines.reduce((s, l) => s + l.qty * l.unitCostCentavos, 0)
+  const signer = (label: string, oid: string, position: string) => (
+    <div className="min-w-0">
+      <dt className="text-xs text-muted-foreground">{label}</dt>
+      <dd className="mt-0.5 truncate text-sm font-medium">{officer(oid)?.fullName ?? ' '}</dd>
+      <dd className="truncate text-xs text-muted-foreground">{position}</dd>
+    </div>
+  )
 
   return (
-    <div className="grid gap-4">
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div>
-          <h1 className="text-xl font-semibold">{doc.type} {doc.docNo}</h1>
-          <p className="text-sm text-muted-foreground">
-            Fund cluster {doc.fundCluster} · issued {formatLongDate(doc.issuedDate)}
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" render={<Link to={`/stickers?documentId=${doc.id}`} />} nativeButton={false}>Print stickers</Button>
-          <Button render={<Link to={`/documents/${doc.id}/lines/new`} />} nativeButton={false}>Add line</Button>
-        </div>
-      </div>
+    <>
+      <PageHeader
+        crumbs={[{ label: 'ICS and PAR', to: '/documents' }, { label: doc.docNo }]}
+        title={<span className="flex flex-wrap items-center gap-3"><TypeBadge type={doc.type} className="h-7 w-12 text-sm" /><span className="figures">{doc.docNo}</span></span>}
+        actions={<>
+          <Button variant="outline" render={<Link to={`/stickers?documentId=${doc.id}`} />} nativeButton={false}><QrCode /> Print stickers</Button>
+          <Button render={<Link to={`/documents/${doc.id}/lines/new`} />} nativeButton={false}><Plus /> Add line</Button>
+        </>}
+        meta={
+          <dl className="grid grid-cols-2 gap-x-6 gap-y-4 rounded-xl border bg-card p-4 sm:grid-cols-3 lg:grid-cols-5">
+            <div><dt className="text-xs text-muted-foreground">Date issued</dt><dd className="mt-0.5 text-sm font-medium">{formatLongDate(doc.issuedDate)}</dd></div>
+            <div><dt className="text-xs text-muted-foreground">Fund cluster</dt><dd className="mt-0.5 text-sm font-medium">{doc.fundCluster}</dd></div>
+            {signer(doc.type === 'ICS' ? 'Received from' : 'Issued by', doc.issuedByOfficerId, doc.issuedByPosition)}
+            {signer('Received by', doc.receivedByOfficerId, doc.receivedByPosition)}
+            <div className="col-span-2 sm:col-span-1"><dt className="text-xs text-muted-foreground">Purpose</dt><dd className="mt-0.5 text-sm">{doc.purpose || 'None given'}</dd></div>
+          </dl>
+        }
+      />
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <section aria-label="Document PDF">
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
+        <section aria-labelledby="pdf-title" className="grid content-start gap-3">
+          <h2 id="pdf-title" className="text-base font-semibold">Signed form</h2>
           {doc.hasPdf ? <PdfViewer url={`/api/documents/${doc.id}/pdf`} page={page} onPageChange={setPage} />
             : <p className="text-sm text-muted-foreground">No PDF attached.</p>}
         </section>
-        <section aria-label="Lines" className="grid content-start gap-3">
-          <dl className="grid grid-cols-2 gap-x-4 gap-y-1 rounded-lg border bg-background p-3 text-sm">
-            <dt className="text-muted-foreground">{doc.type === 'ICS' ? 'Received from' : 'Issued by'}</dt><dd>{nameOf(doc.issuedByOfficerId)}<br /><span className="text-muted-foreground">{doc.issuedByPosition}</span></dd>
-            <dt className="text-muted-foreground">Received by</dt><dd>{nameOf(doc.receivedByOfficerId)}<br /><span className="text-muted-foreground">{doc.receivedByPosition}</span></dd>
-            {doc.purpose && <><dt className="text-muted-foreground">Purpose</dt><dd>{doc.purpose}</dd></>}
-          </dl>
-          <FormGrid<DocLine> columnDefs={columns} rowData={doc.lines} onRowClicked={(l) => navigate(`/lines/${l.id}/edit`)} />
-          {!doc.lines.length && <p className="text-sm text-muted-foreground">No lines yet. Use “Add line” to enter the first item.</p>}
-          {doc.lines.length > 0 && <p className="text-right text-sm font-medium">Total {formatPeso(total)}</p>}
+        <section aria-labelledby="lines-title" className="grid content-start gap-3">
+          <div className="flex items-baseline justify-between gap-4">
+            <h2 id="lines-title" className="text-base font-semibold">Lines</h2>
+            {doc.lines.length > 0 && <p className="figures text-sm">Total <span className="font-semibold">{formatPeso(total)}</span></p>}
+          </div>
+          {doc.lines.length ? (
+            <>
+              <FormGrid<DocLine> columnDefs={columns} rowData={doc.lines} onRowClicked={(l) => navigate(`/lines/${l.id}/edit`)} />
+              <p className="text-xs text-muted-foreground">Select a line to edit it, change its property numbers or redraw its box on the PDF.</p>
+            </>
+          ) : (
+            <EmptyState title="No lines yet" action={<Button render={<Link to={`/documents/${doc.id}/lines/new`} />} nativeButton={false}><Plus /> Add the first line</Button>}>
+              Enter each row of the form once; the property card, registry entry and QR sticker come from it.
+            </EmptyState>
+          )}
         </section>
       </div>
-    </div>
+    </>
   )
 }

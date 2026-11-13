@@ -1,51 +1,134 @@
-import { NavLink, Outlet, useNavigate } from 'react-router'
+import {
+  BookOpen, ClipboardCheck, FileText, History, KeyRound, LayoutDashboard, LogOut, Menu, QrCode, Settings, UserCog, Users, X,
+  type LucideIcon,
+} from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router'
 import { useAuth } from '@/auth/AuthProvider'
-import { Button } from '@/components/ui/button'
+import { ThemeToggle } from '@/components/ThemeToggle'
 import { cn } from '@/lib/utils'
 
-const NAV = [
-  { to: '/documents', label: 'Documents' },
-  { to: '/registry', label: 'Registry' },
-  { to: '/counts', label: 'Counts' },
-  { to: '/officers', label: 'Officers' },
-  { to: '/stickers', label: 'Stickers' },
+type Item = { to: string; label: string; Icon: LucideIcon; end?: boolean }
+const RECORDS: Item[] = [
+  { to: '/', label: 'Dashboard', Icon: LayoutDashboard, end: true },
+  { to: '/documents', label: 'ICS and PAR', Icon: FileText },
+  { to: '/registry', label: 'Registry', Icon: BookOpen },
+  { to: '/counts', label: 'Physical counts', Icon: ClipboardCheck },
+  { to: '/stickers', label: 'Stickers', Icon: QrCode },
+  { to: '/officers', label: 'Officers', Icon: Users },
 ]
-const ADMIN_NAV = [
-  { to: '/admin/users', label: 'Users' },
-  { to: '/admin/settings', label: 'Settings' },
-  { to: '/admin/audit', label: 'Audit' },
+const ADMIN: Item[] = [
+  { to: '/admin/users', label: 'User accounts', Icon: UserCog },
+  { to: '/admin/settings', label: 'Settings', Icon: Settings },
+  { to: '/admin/audit', label: 'Audit log', Icon: History },
 ]
+const ROLE_LABEL = { superadmin: 'Superadmin', supply_admin: 'Supply admin' } as const
+
+function NavGroup({ title, items }: { title: string; items: Item[] }) {
+  return (
+    <div className="grid gap-0.5">
+      <p className="px-3 pb-1 text-xs font-medium text-sidebar-foreground/55">{title}</p>
+      {items.map(({ to, label, Icon, end }) => (
+        <NavLink key={to} to={to} end={end}
+          className={({ isActive }) => cn(
+            'group relative flex items-center gap-3 rounded-md px-3 py-2 text-sm text-sidebar-foreground/85 transition-colors hover:bg-sidebar-accent hover:text-white',
+            'focus-visible:outline-2 focus-visible:outline-sidebar-ring',
+            isActive && 'bg-sidebar-accent font-medium text-white',
+          )}>
+          {({ isActive }) => (
+            <>
+              {/* the current page is marked with a quarter circle, the shape of the DOST mark */}
+              <span aria-hidden className={cn('absolute top-1/2 -left-3 size-3 -translate-y-1/2 rounded-tr-full bg-cyan transition-opacity', isActive ? 'opacity-100' : 'opacity-0')} />
+              <Icon className="size-4 shrink-0 opacity-90" />
+              {label}
+            </>
+          )}
+        </NavLink>
+      ))}
+    </div>
+  )
+}
+
+function SidebarContents({ onLogout, showBrand = true }: { onLogout: () => void; showBrand?: boolean }) {
+  const { user } = useAuth()
+  return (
+    <div className="flex h-full flex-col gap-6 px-3 py-5">
+      {showBrand && <NavLink to="/" aria-label="TRACES dashboard" className="flex items-center gap-3 rounded-md px-3 focus-visible:outline-2 focus-visible:outline-sidebar-ring">
+        <img src="/traces-logo.png" alt="" className="size-10 rounded-[3px] bg-white p-0.5" />
+        <span className="grid leading-tight">
+          <span className="font-display text-lg font-bold text-white">TRACES</span>
+          <span className="text-xs text-sidebar-foreground/70">Supply Unit, DOST Region 1</span>
+        </span>
+      </NavLink>}
+
+      <nav aria-label="Main" className="grid gap-6">
+        <NavGroup title="Records" items={RECORDS} />
+        {user?.role === 'superadmin' && <NavGroup title="Administration" items={ADMIN} />}
+      </nav>
+
+      <div className="mt-auto grid gap-3 border-t border-sidebar-border pt-4">
+        <div className="flex items-center justify-between px-3">
+          <span className="text-xs text-sidebar-foreground/60">Theme</span>
+          <ThemeToggle tone="sidebar" />
+        </div>
+        <div className="grid gap-0.5 px-3">
+          <span className="truncate text-sm font-medium text-white">{user?.displayName}</span>
+          <span className="truncate text-xs text-sidebar-foreground/65">{user && ROLE_LABEL[user.role]}</span>
+          <span className="truncate text-xs text-sidebar-foreground/65">{user?.email}</span>
+        </div>
+        <div className="grid gap-0.5">
+          <NavLink to="/account/password" className="flex items-center gap-3 rounded-md px-3 py-2 text-sm text-sidebar-foreground/85 hover:bg-sidebar-accent hover:text-white">
+            <KeyRound className="size-4" /> Change password
+          </NavLink>
+          <button type="button" onClick={onLogout} className="flex items-center gap-3 rounded-md px-3 py-2 text-left text-sm text-sidebar-foreground/85 hover:bg-sidebar-accent hover:text-white focus-visible:outline-2 focus-visible:outline-sidebar-ring">
+            <LogOut className="size-4" /> Log out
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 export default function AdminLayout() {
-  const { user, logout } = useAuth()
+  const { logout } = useAuth()
   const navigate = useNavigate()
-  const links = user?.role === 'superadmin' ? [...NAV, ...ADMIN_NAV] : NAV
+  const location = useLocation()
+  const [menuOpen, setMenuOpen] = useState(false)
+  useEffect(() => setMenuOpen(false), [location.pathname])
+
+  const onLogout = async () => { await logout(); navigate('/login') }
 
   return (
-    <div className="min-h-screen bg-muted/30">
-      <header className="sticky top-0 z-10 border-b bg-background">
-        <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-2">
-          <NavLink to="/" aria-label="TRACES home" className="flex shrink-0 items-center gap-2 font-semibold tracking-wide text-primary">
-            <img src="/traces-logo.png" alt="" className="size-7" />
-            <span className="hidden sm:inline">TRACES</span>
-          </NavLink>
-          {/* scrolls sideways on narrow screens */}
-          <nav className="flex flex-1 gap-1 overflow-x-auto" aria-label="Main">
-            {links.map((l) => (
-              <NavLink key={l.to} to={l.to}
-                className={({ isActive }) => cn('rounded-md px-2.5 py-1 text-sm whitespace-nowrap hover:bg-muted', isActive && 'bg-muted font-medium')}>
-                {l.label}
-              </NavLink>
-            ))}
-          </nav>
-          <NavLink to="/account/password" className="hidden text-sm text-muted-foreground hover:underline sm:inline">
-            {user?.displayName}
-          </NavLink>
-          <Button variant="outline" size="sm" onClick={async () => { await logout(); navigate('/login') }}>Log out</Button>
-        </div>
+    <div className="min-h-screen bg-background">
+      <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded-md focus:bg-card focus:px-3 focus:py-2">
+        Skip to content
+      </a>
+
+      {/* desktop sidebar */}
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 overflow-y-auto bg-sidebar lg:block">
+        <SidebarContents onLogout={onLogout} />
+      </aside>
+
+      {/* phone / tablet top bar with a slide-down menu */}
+      <header className="sticky top-0 z-30 flex items-center gap-3 bg-sidebar px-4 py-2.5 lg:hidden">
+        <button type="button" onClick={() => setMenuOpen((o) => !o)} aria-expanded={menuOpen} aria-controls="mobile-nav"
+          aria-label={menuOpen ? 'Close menu' : 'Open menu'}
+          className="grid size-9 place-items-center rounded-md text-white hover:bg-sidebar-accent focus-visible:outline-2 focus-visible:outline-sidebar-ring">
+          {menuOpen ? <X className="size-5" /> : <Menu className="size-5" />}
+        </button>
+        <img src="/traces-logo.png" alt="" className="size-8 rounded-[3px] bg-white p-0.5" />
+        <span className="font-display text-base font-bold text-white">TRACES</span>
       </header>
-      <main className="mx-auto max-w-7xl p-4">
-        <Outlet />
+      {menuOpen && (
+        <div id="mobile-nav" className="fixed inset-x-0 top-14 bottom-0 z-20 overflow-y-auto bg-sidebar duration-150 animate-in fade-in slide-in-from-top-2 lg:hidden">
+          <SidebarContents onLogout={onLogout} showBrand={false} />
+        </div>
+      )}
+
+      <main id="main" className="lg:pl-64">
+        <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-10 lg:py-8">
+          <Outlet />
+        </div>
       </main>
     </div>
   )

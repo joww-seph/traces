@@ -13,6 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { PageHeader } from '@/components/PageHeader'
 import { useSettings } from '@/lib/queries'
 import type { DocDetail } from '@/pages/documents/Detail'
 
@@ -177,13 +178,17 @@ export default function LineForm() {
   )
 
   if (editing && lineQ.error) return <p className="text-sm text-destructive">Line not found.</p>
-  const title = `${editing ? 'Edit' : 'Add'} line${doc ? ` — ${doc.type} ${doc.docNo}` : ''}`
-
   return (
-    <div className="grid gap-4 lg:grid-cols-2">
+    <>
+    <PageHeader
+      crumbs={[{ label: 'ICS and PAR', to: '/documents' }, ...(doc ? [{ label: doc.docNo, to: `/documents/${doc.id}` }] : []), { label: editing ? 'Edit line' : 'Add line' }]}
+      title={editing ? 'Edit line' : 'Add line'}
+      description="Copy the row from the signed form. Draw a box around the same row on the PDF so scans can point to it."
+    />
+    <div className="grid gap-6 xl:grid-cols-2">
       <form onSubmit={onSubmit} className="grid content-start gap-4" noValidate>
         <Card>
-          <CardHeader><CardTitle>{title}</CardTitle></CardHeader>
+          <CardHeader><CardTitle>Item</CardTitle></CardHeader>
           <CardContent className="grid gap-4 sm:grid-cols-2">
             {text('qty', 'Quantity', { inputMode: 'numeric' })}
             {text('unit', 'Unit', { placeholder: 'set, unit, pc' })}
@@ -197,7 +202,7 @@ export default function LineForm() {
             </div>
             {mismatch && (
               <p role="status" className="rounded-md bg-amber-100 p-2 text-sm text-amber-900 sm:col-span-2">
-                {doc?.type === 'ICS' ? 'This cost is PPE level — normally a PAR, not an ICS.' : 'This cost is below the PPE threshold — normally an ICS, not a PAR.'} You can still save.
+                {doc?.type === 'ICS' ? 'At this cost the item counts as PPE, which is normally issued on a PAR.' : 'At this cost the item is semi-expendable, which is normally issued on an ICS.'} You can still save it here.
               </p>
             )}
             <div className="sm:col-span-2">{text('article', 'Article')}</div>
@@ -266,15 +271,17 @@ export default function LineForm() {
           </div>
           <div className="flex gap-2">
             <Button type="button" variant="outline" onClick={() => navigate(docId ? `/documents/${docId}` : '/documents')}>Cancel</Button>
-            <Button type="submit" disabled={save.isPending || !doc}>{save.isPending ? 'Saving…' : 'Save line'}</Button>
+            <Button type="submit" disabled={save.isPending || !doc}>{save.isPending ? 'Saving' : 'Save line'}</Button>
           </div>
         </div>
       </form>
 
-      <div className="lg:sticky lg:top-16 lg:self-start">
+      <section aria-labelledby="pdf-box" className="grid content-start gap-3 xl:sticky xl:top-6 xl:self-start">
+        <h2 id="pdf-box" className="text-base font-semibold">Where this line sits on the PDF</h2>
         {doc?.hasPdf ? <PdfRegionPicker url={`/api/documents/${doc.id}/pdf`} value={region} onChange={setRegion} />
-          : <p className="text-sm text-muted-foreground">Loading document…</p>}
-      </div>
+          : <p className="text-sm text-muted-foreground">Loading document</p>}
+      </section>
     </div>
+    </>
   )
 }

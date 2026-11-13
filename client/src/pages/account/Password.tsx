@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 import { z } from 'zod'
 import { ApiError, api } from '@/api'
 import { useAuth } from '@/auth/AuthProvider'
+import { PageHeader } from '@/components/PageHeader'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -45,10 +46,11 @@ export default function Password() {
   )
 
   return (
-    <div className="mx-auto max-w-md p-4">
+    <div className="max-w-lg">
+      <PageHeader title="Change password" description="Use at least 10 characters. You stay signed in on this device after the change." />
       <Card>
         <CardHeader>
-          <CardTitle>Change password</CardTitle>
+          <CardTitle>Your password</CardTitle>
           {user?.mustChangePassword && (
             <CardDescription>You are using a temporary password. Choose a new one to continue.</CardDescription>
           )}

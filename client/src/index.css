@@ -1,13 +1,33 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
-@import "@fontsource-variable/geist";
+@import "@fontsource-variable/public-sans/wght.css";
+@import "@fontsource-variable/archivo/wdth.css";
 
 @custom-variant dark (&:is(.dark *));
 
+/*
+ * TRACES design tokens.
+ * Palette is taken from the brand assets: the posterised DOST Ilocos building (sky, building blue),
+ * the TRACES logo frame (navy) and the DOST mark (cyan).
+ *   ink     #16263A  text
+ *   paper   #F4F7FA  app background
+ *   sky     #BBCCD9  illustration sky, quiet fills
+ *   ilocos  #1D4B70  sidebar (shadow side of the building blue #2D6C98)
+ *   navy    #004AAD  primary actions (TRACES frame)
+ *   cyan    #00AEEF  location markers, focus (DOST mark)
+ * Type: Archivo (wide, signage-like) for headings, Public Sans for interface text and figures.
+ */
 @theme inline {
-    --font-heading: var(--font-sans);
-    --font-sans: 'Geist Variable', sans-serif;
+    --font-sans: 'Public Sans Variable', ui-sans-serif, system-ui, sans-serif;
+    --font-heading: 'Archivo Variable', var(--font-sans);
+    --color-ink: #16263a;
+    --color-paper: #f4f7fa;
+    --color-sky: #bbccd9;
+    --color-ilocos: #1d4b70;
+    --color-ilocos-light: #2d6c98;
+    --color-navy: #004aad;
+    --color-cyan: #00aeef;
     --color-sidebar-ring: var(--sidebar-ring);
     --color-sidebar-border: var(--sidebar-border);
     --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -49,92 +69,126 @@
 }
 
 :root {
-    --background: oklch(1 0 0);
-    --foreground: oklch(0.145 0 0);
-    --card: oklch(1 0 0);
-    --card-foreground: oklch(0.145 0 0);
-    --popover: oklch(1 0 0);
-    --popover-foreground: oklch(0.145 0 0);
-    /* brand: TRACES logo frame #004AAD (primary) and letters #4C70FC (focus ring) */
+    --background: #f4f7fa;
+    --foreground: #16263a;
+    --card: #ffffff;
+    --card-foreground: #16263a;
+    --popover: #ffffff;
+    --popover-foreground: #16263a;
     --primary: #004aad;
-    --primary-foreground: oklch(0.985 0 0);
-    --secondary: oklch(0.97 0 0);
-    --secondary-foreground: oklch(0.205 0 0);
-    --muted: oklch(0.97 0 0);
-    --muted-foreground: oklch(0.556 0 0);
-    --accent: oklch(0.97 0 0);
-    --accent-foreground: oklch(0.205 0 0);
-    --destructive: oklch(0.577 0.245 27.325);
-    --border: oklch(0.922 0 0);
-    --input: oklch(0.922 0 0);
-    --ring: #4c70fc;
-    --chart-1: oklch(0.87 0 0);
-    --chart-2: oklch(0.556 0 0);
-    --chart-3: oklch(0.439 0 0);
-    --chart-4: oklch(0.371 0 0);
-    --chart-5: oklch(0.269 0 0);
-    --radius: 0.625rem;
-    --sidebar: oklch(0.985 0 0);
-    --sidebar-foreground: oklch(0.145 0 0);
-    --sidebar-primary: oklch(0.205 0 0);
-    --sidebar-primary-foreground: oklch(0.985 0 0);
-    --sidebar-accent: oklch(0.97 0 0);
-    --sidebar-accent-foreground: oklch(0.205 0 0);
-    --sidebar-border: oklch(0.922 0 0);
-    --sidebar-ring: oklch(0.708 0 0);
+    --primary-foreground: #ffffff;
+    --secondary: #e8eef4;
+    --secondary-foreground: #16263a;
+    --muted: #eef2f6;
+    --muted-foreground: #586a7e;
+    --accent: #e6f0fa;
+    --accent-foreground: #0d3a78;
+    --destructive: #c2312b;
+    --border: #d9e2ea;
+    --input: #c9d5e0;
+    --ring: #00aeef;
+    --chart-1: #004aad;
+    --chart-2: #00aeef;
+    --chart-3: #2d6c98;
+    --chart-4: #bbccd9;
+    --chart-5: #16263a;
+    --radius: 0.5rem;
+    --sidebar: #1d4b70;
+    --sidebar-foreground: #e9f1f8;
+    --sidebar-primary: #00aeef;
+    --sidebar-primary-foreground: #ffffff;
+    --sidebar-accent: rgb(255 255 255 / 0.08);
+    --sidebar-accent-foreground: #ffffff;
+    --sidebar-border: rgb(255 255 255 / 0.12);
+    --sidebar-ring: #00aeef;
 }
 
+/* Night palette: the same building at dusk (see login-bg-dark.webp); primary moves to the brighter TRACES letter blue. */
 .dark {
-    --background: oklch(0.145 0 0);
-    --foreground: oklch(0.985 0 0);
-    --card: oklch(0.205 0 0);
-    --card-foreground: oklch(0.985 0 0);
-    --popover: oklch(0.205 0 0);
-    --popover-foreground: oklch(0.985 0 0);
-    --primary: oklch(0.922 0 0);
-    --primary-foreground: oklch(0.205 0 0);
-    --secondary: oklch(0.269 0 0);
-    --secondary-foreground: oklch(0.985 0 0);
-    --muted: oklch(0.269 0 0);
-    --muted-foreground: oklch(0.708 0 0);
-    --accent: oklch(0.269 0 0);
-    --accent-foreground: oklch(0.985 0 0);
-    --destructive: oklch(0.704 0.191 22.216);
-    --border: oklch(1 0 0 / 10%);
-    --input: oklch(1 0 0 / 15%);
-    --ring: oklch(0.556 0 0);
-    --chart-1: oklch(0.87 0 0);
-    --chart-2: oklch(0.556 0 0);
-    --chart-3: oklch(0.439 0 0);
-    --chart-4: oklch(0.371 0 0);
-    --chart-5: oklch(0.269 0 0);
-    --sidebar: oklch(0.205 0 0);
-    --sidebar-foreground: oklch(0.985 0 0);
-    --sidebar-primary: oklch(0.488 0.243 264.376);
-    --sidebar-primary-foreground: oklch(0.985 0 0);
-    --sidebar-accent: oklch(0.269 0 0);
-    --sidebar-accent-foreground: oklch(0.985 0 0);
-    --sidebar-border: oklch(1 0 0 / 10%);
-    --sidebar-ring: oklch(0.556 0 0);
+    --background: #0e1a26;
+    --foreground: #e6eef5;
+    --card: #142331;
+    --card-foreground: #e6eef5;
+    --popover: #172839;
+    --popover-foreground: #e6eef5;
+    --primary: #4c70fc;
+    --primary-foreground: #ffffff;
+    --secondary: #1c2e40;
+    --secondary-foreground: #e6eef5;
+    --muted: #1a2a3a;
+    --muted-foreground: #93a5b8;
+    --accent: #17304a;
+    --accent-foreground: #cfe3f7;
+    --destructive: #f2665e;
+    --border: #24384b;
+    --input: #2c445a;
+    --ring: #00aeef;
+    --chart-1: #4c70fc;
+    --chart-2: #00aeef;
+    --chart-3: #5b8dbf;
+    --chart-4: #2c445a;
+    --chart-5: #e6eef5;
+    --sidebar: #0a1520;
+    --sidebar-foreground: #c9d7e4;
+    --sidebar-primary: #00aeef;
+    --sidebar-primary-foreground: #ffffff;
+    --sidebar-accent: rgb(255 255 255 / 0.06);
+    --sidebar-accent-foreground: #ffffff;
+    --sidebar-border: rgb(255 255 255 / 0.08);
+    --sidebar-ring: #00aeef;
+    color-scheme: dark;
 }
 
 @layer base {
-  * {
-    @apply border-border outline-ring/50;
+    * {
+        @apply border-border outline-ring/50;
     }
-  body {
-    @apply bg-background text-foreground;
+    html {
+        @apply font-sans antialiased;
+        font-feature-settings: "tnum" 0;
     }
-  html {
-    @apply font-sans;
+    body {
+        @apply bg-background text-foreground;
+    }
+    h1, h2, h3 {
+        font-family: var(--font-heading);
+        font-stretch: 112%;
+        letter-spacing: -0.01em;
+        text-wrap: balance;
     }
 }
+
+@layer utilities {
+    /* figures that should line up in columns (money, quantities, property numbers) */
+    .figures {
+        font-variant-numeric: tabular-nums;
+    }
+    .font-display {
+        font-family: var(--font-heading);
+        font-stretch: 118%;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
 /* FormGrid: the row a QR scan / link points at */
 .traces-highlight {
-  background-color: #fef08a !important;
+    background-color: #fde68a !important;
+}
+.dark .traces-highlight {
+    background-color: #5c4b0e !important;
 }
 
 /* FormGrid: keep line breaks (ICS spec lists, stacked property numbers); AG Grid's wrap-text sets white-space: normal */
 .ag-cell.traces-pre {
-  white-space: pre-line !important;
+    white-space: pre-line !important;
+    line-height: 1.45 !important;
+    padding-top: 10px;
+    padding-bottom: 10px;
 }

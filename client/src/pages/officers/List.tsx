@@ -6,6 +6,8 @@ import { useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 import type { z } from 'zod'
 import { ApiError, api } from '@/api'
+import { UserPlus } from 'lucide-react'
+import { PageHeader } from '@/components/PageHeader'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -27,7 +29,7 @@ function OfficerDialog({ officer, onClose }: { officer: Officer | 'new' | null; 
 
   const save = useMutation({
     mutationFn: (v: Form) => (editing ? api.patch(`/api/officers/${editing.id}`, v) : api.post('/api/officers', v)),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['officers'] }); toast.success('Officer saved'); onClose() },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['officers'] }); toast.success(editing ? 'Officer updated' : 'Officer added'); onClose() },
     onError: (e) => {
       if (e instanceof ApiError && e.status === 409) form.setError('shortName', { message: 'That short name is already used' })
       else toast.error(e instanceof ApiError ? e.message : 'Could not save')
@@ -46,7 +48,7 @@ function OfficerDialog({ officer, onClose }: { officer: Officer | 'new' | null; 
   return (
     <Dialog open={officer !== null} onOpenChange={(o) => !o && onClose()}>
       <DialogContent>
-        <DialogHeader><DialogTitle>{editing ? 'Edit officer' : 'New officer'}</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle>{editing ? 'Edit officer' : 'Add officer'}</DialogTitle></DialogHeader>
         <form onSubmit={form.handleSubmit((v) => save.mutate(v))} className="grid gap-3" noValidate>
           {field('fullName', 'Full name')}
           {field('shortName', 'Short name', 'Unique label used in the registry, e.g. DPLibunao')}
@@ -54,7 +56,7 @@ function OfficerDialog({ officer, onClose }: { officer: Officer | 'new' | null; 
           {field('office', 'Office')}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-            <Button type="submit" disabled={save.isPending}>Save</Button>
+            <Button type="submit" disabled={save.isPending}>{editing ? 'Save changes' : 'Add officer'}</Button>
           </DialogFooter>
         </form>
       </DialogContent>
@@ -73,30 +75,29 @@ export default function Officers() {
   })
 
   return (
-    <div className="grid gap-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Officers</h1>
-        <Button onClick={() => setDialog('new')}>New officer</Button>
-      </div>
-      <div className="overflow-x-auto rounded-lg border bg-background">
+    <>
+      <PageHeader title="Officers"
+        description="People who issue or receive property. Their position fills in on new documents, and their short name appears in the registry."
+        actions={<Button onClick={() => setDialog('new')}><UserPlus /> Add officer</Button>} />
+      <div className="overflow-x-auto rounded-xl border bg-card">
         <Table>
           <TableHeader>
-            <TableRow>
-              <TableHead>Short name</TableHead><TableHead>Full name</TableHead><TableHead>Position</TableHead>
+            <TableRow className="bg-muted/50 hover:bg-muted/50">
+              <TableHead className="pl-5">Short name</TableHead><TableHead>Full name</TableHead><TableHead>Position</TableHead>
               <TableHead>Office</TableHead><TableHead>Status</TableHead><TableHead />
             </TableRow>
           </TableHeader>
           <TableBody>
-            {isLoading && <TableRow><TableCell colSpan={6} className="text-muted-foreground">Loading…</TableCell></TableRow>}
-            {!isLoading && !data.length && <TableRow><TableCell colSpan={6} className="text-muted-foreground">No officers yet.</TableCell></TableRow>}
+            {isLoading && <TableRow><TableCell colSpan={6} className="py-6 pl-5 text-muted-foreground">Loading officers</TableCell></TableRow>}
+            {!isLoading && !data.length && <TableRow><TableCell colSpan={6} className="py-8 pl-5 text-muted-foreground">No officers yet. Add the Supply Unit staff and the accountable officers who receive property.</TableCell></TableRow>}
             {data.map((o) => (
               <TableRow key={o.id}>
-                <TableCell className="font-medium">{o.shortName}</TableCell>
+                <TableCell className="pl-5 font-medium">{o.shortName}</TableCell>
                 <TableCell>{o.fullName}</TableCell>
                 <TableCell>{o.position}</TableCell>
                 <TableCell>{o.office}</TableCell>
                 <TableCell><Badge variant={o.active ? 'default' : 'secondary'}>{o.active ? 'Active' : 'Inactive'}</Badge></TableCell>
-                <TableCell className="space-x-1 text-right whitespace-nowrap">
+                <TableCell className="space-x-1 pr-5 text-right whitespace-nowrap">
                   <Button variant="outline" size="sm" onClick={() => setDialog(o)}>Edit</Button>
                   <Button variant="ghost" size="sm" onClick={() => toggle.mutate(o)}>{o.active ? 'Deactivate' : 'Reactivate'}</Button>
                 </TableCell>
@@ -106,6 +107,6 @@ export default function Officers() {
         </Table>
       </div>
       <OfficerDialog officer={dialog} onClose={() => setDialog(null)} />
-    </div>
+    </>
   )
 }
