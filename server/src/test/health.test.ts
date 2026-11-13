@@ -23,7 +23,7 @@ describe('app', () => {
   })
 
   it('malformed JSON -> 400', async () => {
-    const res = await request(createApp()).post('/api/health').set('Content-Type', 'application/json').send('{bad')
+    const res = await request(createApp()).post('/api/health').set('Origin', process.env.APP_ORIGIN!).set('Content-Type', 'application/json').send('{bad')
     expect(res.status).toBe(400)
     expect(res.body.error.code).toBe('BAD_JSON')
   })
