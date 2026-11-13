@@ -8,32 +8,30 @@ import type { z } from 'zod'
 import { ApiError } from '@/api'
 import { useAuth } from '@/auth/AuthProvider'
 import { Dost1Mark, DostIlocosLockup, TracesMark } from '@/components/Brand'
-import { ThemeToggle } from '@/components/ThemeToggle'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 
 type Form = z.infer<typeof loginInput>
 
-// The DOST Ilocos building at day (light) or dusk (dark), the region's own landmark.
+// The DOST Ilocos building, the region's own landmark.
 function BrandPanel() {
   return (
-    <section aria-label="TRACES" className="relative isolate flex min-h-[29rem] flex-col overflow-hidden bg-sky sm:min-h-[34rem] lg:min-h-screen dark:bg-[#0e1e30]">
-      <img src="/login-bg.webp" alt="" className="absolute inset-0 -z-10 size-full object-cover object-bottom duration-700 animate-in fade-in slide-in-from-bottom-4 dark:hidden" />
-      <img src="/login-bg-dark.webp" alt="" className="absolute inset-0 -z-10 hidden size-full object-cover object-bottom duration-700 animate-in fade-in slide-in-from-bottom-4 dark:block" />
+    <section aria-label="TRACES" className="relative isolate flex min-h-[29rem] flex-col overflow-hidden bg-sky sm:min-h-[34rem] lg:min-h-screen">
+      <img src="/login-bg.webp" alt="" className="absolute inset-0 -z-10 size-full object-cover object-bottom duration-700 animate-in fade-in slide-in-from-bottom-4" />
 
       <div className="flex flex-col gap-6 px-6 pt-8 pb-40 sm:px-10 lg:px-14 lg:pt-16 xl:px-20">
         <div className="flex items-center gap-4">
           <Dost1Mark className="h-14 w-auto lg:h-20" />
-          <span aria-hidden className="h-12 w-px bg-ink/25 lg:h-16 dark:bg-white/25" />
+          <span aria-hidden className="h-12 w-px bg-ink/25 lg:h-16" />
           <TracesMark className="h-14 w-auto rounded-sm lg:h-20" />
         </div>
         <div className="max-w-xl">
-          <h1 className="font-display text-5xl leading-none font-extrabold text-ink lg:text-7xl dark:text-white">TRACES</h1>
-          <p className="mt-3 font-display text-lg leading-snug font-semibold text-ink/85 lg:text-2xl dark:text-white/85">
+          <h1 className="font-display text-5xl leading-none font-extrabold text-ink lg:text-7xl">TRACES</h1>
+          <p className="mt-3 font-display text-lg leading-snug font-semibold text-ink/85 lg:text-2xl">
             Tagged Records of Accountable Equipment and Supplies
           </p>
-          <p className="mt-4 hidden max-w-md text-[15px] leading-relaxed text-ink/70 lg:block dark:text-white/65">
+          <p className="mt-4 hidden max-w-md text-[15px] leading-relaxed text-ink/70 lg:block">
             Every ICS and PAR line becomes its own property card, registry entry and QR sticker, kept by the Supply Unit of DOST Region 1.
           </p>
         </div>
@@ -70,8 +68,6 @@ export default function Login() {
       <BrandPanel />
 
       <main className="relative flex flex-col px-6 py-10 sm:px-10 lg:px-16">
-        <ThemeToggle className="absolute top-4 right-4 sm:top-6 sm:right-6" />
-
         <div className="m-auto w-full max-w-sm">
           <h2 className="text-3xl font-bold">Sign in</h2>
           <p className="mt-2 text-sm text-muted-foreground">Use the email and password the IT superadmin set up for you.</p>

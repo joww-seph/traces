@@ -4,8 +4,6 @@
 @import "@fontsource-variable/public-sans/wght.css";
 @import "@fontsource-variable/archivo/wdth.css";
 
-@custom-variant dark (&:is(.dark *));
-
 /*
  * TRACES design tokens.
  * Palette is taken from the brand assets: the posterised DOST Ilocos building (sky, building blue),
@@ -103,42 +101,6 @@
     --sidebar-ring: #00aeef;
 }
 
-/* Night palette: the same building at dusk (see login-bg-dark.webp); primary moves to the brighter TRACES letter blue. */
-.dark {
-    --background: #0e1a26;
-    --foreground: #e6eef5;
-    --card: #142331;
-    --card-foreground: #e6eef5;
-    --popover: #172839;
-    --popover-foreground: #e6eef5;
-    --primary: #4c70fc;
-    --primary-foreground: #ffffff;
-    --secondary: #1c2e40;
-    --secondary-foreground: #e6eef5;
-    --muted: #1a2a3a;
-    --muted-foreground: #93a5b8;
-    --accent: #17304a;
-    --accent-foreground: #cfe3f7;
-    --destructive: #f2665e;
-    --border: #24384b;
-    --input: #2c445a;
-    --ring: #00aeef;
-    --chart-1: #4c70fc;
-    --chart-2: #00aeef;
-    --chart-3: #5b8dbf;
-    --chart-4: #2c445a;
-    --chart-5: #e6eef5;
-    --sidebar: #0a1520;
-    --sidebar-foreground: #c9d7e4;
-    --sidebar-primary: #00aeef;
-    --sidebar-primary-foreground: #ffffff;
-    --sidebar-accent: rgb(255 255 255 / 0.06);
-    --sidebar-accent-foreground: #ffffff;
-    --sidebar-border: rgb(255 255 255 / 0.08);
-    --sidebar-ring: #00aeef;
-    color-scheme: dark;
-}
-
 @layer base {
     * {
         @apply border-border outline-ring/50;
@@ -180,9 +142,6 @@
 /* FormGrid: the row a QR scan / link points at */
 .traces-highlight {
     background-color: #fde68a !important;
-}
-.dark .traces-highlight {
-    background-color: #5c4b0e !important;
 }
 
 /* FormGrid: keep line breaks (ICS spec lists, stacked property numbers); AG Grid's wrap-text sets white-space: normal */

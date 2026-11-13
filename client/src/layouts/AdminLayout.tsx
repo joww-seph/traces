@@ -5,7 +5,6 @@ import {
 import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router'
 import { useAuth } from '@/auth/AuthProvider'
-import { ThemeToggle } from '@/components/ThemeToggle'
 import { cn } from '@/lib/utils'
 
 type Item = { to: string; label: string; Icon: LucideIcon; end?: boolean }
@@ -67,10 +66,6 @@ function SidebarContents({ onLogout, showBrand = true }: { onLogout: () => void;
       </nav>
 
       <div className="mt-auto grid gap-3 border-t border-sidebar-border pt-4">
-        <div className="flex items-center justify-between px-3">
-          <span className="text-xs text-sidebar-foreground/60">Theme</span>
-          <ThemeToggle tone="sidebar" />
-        </div>
         <div className="grid gap-0.5 px-3">
           <span className="truncate text-sm font-medium text-white">{user?.displayName}</span>
           <span className="truncate text-xs text-sidebar-foreground/65">{user && ROLE_LABEL[user.role]}</span>
