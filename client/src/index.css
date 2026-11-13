@@ -128,3 +128,7 @@
     @apply font-sans;
     }
 }
+/* FormGrid: the row a QR scan / link points at */
+.traces-highlight {
+  background-color: #fef08a !important;
+}

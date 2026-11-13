@@ -4,6 +4,10 @@ import AdminLayout from '@/layouts/AdminLayout'
 import Dashboard from '@/pages/Dashboard'
 import Login from '@/pages/Login'
 import Password from '@/pages/account/Password'
+import DocumentDetail from '@/pages/documents/Detail'
+import Documents from '@/pages/documents/List'
+import NewDocument from '@/pages/documents/New'
+import Officers from '@/pages/officers/List'
 import Placeholder from '@/pages/Placeholder'
 
 const p = (title: string) => <Placeholder title={title} />
@@ -17,9 +21,9 @@ export const router = createBrowserRouter([
       element: <AdminLayout />,
       children: [
         { index: true, element: <Dashboard /> },
-        { path: 'documents', element: p('Documents') },
-        { path: 'documents/new', element: p('New ICS/PAR') },
-        { path: 'documents/:id', element: p('Document') },
+        { path: 'documents', element: <Documents /> },
+        { path: 'documents/new', element: <NewDocument /> },
+        { path: 'documents/:id', element: <DocumentDetail /> },
         { path: 'documents/:id/lines/new', element: p('New line') },
         { path: 'lines/:lineId/edit', element: p('Edit line') },
         { path: 'properties/:no', element: p('Property') },
@@ -27,7 +31,7 @@ export const router = createBrowserRouter([
         { path: 'cards/:no', element: p('Card') },
         { path: 'counts', element: p('Physical counts') },
         { path: 'counts/:id', element: p('Physical count') },
-        { path: 'officers', element: p('Officers') },
+        { path: 'officers', element: <Officers /> },
         { path: 'stickers', element: p('Stickers') },
         { path: 'account/password', element: <Password /> },
         {
