@@ -4,7 +4,10 @@ import { pool } from './db/client.js'
 import { errorHandler, notFound } from './middleware/error.js'
 import { originCheck } from './middleware/origin.js'
 import { sessionMiddleware } from './middleware/session.js'
+import { adminSettingsRouter } from './routes/admin/settings.js'
 import { authRouter } from './routes/auth.js'
+import { officersRouter } from './routes/officers.js'
+import { settingsRouter } from './routes/settings.js'
 
 export function createApp() {
   const app = express()
@@ -19,7 +22,7 @@ export function createApp() {
     res.json({ ok: true, db: true })
   })
 
-  app.use('/api', authRouter())
+  app.use('/api', authRouter(), settingsRouter(), officersRouter(), adminSettingsRouter())
   // routers mount here as they are built
   app.use('/api', notFound)
   app.use(errorHandler)

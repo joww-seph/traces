@@ -23,12 +23,14 @@ export const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
   if ((err as { type?: string })?.type === 'entity.parse.failed') return send(res, 400, 'BAD_JSON', 'Malformed JSON body')
   if ((err as { type?: string })?.type === 'entity.too.large') return send(res, 413, 'TOO_LARGE', 'Request body too large')
 
-  if (isPgError(err)) {
-    const key = /=\((.*)\) already exists/.exec(err.detail ?? '')?.[1]
-    const details = { constraint: err.constraint, ...(key ? { key } : {}) }
-    if (err.code === '23505') return send(res, 409, 'DUPLICATE', 'Already exists', details)
-    if (err.code === '23503') return send(res, 400, 'BAD_REFERENCE', 'Referenced record does not exist', details)
-    if (err.code === '23514') return send(res, 400, 'CONSTRAINT_FAILED', 'Value rejected by a database rule', details)
+  // drizzle wraps driver errors; the pg error is in .cause
+  const pgErr = isPgError(err) ? err : isPgError((err as { cause?: unknown })?.cause) ? (err as { cause: PgError }).cause : null
+  if (pgErr) {
+    const key = /=\((.*)\) already exists/.exec(pgErr.detail ?? '')?.[1]
+    const details = { constraint: pgErr.constraint, ...(key ? { key } : {}) }
+    if (pgErr.code === '23505') return send(res, 409, 'DUPLICATE', 'Already exists', details)
+    if (pgErr.code === '23503') return send(res, 400, 'BAD_REFERENCE', 'Referenced record does not exist', details)
+    if (pgErr.code === '23514') return send(res, 400, 'CONSTRAINT_FAILED', 'Value rejected by a database rule', details)
   }
 
   console.error(err)

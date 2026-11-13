@@ -1,4 +1,5 @@
 import pg from 'pg'
+import { clearSettingsCache } from '../services/settings.js'
 
 const url = process.env.TEST_DATABASE_URL
 if (!url) throw new Error('TEST_DATABASE_URL is not set')
@@ -19,4 +20,5 @@ export async function seedSettings() {
 export async function resetDb() {
   await testPool.query(`TRUNCATE ${TABLES.join(', ')} RESTART IDENTITY CASCADE`)
   await seedSettings()
+  clearSettingsCache()
 }

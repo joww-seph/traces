@@ -5,8 +5,8 @@ import { requireAuthAllowTemp } from '../middleware/auth.js'
 import { AppError } from '../middleware/error.js'
 import { validate } from '../middleware/validate.js'
 import { changePassword, checkCredentials } from '../services/users.js'
+import { ctx } from './ctx.js'
 
-const ctx = (req: { user?: { id: string }; ip?: string }) => ({ actorId: req.user?.id ?? null, ip: req.ip ?? null })
 const run = <T>(fn: (cb: (err?: unknown) => void) => T) => new Promise<void>((resolve, reject) => fn((e) => (e ? reject(e) : resolve())))
 
 export function authRouter() {
