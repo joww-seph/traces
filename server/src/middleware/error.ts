@@ -1,4 +1,5 @@
 import type { ErrorRequestHandler, RequestHandler } from 'express'
+import { MulterError } from 'multer'
 import { ZodError } from 'zod'
 
 export class AppError extends Error {
@@ -10,6 +11,9 @@ export class AppError extends Error {
 type PgError = Error & { code: string; constraint?: string; detail?: string }
 const isPgError = (e: unknown): e is PgError =>
   e instanceof Error && typeof (e as PgError).code === 'string' && /^[0-9A-Z]{5}$/.test((e as PgError).code)
+// drizzle wraps driver errors; the pg error is in .cause
+export const pgErrorOf = (e: unknown): PgError | null =>
+  isPgError(e) ? e : isPgError((e as { cause?: unknown })?.cause) ? (e as { cause: PgError }).cause : null
 
 const send = (res: Parameters<ErrorRequestHandler>[2], status: number, code: string, message: string, details?: unknown) =>
   res.status(status).json({ error: { code, message, ...(details === undefined ? {} : { details }) } })
@@ -23,8 +27,13 @@ export const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
   if ((err as { type?: string })?.type === 'entity.parse.failed') return send(res, 400, 'BAD_JSON', 'Malformed JSON body')
   if ((err as { type?: string })?.type === 'entity.too.large') return send(res, 413, 'TOO_LARGE', 'Request body too large')
 
-  // drizzle wraps driver errors; the pg error is in .cause
-  const pgErr = isPgError(err) ? err : isPgError((err as { cause?: unknown })?.cause) ? (err as { cause: PgError }).cause : null
+  if (err instanceof MulterError) {
+    return err.code === 'LIMIT_FILE_SIZE'
+      ? send(res, 413, 'TOO_LARGE', 'File too large (max 20 MB)')
+      : send(res, 400, 'BAD_UPLOAD', err.message)
+  }
+
+  const pgErr = pgErrorOf(err)
   if (pgErr) {
     const key = /=\((.*)\) already exists/.exec(pgErr.detail ?? '')?.[1]
     const details = { constraint: pgErr.constraint, ...(key ? { key } : {}) }
