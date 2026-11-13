@@ -33,9 +33,14 @@ export default function Login() {
   return (
     <main className="grid min-h-screen place-items-center bg-muted/40 p-4">
       <Card className="w-full max-w-sm">
-        <CardHeader>
+        <CardHeader className="justify-items-center text-center">
+          <img src="/traces-logo.png" alt="" className="mb-2 size-24" />
           <CardTitle className="text-xl tracking-wide">TRACES</CardTitle>
           <CardDescription>Tagged Records of Accountable Equipment and Supplies</CardDescription>
+          <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
+            <img src="/dost-logo.png" alt="DOST" className="h-7 w-auto" />
+            <span className="text-left leading-tight">Supply Unit<br />DOST Region 1</span>
+          </div>
         </CardHeader>
         <CardContent>
           <form onSubmit={onSubmit} className="grid gap-4" noValidate>

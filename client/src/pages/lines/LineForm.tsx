@@ -12,11 +12,12 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
 import { useSettings } from '@/lib/queries'
 import type { DocDetail } from '@/pages/documents/Detail'
 
 type Condition = 'serviceable' | 'unserviceable'
-type Row = { propertyNo: string; kind: 'main' | 'component'; componentLabel: string; serialNo: string; condition: Condition; existing: boolean }
+type Row = { propertyNo: string; kind: 'main' | 'component'; componentLabel: string; serialNo: string; oldPropertyNo: string; condition: Condition; existing: boolean }
 type Values = {
   qty: string; unit: string; unitCost: string; article: string; description: string
   estUsefulLifeYears: string; dateAcquired: string; iarNo: string; iarDate: string; properties: Row[]
@@ -25,12 +26,12 @@ type LineDto = {
   id: string; documentId: string; qty: number; unit: string; unitCostCentavos: number; article: string; description: string
   estUsefulLifeYears: number | null; dateAcquired: string | null; iarNo: string | null; iarDate: string | null
   category: 'semi' | 'ppe'; region: Region | null
-  properties: { propertyNo: string; componentLabel: string | null; serialNo: string | null; condition: Condition }[]
+  properties: { propertyNo: string; componentLabel: string | null; serialNo: string | null; oldPropertyNo: string | null; condition: Condition }[]
 }
 
 const EMPTY: Values = {
   qty: '1', unit: '', unitCost: '', article: '', description: '', estUsefulLifeYears: '', dateAcquired: '', iarNo: '', iarDate: '',
-  properties: [{ propertyNo: '', kind: 'main', componentLabel: '', serialNo: '', condition: 'serviceable', existing: false }],
+  properties: [{ propertyNo: '', kind: 'main', componentLabel: '', serialNo: '', oldPropertyNo: '', condition: 'serviceable', existing: false }],
 }
 // form field behind each server-side line field name
 const FIELD: Record<string, keyof Values> = {
@@ -67,7 +68,7 @@ export default function LineForm() {
     form.reset({
       qty: String(l.qty), unit: l.unit, unitCost: (l.unitCostCentavos / 100).toFixed(2), article: l.article, description: l.description,
       estUsefulLifeYears: l.estUsefulLifeYears?.toString() ?? '', dateAcquired: l.dateAcquired ?? '', iarNo: l.iarNo ?? '', iarDate: l.iarDate ?? '',
-      properties: l.properties.map((p) => ({ propertyNo: p.propertyNo, kind: p.componentLabel ? 'component' : 'main', componentLabel: p.componentLabel ?? '', serialNo: p.serialNo ?? '', condition: p.condition, existing: true })),
+      properties: l.properties.map((p) => ({ propertyNo: p.propertyNo, kind: p.componentLabel ? 'component' : 'main', componentLabel: p.componentLabel ?? '', serialNo: p.serialNo ?? '', oldPropertyNo: p.oldPropertyNo ?? '', condition: p.condition, existing: true })),
     })
     setRegion(l.region)
   }, [lineQ.data, form])
@@ -85,7 +86,7 @@ export default function LineForm() {
     let no = last?.propertyNo.trim() ?? ''
     for (let i = 0; i < n; i++) {
       if (no) { try { no = nextInSequence(no) } catch { no = '' } }
-      rows.append({ propertyNo: no, kind: 'main', componentLabel: '', serialNo: '', condition: 'serviceable', existing: false })
+      rows.append({ propertyNo: no, kind: 'main', componentLabel: '', serialNo: '', oldPropertyNo: '', condition: 'serviceable', existing: false })
     }
   }
 
@@ -129,7 +130,7 @@ export default function LineForm() {
 
     const props = values.properties.map((r) => ({
       propertyNo: r.propertyNo.trim(), componentLabel: r.kind === 'component' ? r.componentLabel.trim() : undefined,
-      serialNo: opt(r.serialNo), condition: r.condition,
+      serialNo: opt(r.serialNo), oldPropertyNo: opt(r.oldPropertyNo), condition: r.condition,
     }))
     const line = {
       qty: Number(values.qty), unit: values.unit.trim(), unitCostCentavos, article: values.article.trim(), description: values.description.trim(),
@@ -154,6 +155,7 @@ export default function LineForm() {
       if (!was) return []
       const patch = {
         ...(opt(r.serialNo) !== (was.serialNo ?? undefined) && { serialNo: opt(r.serialNo) ?? null }),
+        ...(opt(r.oldPropertyNo) !== (was.oldPropertyNo ?? undefined) && { oldPropertyNo: opt(r.oldPropertyNo) ?? null }),
         ...(r.kind === 'component' && props[i].componentLabel !== was.componentLabel && { componentLabel: props[i].componentLabel }),
         ...(r.condition !== was.condition && { condition: r.condition }),
       }
@@ -199,7 +201,12 @@ export default function LineForm() {
               </p>
             )}
             <div className="sm:col-span-2">{text('article', 'Article')}</div>
-            <div className="sm:col-span-2">{text('description', 'Description')}</div>
+            <div className="grid gap-1.5 sm:col-span-2">
+              <Label htmlFor="description">Description</Label>
+              <Textarea id="description" rows={5} placeholder={'Laptop Unit\nSpecification:\n- Processors: 8 Cores\n- Memory: 16GB'}
+                aria-invalid={!!errors.description} {...register('description')} />
+              {err('description')}
+            </div>
             {doc?.type === 'PAR' ? text('dateAcquired', 'Date acquired', { type: 'date' }) : text('estUsefulLifeYears', 'Estimated useful life (years)', { inputMode: 'numeric' })}
             <div />
             {text('iarNo', 'IAR no. (optional)')}
@@ -226,7 +233,8 @@ export default function LineForm() {
                       onClick={() => { if (row?.existing) setRemoved([...removed, row.propertyNo]); rows.remove(i) }}>Remove</Button>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
-                    <Input aria-label={`Serial number ${i + 1}`} placeholder="Serial no. (optional)" className="h-7 min-w-40 flex-1" {...register(`properties.${i}.serialNo`)} />
+                    <Input aria-label={`Serial number ${i + 1}`} placeholder="Serial no. (optional)" className="h-7 min-w-36 flex-1" {...register(`properties.${i}.serialNo`)} />
+                    <Input aria-label={`Old property number ${i + 1}`} placeholder="Old P# (optional)" className="h-7 min-w-36 flex-1" {...register(`properties.${i}.oldPropertyNo`)} />
                     <NativeSelect aria-label={`Condition ${i + 1}`} className="h-7 w-auto" {...register(`properties.${i}.condition`)}>
                       <option value="serviceable">Serviceable</option><option value="unserviceable">Unserviceable</option>
                     </NativeSelect>
@@ -238,7 +246,7 @@ export default function LineForm() {
               )
             })}
             <div className="flex flex-wrap items-center gap-2">
-              <Button type="button" variant="outline" size="sm" onClick={() => rows.append({ propertyNo: '', kind: 'component', componentLabel: '', serialNo: '', condition: 'serviceable', existing: false })}>Add component</Button>
+              <Button type="button" variant="outline" size="sm" onClick={() => rows.append({ propertyNo: '', kind: 'component', componentLabel: '', serialNo: '', oldPropertyNo: '', condition: 'serviceable', existing: false })}>Add component</Button>
               <span className="text-xs text-muted-foreground">or add</span>
               <Input aria-label="Number of units" className="h-7 w-16" inputMode="numeric" value={units} onChange={(e) => setUnits(e.target.value)} />
               <Button type="button" variant="outline" size="sm" onClick={addUnits}>units in sequence</Button>

@@ -1,0 +1,1 @@
+ALTER TABLE "properties" ADD COLUMN "old_property_no" text;

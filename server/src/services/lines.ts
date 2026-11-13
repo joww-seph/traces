@@ -78,7 +78,7 @@ const regionValues = (lineId: string, r: Region) =>
 // One token + RECEIPT and ISSUE movements per property (BR-04).
 async function insertProperties(tx: Tx, line: typeof lines.$inferSelect, doc: Doc, props: PropertyInput[]) {
   const rows = await tx.insert(properties).values(props.map((p) => ({
-    propertyNo: p.propertyNo, lineId: line.id, serialNo: p.serialNo, componentLabel: p.componentLabel, condition: p.condition,
+    propertyNo: p.propertyNo, lineId: line.id, serialNo: p.serialNo, oldPropertyNo: p.oldPropertyNo, componentLabel: p.componentLabel, condition: p.condition,
   }))).returning()
   await tx.insert(qrTokens).values(rows.map((p) => ({ token: newToken(), propertyId: p.id })))
   const receiptDate = line.iarDate ?? line.dateAcquired ?? doc.issuedDate

@@ -31,15 +31,15 @@ const icsColumns: (ColDef<DocLine> | ColGroupDef<DocLine>)[] = [
     moneyCol('unitCostCentavos', 'Unit Cost', { width: 130 }) as ColDef<DocLine>,
     moneyCol('total', 'Total Cost', { width: 140, valueGetter: (p) => p.data && p.data.qty * p.data.unitCostCentavos }) as ColDef<DocLine>,
   ] },
-  { field: 'description', headerName: 'Description', flex: 2, minWidth: 220 },
-  { headerName: 'Inventory Item No.', valueGetter: (p) => p.data && propertyNos(p.data), cellClass: 'whitespace-pre-line', minWidth: 190 },
+  { field: 'description', headerName: 'Description', flex: 2, minWidth: 220, cellClass: 'traces-pre' },
+  { headerName: 'Inventory Item No.', valueGetter: (p) => p.data && propertyNos(p.data), cellClass: 'traces-pre', minWidth: 190 },
   { field: 'estUsefulLifeYears', headerName: 'Estimated Useful Life', minWidth: 140 },
 ]
 const parColumns: (ColDef<DocLine> | ColGroupDef<DocLine>)[] = [
   { field: 'qty', headerName: 'Quantity', type: 'rightAligned', width: 100 },
   { field: 'unit', headerName: 'Unit', width: 90 },
-  { field: 'description', headerName: 'Description', flex: 2, minWidth: 220 },
-  { headerName: 'Property Number', valueGetter: (p) => p.data && propertyNos(p.data), cellClass: 'whitespace-pre-line', minWidth: 190 },
+  { field: 'description', headerName: 'Description', flex: 2, minWidth: 220, cellClass: 'traces-pre' },
+  { headerName: 'Property Number', valueGetter: (p) => p.data && propertyNos(p.data), cellClass: 'traces-pre', minWidth: 190 },
   { field: 'dateAcquired', headerName: 'Date Acquired', valueFormatter: (p) => (p.value ? formatLongDate(p.value) : ''), minWidth: 150 },
   moneyCol('amount', 'Amount', { valueGetter: (p) => p.data && p.data.qty * p.data.unitCostCentavos, width: 140 }) as ColDef<DocLine>,
 ]
@@ -79,7 +79,7 @@ export default function DocumentDetail() {
         </section>
         <section aria-label="Lines" className="grid content-start gap-3">
           <dl className="grid grid-cols-2 gap-x-4 gap-y-1 rounded-lg border bg-background p-3 text-sm">
-            <dt className="text-muted-foreground">Issued by</dt><dd>{nameOf(doc.issuedByOfficerId)}<br /><span className="text-muted-foreground">{doc.issuedByPosition}</span></dd>
+            <dt className="text-muted-foreground">{doc.type === 'ICS' ? 'Received from' : 'Issued by'}</dt><dd>{nameOf(doc.issuedByOfficerId)}<br /><span className="text-muted-foreground">{doc.issuedByPosition}</span></dd>
             <dt className="text-muted-foreground">Received by</dt><dd>{nameOf(doc.receivedByOfficerId)}<br /><span className="text-muted-foreground">{doc.receivedByPosition}</span></dd>
             {doc.purpose && <><dt className="text-muted-foreground">Purpose</dt><dd>{doc.purpose}</dd></>}
           </dl>

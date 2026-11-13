@@ -28,6 +28,7 @@ export default function NewDocument() {
   const [fileError, setFileError] = useState('')
   const form = useForm<Form>({ resolver: zodResolver(schema), defaultValues: { type: 'ICS', purpose: '' } })
   const { errors } = form.formState
+  const { watch } = form
 
   useEffect(() => {
     if (settings && !form.getValues('fundCluster')) form.setValue('fundCluster', settings.defaultFundCluster)
@@ -63,6 +64,7 @@ export default function NewDocument() {
   })
 
   const err = (name: keyof Form) => errors[name] && <p className="text-xs text-destructive">{errors[name]?.message as string}</p>
+  const issuerLabel = watch('type') === 'ICS' ? 'Received from (supply unit)' : 'Issued by (supply/property custodian)'
   const officerOptions = (<><option value="">Select officer…</option>{officers.map((o) => <option key={o.id} value={o.id}>{o.shortName} — {o.fullName}</option>)}</>)
 
   return (
@@ -92,7 +94,7 @@ export default function NewDocument() {
             </div>
 
             <div className="grid gap-1.5">
-              <Label htmlFor="issuedBy">Issued by</Label>
+              <Label htmlFor="issuedBy">{issuerLabel}</Label>
               <NativeSelect id="issuedBy" aria-invalid={!!errors.issuedByOfficerId} {...pickOfficer('issuedByOfficerId', 'issuedByPosition')}>{officerOptions}</NativeSelect>
               {err('issuedByOfficerId')}
             </div>

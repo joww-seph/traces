@@ -118,6 +118,7 @@ CREATE TABLE properties (
   property_no      text NOT NULL CHECK (property_no ~ '^[A-Za-z0-9-]+$'),
   line_id          uuid NOT NULL REFERENCES lines(id),
   serial_no        text,
+  old_property_no  text,            -- legacy number from earlier inventories ("Old P#"), printed in RPC remarks
   component_label  text,
   condition        item_condition NOT NULL DEFAULT 'serviceable',
   voided_at        timestamptz

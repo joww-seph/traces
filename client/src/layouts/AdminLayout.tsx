@@ -25,7 +25,10 @@ export default function AdminLayout() {
     <div className="min-h-screen bg-muted/30">
       <header className="sticky top-0 z-10 border-b bg-background">
         <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-2">
-          <NavLink to="/" className="font-semibold tracking-wide">TRACES</NavLink>
+          <NavLink to="/" aria-label="TRACES home" className="flex shrink-0 items-center gap-2 font-semibold tracking-wide text-primary">
+            <img src="/traces-logo.png" alt="" className="size-7" />
+            <span className="hidden sm:inline">TRACES</span>
+          </NavLink>
           {/* scrolls sideways on narrow screens */}
           <nav className="flex flex-1 gap-1 overflow-x-auto" aria-label="Main">
             {links.map((l) => (

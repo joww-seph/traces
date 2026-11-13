@@ -9,7 +9,7 @@ const STORAGE = path.resolve(process.env.STORAGE_DIR!)
 beforeEach(async () => { await resetDb(); rmSync(STORAGE, { recursive: true, force: true }) })
 afterAll(async () => { rmSync(STORAGE, { recursive: true, force: true }); await pool.end(); await testPool.end() })
 
-const line = (cost: number, nos: { propertyNo: string; componentLabel?: string }[]) => ({
+const line = (cost: number, nos: { propertyNo: string; componentLabel?: string; oldPropertyNo?: string }[]) => ({
   line: { qty: 1, unit: 'set', unitCostCentavos: cost, article: 'Laptop', description: 'Laptop set' }, properties: nos,
 })
 
@@ -31,9 +31,9 @@ describe('properties', () => {
 
   it('PATCH updates serial, label and condition and audits before/after', async () => {
     const { agent } = await setup()
-    const res = await agent.patch('/api/properties/2026-09ICT-0199a').send({ serialNo: 'SN-123', componentLabel: 'Wireless mouse', condition: 'unserviceable' })
+    const res = await agent.patch('/api/properties/2026-09ICT-0199a').send({ serialNo: 'SN-123', componentLabel: 'Wireless mouse', condition: 'unserviceable', oldPropertyNo: '10605140-00-7' })
     expect(res.status).toBe(200)
-    expect(res.body).toMatchObject({ serialNo: 'SN-123', componentLabel: 'Wireless mouse', condition: 'unserviceable' })
+    expect(res.body).toMatchObject({ serialNo: 'SN-123', componentLabel: 'Wireless mouse', condition: 'unserviceable', oldPropertyNo: '10605140-00-7' })
     const a = (await testPool.query(`SELECT before, after FROM audit_logs WHERE action='property.update'`)).rows
     expect(a).toHaveLength(1)
     expect(a[0].before.serialNo).toBeNull()
@@ -55,6 +55,15 @@ describe('properties', () => {
     await agent.patch(`/api/lines/${lineId}`).send({ removePropertyNos: ['2026-09ICT-0199a'] })
     expect((await agent.patch('/api/properties/2026-09ICT-0199a').send({ serialNo: 'x' })).status).toBe(404)
     expect((await agentFor().get('/api/properties/2026-09ICT-0199')).status).toBe(401)
+  })
+})
+
+describe('old property number', () => {
+  it('is stored when a line is created and returned by GET', async () => {
+    const { agent } = await loginAs('supply_admin')
+    const { doc } = await makeDocument(agent)
+    await agent.post(`/api/documents/${doc.id}/lines`).send(line(9200000, [{ propertyNo: '1998-05-140-TSE000-RSTL15', oldPropertyNo: '10605140-00-7' }]))
+    expect((await agent.get('/api/properties/1998-05-140-TSE000-RSTL15')).body.oldPropertyNo).toBe('10605140-00-7')
   })
 })
 

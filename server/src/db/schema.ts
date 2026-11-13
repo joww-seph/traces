@@ -142,6 +142,7 @@ export const properties = pgTable('properties', {
   propertyNo: text('property_no').notNull(),
   lineId: uuid('line_id').notNull().references(() => lines.id),
   serialNo: text('serial_no'),
+  oldPropertyNo: text('old_property_no'), // legacy number from earlier inventories (printed in RPC remarks)
   componentLabel: text('component_label'), // NULL = main unit
   condition: itemCondition('condition').notNull().default('serviceable'),
   voidedAt: tstz('voided_at'),

@@ -26,6 +26,7 @@ export const pdfRegion = z.object({
 export const propertyFields = z.object({
   propertyNo,
   serialNo: z.string().trim().min(1).optional(),
+  oldPropertyNo: z.string().trim().min(1).optional(),
   componentLabel: z.string().trim().min(1).optional(), // absent = main unit
   condition: z.enum(['serviceable', 'unserviceable']).optional(),
 })

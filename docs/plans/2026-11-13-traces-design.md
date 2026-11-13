@@ -209,7 +209,7 @@ settings (single row) · session (connect-pg-simple) · audit_logs
 | `documents` | `(type, doc_no)` UNIQUE · issued/received officer FKs **+ positions as printed** · `purpose` · PDF columns (all set or all null, enforced by CHECK) · `deleted_at` |
 | `lines` | FK document · `(document_id, line_no)` UNIQUE · `qty > 0` · `unit_cost_centavos ≥ 0` · `article`, `description` · `est_useful_life_years` (ICS) / `date_acquired` (PAR) · `iar_no`, `iar_date` · `category` (frozen) · `deleted_at` |
 | `line_pdf_regions` | PK = `line_id` · `page`, and `x, y, w, h` as fractions 0–1 of the page (CHECKed to stay inside the page) |
-| `properties` | `upper(property_no)` UNIQUE · CHECK `^[A-Za-z0-9-]+$` · FK line · `serial_no` · `component_label` (NULL = the main unit) · `condition` · `voided_at` |
+| `properties` | `upper(property_no)` UNIQUE · CHECK `^[A-Za-z0-9-]+$` · FK line · `serial_no` · `old_property_no` (legacy "Old P#", optional) · `component_label` (NULL = the main unit) · `condition` · `voided_at` |
 | `qr_tokens` | PK `token char(10)` base62 · FK property · `revoked_at` · **partial UNIQUE: one active token per property** |
 | `movements` | identity PK · FK property · `type` · `qty > 0` · `date` · `officer_id` (CHECK: required for ISSUE/REISSUE/RETURN) · `reference_document_id` / `reference_text` · `remarks` |
 | `physical_counts` | `category`, `type_label`, `as_at`, `fund_cluster`, officer FK + `officer_position` (as printed), `assumption_date`, `status` · UNIQUE `(category, officer_id, as_at)` |
@@ -400,6 +400,7 @@ Conventions:
 - **QR content:** `${settings.public_base_url}/q/${token}`. The image is generated **in the browser at print time** with the `qrcode` package, error-correction level `M`, margin 2. The database never stores a QR image or a domain on the token.
 - **1x1 sticker (default):** 25.4 × 25.4 mm cell. QR about 19 mm, with the property no. underneath in 6–7 pt bold monospace.
 - **Passport sticker:** 35 × 45 mm cell, QR 28 mm, property no. 8 pt.
+- **Inventory tag (selectable layout):** modelled on the COA inventory tag the office uses today (red border, "COA CIRCULAR NO. 80-124, JAN 18, 1980", "Republic of the Philippines / GOVERNMENT PROPERTY", Office/Location `DOST REGION 1`, Article, Property No., Serial No., Serviceable/Unserviceable, Unit/Quantity, Acquisition Cost, Date Acquired, Date Counted, COA Representative and Property Custodian names, "TAMPERING THIS STICKER IS PUNISHABLE BY LAW") with the QR code printed on it. The sheet offers 1x1 · passport · inventory tag.
 - **Sheet:** A4 with `@page { size: A4; margin: 10mm }`. 1x1 layout is 6 × 9 (54 per sheet) with 3 mm gaps; passport is 4 × 5. Add a "Print at 100% scale" hint.
 - **LAN warning:** when `public_base_url` is a private IP or `localhost`, the sticker page shows a banner: "Test stickers only — QR codes will break after deployment."
 
@@ -538,3 +539,28 @@ traces/
 8. Rotating a QR makes the old sticker show "replaced". A deleted line's QR returns 410.
 9. Each grid exports to `.xlsx` in the official layout.
 10. Every server test passes against `traces_test`. A schema smoke test confirms that the migrations create every table, view, enum and named constraint/index in `traces-schema.sql`.
+
+---
+
+## 19. Reference findings (docs/references, studied 2026-11-13)
+
+Sources: photos of a signed ICS (Appendix 59) and PAR (Appendix 71), a filled RPCPPE, the blank RPCSP and SPC forms, the COA inventory tag, the Stock Card, `2026 ICT.xlsx` (RegSPI + ICS + PTR sheets) and the official `.xls` templates for PC (69), PAR (71) and RPCPPE (73). Logos are in `docs/assets/`.
+
+**Confirmed as specified:** column maps in §4 match the official forms. The RegSPI sheet lists issued-to by officer short name (e.g. `DPLibunao`) and uses the purpose as remarks, as `v_registry` does.
+
+**Changes made from the references**
+- **Old property number:** `properties.old_property_no` (nullable). The filled RPCPPE carries legacy numbers in Remarks (`Old P#: 10605140-00-7`); exports print it there automatically.
+- **Multi-line descriptions:** ICS descriptions hold spec lists (`Laptop Unit / Specification: / - Processors: 8 Cores …`). The line form uses a textarea and the grids keep line breaks.
+- **Signature labels per form:** ICS = *Received from* (supply unit, left) / *Received by* (end user, right). PAR = *Received by* (end user, left) / *Issued by* (supply and/or property custodian, right). The UI labels the issuing officer accordingly.
+- **Form codes** printed on exports: ICS `FM-FAS-SUPPLY-07-10 Rev. 1/07-25-22`, PAR `FM-FAS-SUPPLY-07-09 Rev. 1/07-25-22`.
+- **Sticker:** inventory-tag layout added (§12).
+- **Branding:** TRACES logo (frame `#004AAD`, letters `#4C70FC`) as primary colour, favicon and header; DOST logo on the login page.
+- **Export templates** are saved in `server/src/exports/templates/` (`ics`, `regspi`, `par`, `pc`, `rpcppe` as `.xlsx`, converted from the official files). SPC and RPCSP are still built from the form images in Task 20.
+
+**Decided to keep as specified**
+- **Category rule (BR-01) stays threshold-based.** Known difference: the office's own RegSPI lists the SARAi laptops (₱96,450) and LCD TV (₱98,200) issued on ICS 2026-03SARAi-005. Under BR-01 TRACES categorises them as PPE (PC card, Reg-PPE, RPCPPE) and shows the ICS mismatch warning.
+- **RPCPPE columns follow the official Appendix 73** (no "Total Value" column, which appears only on the office's locally modified sheet).
+- **Stock Card (consumables)** stays out of scope.
+
+**Real-world samples useful for testing:** property numbers like `1998-05-140-TSE000-RSTL15`, `2026-03ICT-0193c`; separate ICS lines with letter suffixes (`0193`, `0193a`…) that are *not* components; PAR items acquired decades before the PAR date (Date Acquired drives the RECEIPT movement).
+
