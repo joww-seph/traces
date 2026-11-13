@@ -10,6 +10,7 @@ import { documents, linePdfRegions, lines, officers, properties } from '../db/sc
 import { AppError, pgErrorOf } from '../middleware/error.js'
 import { pdfDir, removePdf } from '../middleware/upload.js'
 import { audit, type Ctx } from './audit.js'
+import { regionOut } from './lines.js'
 
 type Tx = Pick<typeof db, 'select' | 'insert' | 'update'>
 type Doc = typeof documents.$inferSelect
@@ -98,7 +99,7 @@ export async function getDocument(id: string) {
     ...present(doc),
     lines: lineRows.map((l) => ({
       ...l,
-      region: regions.find((r) => r.lineId === l.id) ?? null,
+      region: regionOut(regions.find((r) => r.lineId === l.id)),
       properties: props.filter((p) => p.lineId === l.id),
     })),
   }

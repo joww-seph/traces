@@ -7,6 +7,7 @@ import Password from '@/pages/account/Password'
 import DocumentDetail from '@/pages/documents/Detail'
 import Documents from '@/pages/documents/List'
 import NewDocument from '@/pages/documents/New'
+import LineForm from '@/pages/lines/LineForm'
 import Officers from '@/pages/officers/List'
 import Placeholder from '@/pages/Placeholder'
 
@@ -24,8 +25,8 @@ export const router = createBrowserRouter([
         { path: 'documents', element: <Documents /> },
         { path: 'documents/new', element: <NewDocument /> },
         { path: 'documents/:id', element: <DocumentDetail /> },
-        { path: 'documents/:id/lines/new', element: p('New line') },
-        { path: 'lines/:lineId/edit', element: p('Edit line') },
+        { path: 'documents/:id/lines/new', element: <LineForm /> },
+        { path: 'lines/:lineId/edit', element: <LineForm /> },
         { path: 'properties/:no', element: p('Property') },
         { path: 'registry', element: p('Registry') },
         { path: 'cards/:no', element: p('Card') },

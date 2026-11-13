@@ -122,6 +122,22 @@ describe('create line (BR-04)', () => {
   })
 })
 
+describe('read line', () => {
+  it('GET /api/lines/:id returns the line, numeric region and live properties; 404 once deleted', async () => {
+    const { post, agent, doc } = await setup()
+    const { lineId } = (await post(laptop())).body
+    const got = await agent.get(`/api/lines/${lineId}`)
+    expect(got.status).toBe(200)
+    expect(got.body).toMatchObject({ id: lineId, documentId: doc.id, region: { page: 1, x: 0.1, y: 0.2, w: 0.8, h: 0.05 } })
+    expect(got.body.properties.map((p: { propertyNo: string }) => p.propertyNo)).toEqual(['2026-09ICT-0199', '2026-09ICT-0199a', '2026-09ICT-0199b'])
+    await agent.patch(`/api/lines/${lineId}`).send({ removePropertyNos: ['2026-09ICT-0199b'] })
+    expect((await agent.get(`/api/lines/${lineId}`)).body.properties).toHaveLength(2)
+    await agent.delete(`/api/lines/${lineId}`)
+    expect((await agent.get(`/api/lines/${lineId}`)).status).toBe(404)
+    expect((await agent.get('/api/lines/nope')).status).toBe(400)
+  })
+})
+
 describe('update line (BR-05)', () => {
   it('PATCH adds a property: +1 property, +1 token, +2 movements', async () => {
     const { post, agent } = await setup()

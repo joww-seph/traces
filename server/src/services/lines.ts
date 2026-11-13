@@ -57,6 +57,21 @@ const lockLiveLine = async (tx: Tx, id: string) => {
   return line
 }
 
+// numeric columns come back as strings; the API exposes fractions as numbers
+export const regionOut = (r: typeof linePdfRegions.$inferSelect | undefined | null) =>
+  r ? { page: r.page, x: Number(r.x), y: Number(r.y), w: Number(r.w), h: Number(r.h) } : null
+
+export async function getLine(lineId: string) {
+  const line = (await db.select().from(lines).where(and(eq(lines.id, lineId), isNull(lines.deletedAt))))[0]
+  if (!line) throw new AppError('LINE_NOT_FOUND', 404, 'Line not found')
+  const doc = (await db.select({ id: documents.id }).from(documents).where(and(eq(documents.id, line.documentId), isNull(documents.deletedAt))))[0]
+  if (!doc) throw new AppError('DOCUMENT_NOT_FOUND', 404, 'Document not found')
+  const region = (await db.select().from(linePdfRegions).where(eq(linePdfRegions.lineId, lineId)))[0]
+  const props = await db.select().from(properties)
+    .where(and(eq(properties.lineId, lineId), isNull(properties.voidedAt))).orderBy(asc(properties.propertyNo))
+  return { ...line, region: regionOut(region), properties: props }
+}
+
 const regionValues = (lineId: string, r: Region) =>
   ({ lineId, page: r.page, x: String(r.x), y: String(r.y), w: String(r.w), h: String(r.h) })
 
