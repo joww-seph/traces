@@ -1,0 +1,9 @@
+node_modules
+dist
+storage
+backups
+.env*
+!.env.example
+*.log
+.DS_Store
+.vscode

@@ -1,0 +1,25 @@
+{
+  "name": "traces",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "shared",
+    "server",
+    "client"
+  ],
+  "scripts": {
+    "dev": "docker compose up -d db && concurrently -n api,web -c blue,green \"npm -w server run dev\" \"npm -w client run dev\"",
+    "db:generate": "npm -w server run db:generate",
+    "db:migrate": "npm -w server run db:migrate",
+    "db:studio": "npm -w server run db:studio",
+    "test": "npm -w server run test",
+    "build": "npm -w shared run build && npm -w client run build && npm -w server run build",
+    "start": "npm -w server run start",
+    "seed:superadmin": "npm -w server run seed:superadmin --",
+    "seed:dev": "npm -w server run seed:dev",
+    "backup": "npm -w server run backup"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.5"
+  }
+}
