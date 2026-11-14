@@ -18,7 +18,8 @@ export const countInput = z.object({
   assumptionDate: isoDate.optional(),
   signatories: z.array(signatory).default([]),
 })
-export const countPatch = countInput.partial().extend({ status: z.enum(['open', 'closed']).optional() })
+// The category and the accountable officer are fixed when the count is created (they decide which items it holds).
+export const countPatch = countInput.omit({ category: true, officerId: true }).partial().extend({ status: z.enum(['open', 'closed']).optional() })
 export const countItemPatch = z.object({
   qtyOnHand: z.number().int().nonnegative().nullable().optional(),
   remarks: z.string().trim().nullable().optional(),

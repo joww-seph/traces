@@ -20,7 +20,8 @@ export type CardRow = {
 }
 export type CountRow = {
   id: string; article: string; description: string; propertyNo: string; unit: string; unitValueCentavos: number
-  balancePerCard: number; qtyOnHand: number | null; shortageOverageQty: number | null; shortageOverageValueCentavos: number | null; remarks: string | null
+  balancePerCard: number; qtyOnHand: number | null; shortageOverageQty: number | null; shortageOverageValueCentavos: number | null
+  remarks: string | null; ownRemarks?: string | null
 }
 type Tab<H, R> = { header: H; rows: R[]; highlightRowId: string | null }
 export type PropertyView = {

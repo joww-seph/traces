@@ -7,6 +7,7 @@ import { originCheck } from './middleware/origin.js'
 import { sessionMiddleware } from './middleware/session.js'
 import { adminSettingsRouter } from './routes/admin/settings.js'
 import { authRouter } from './routes/auth.js'
+import { countsRouter } from './routes/counts.js'
 import { documentsRouter } from './routes/documents.js'
 import { linesRouter } from './routes/lines.js'
 import { officersRouter } from './routes/officers.js'
@@ -29,7 +30,7 @@ export function createApp() {
     res.json({ ok: true, db: true })
   })
 
-  app.use('/api', authRouter(), settingsRouter(), officersRouter(), documentsRouter(), linesRouter(), propertiesRouter(), viewsRouter(), stickersRouter(), publicRouter(), adminSettingsRouter())
+  app.use('/api', authRouter(), settingsRouter(), officersRouter(), documentsRouter(), linesRouter(), countsRouter(), propertiesRouter(), viewsRouter(), stickersRouter(), publicRouter(), adminSettingsRouter())
   // routers mount here as they are built
   app.use('/api', notFound)
 

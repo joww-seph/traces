@@ -75,6 +75,7 @@ export async function countRows(countId: string) {
     shortageOverageQty: v.shortageOverageQty,
     shortageOverageValueCentavos: v.shortageOverageValueCentavos,
     // legacy number is printed in Remarks automatically (decision 2026-11-14)
+    ownRemarks: v.remarks, // what staff typed; the old P# line is added on top for display and export
     remarks: [v.remarks, old.get(v.propertyId!) ? `Old P#: ${old.get(v.propertyId!)}` : null].filter(Boolean).join('\n') || null,
   }))
 }
