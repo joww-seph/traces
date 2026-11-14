@@ -43,6 +43,13 @@
       "when": 1794614741036,
       "tag": "0005_update01_views",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1794639859175,
+      "tag": "0006_update02_files",
+      "breakpoints": true
     }
   ]
 }

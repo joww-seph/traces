@@ -10,11 +10,12 @@ import { AppError } from './error.js'
 export const pdfDir = () => path.resolve(process.env.STORAGE_DIR ?? './storage', 'pdfs')
 export const removePdf = (storedName: string) => unlink(path.join(pdfDir(), storedName)).catch(() => {})
 
-// A replaced PDF is kept (signed originals are records), moved out of the live folder.
+// A replaced or removed PDF is kept (signed originals are records): moved out of the live folder to STORAGE_DIR/archive/.
+export const archiveDir = () => path.resolve(process.env.STORAGE_DIR ?? './storage', 'archive')
 export async function archivePdf(storedName: string) {
   try {
-    await mkdir(path.join(pdfDir(), 'replaced'), { recursive: true })
-    await rename(path.join(pdfDir(), storedName), path.join(pdfDir(), 'replaced', storedName))
+    await mkdir(archiveDir(), { recursive: true })
+    await rename(path.join(pdfDir(), storedName), path.join(archiveDir(), storedName))
   } catch { /* already gone: nothing to keep */ }
 }
 

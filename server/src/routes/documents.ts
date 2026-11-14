@@ -4,7 +4,8 @@ import { z } from 'zod'
 import { requireRole } from '../middleware/auth.js'
 import { AppError } from '../middleware/error.js'
 import { cleanupOnError, uploadPdf } from '../middleware/upload.js'
-import { createDocument, getDocument, listDocuments, patchDocument, readPdfMeta, softDeleteDocument } from '../services/documents.js'
+import { createDocument, getDocument, listDocuments, patchDocument, softDeleteDocument } from '../services/documents.js'
+import { attachUploaded, readPdfMeta, removeUploaded } from '../services/documentFiles.js'
 import { ctx } from './ctx.js'
 import { sendPdf } from './pdf.js'
 
@@ -14,6 +15,7 @@ const listQuery = z.object({
   to: isoDate.optional(),
   officerId: uuid.optional(),
   q: z.string().trim().min(1).optional(),
+  status: z.enum(['none', 'generated', 'signed', 'unsigned']).optional(),
   page: z.coerce.number().int().positive().default(1),
 })
 
@@ -32,18 +34,26 @@ export function documentsRouter() {
 
   r.post('/documents', uploadPdf, cleanupOnError(async (req, res) => {
     const meta = documentMeta.parse(metaOf(req))
-    if (!req.file) throw new AppError('PDF_REQUIRED', 400, 'A PDF file is required (field "pdf")')
-    const file = await readPdfMeta(req.file)
+    const file = req.file ? await readPdfMeta(req.file) : null // a PDF is optional: it can be generated or attached later
     res.status(201).json(await createDocument(meta, file, req.user!.id, ctx(req)))
   }))
 
   r.get('/documents/:id', async (req, res) => res.json(await getDocument(uuid.parse(req.params.id))))
 
-  r.patch('/documents/:id', uploadPdf, cleanupOnError(async (req, res) => {
-    const patch = documentPatch.parse(metaOf(req))
-    const file = req.file ? await readPdfMeta(req.file) : null
-    res.json(await patchDocument(uuid.parse(req.params.id), patch, file, ctx(req)))
+  r.patch('/documents/:id', async (req, res) => res.json(await patchDocument(uuid.parse(req.params.id), documentPatch.parse(req.body ?? {}), ctx(req))))
+
+  // attach or replace the uploaded copy (signed scan or an existing PDF)
+  r.put('/documents/:id/pdf', uploadPdf, cleanupOnError(async (req, res) => {
+    const id = uuid.parse(req.params.id)
+    if (!req.file) throw new AppError('PDF_REQUIRED', 400, 'A PDF file is required (field "pdf")')
+    res.json(await attachUploaded(id, await readPdfMeta(req.file), req.user!.id, ctx(req)))
   }))
+
+  // remove the signed copy so the entries can be corrected; the file is archived, never deleted
+  r.delete('/documents/:id/pdf', async (req, res) => {
+    const { reason } = z.object({ reason: z.string().trim().min(1, 'A reason is required').max(300) }).parse(req.body ?? {})
+    res.json(await removeUploaded(uuid.parse(req.params.id), reason, ctx(req)))
+  })
 
   r.delete('/documents/:id', async (req, res) => {
     await softDeleteDocument(uuid.parse(req.params.id), ctx(req))
@@ -51,7 +61,8 @@ export function documentsRouter() {
   })
 
   r.get('/documents/:id/pdf', async (req, res) => {
-    await sendPdf(res, uuid.parse(req.params.id))
+    const { kind } = z.object({ kind: z.enum(['generated', 'uploaded']).optional() }).parse(req.query)
+    await sendPdf(res, uuid.parse(req.params.id), kind)
   })
 
   return r

@@ -2,22 +2,23 @@ import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 import { resetDb, testPool as pool } from './db.js'
 
 const TABLES = ['users', 'session', 'settings', 'officers', 'officer_designations', 'property_types', 'items', 'documents',
-  'lines', 'line_pdf_regions', 'properties', 'qr_tokens', 'movements', 'report_signatories', 'audit_logs']
+  'document_files', 'lines', 'line_pdf_regions', 'properties', 'qr_tokens', 'movements', 'report_signatories', 'audit_logs']
 const GONE_TABLES = ['physical_counts', 'count_items', 'count_signatories']
 const VIEWS = ['v_active_properties', 'v_item_card', 'v_custody', 'v_registry']
 const GONE_VIEWS = ['v_card_movements', 'v_holdings', 'v_count_rows']
-const ENUMS = ['user_role', 'doc_type', 'item_category', 'movement_type', 'item_condition', 'card_row_mode', 'signatory_role']
+const ENUMS = ['user_role', 'doc_type', 'item_category', 'movement_type', 'item_condition', 'card_row_mode', 'signatory_role', 'pdf_kind']
 const INDEXES = ['users_email_lower_uq', 'session_expire_idx', 'officers_short_name_uq', 'documents_issued_date_idx',
   'documents_received_by_idx', 'lines_category_idx', 'lines_item_idx', 'properties_property_no_uq', 'properties_line_idx',
   'qr_tokens_one_active_uq', 'movements_property_date_idx', 'movements_officer_idx', 'items_identity_uq',
   'property_types_code_uq', 'audit_logs_entity_idx', 'audit_logs_at_idx']
 const COLUMNS: Record<string, string[]> = {
   properties: ['old_property_no', 'serial_no', 'component_label'],
-  settings: ['ppe_registry_title', 'ics_form_code', 'ics_form_revision', 'par_form_code', 'par_form_revision'],
+  settings: ['ppe_registry_title', 'ics_form_code', 'ics_form_revision', 'par_form_code', 'par_form_revision', 'default_issued_by_officer_id'],
   officers: ['can_receive'],
   lines: ['item_id', 'description'],
+  line_pdf_regions: ['kind'],
 }
-const CONSTRAINTS = ['documents_type_doc_no_uq', 'documents_pdf_all_or_none', 'lines_document_line_no_uq',
+const CONSTRAINTS = ['documents_type_doc_no_uq', 'document_files_name_rule', 'lines_document_line_no_uq',
   'movements_custody_needs_officer', 'lines_item_category_fk', 'items_id_category_uq']
 
 const names = async (sql: string) => (await pool.query(sql)).rows.map((r) => Object.values(r)[0] as string)
@@ -52,6 +53,8 @@ describe('structure', () => {
     const lineCols = await names(`SELECT column_name FROM information_schema.columns WHERE table_name='lines'`)
     expect(lineCols).not.toContain('article')
     expect(lineCols).not.toContain('unit')
+    const docCols = await names(`SELECT column_name FROM information_schema.columns WHERE table_name='documents'`)
+    expect(docCols.filter((c) => c.startsWith('pdf_'))).toEqual([]) // the PDFs live in document_files
   })
   it('new settings default to the PPE registry title and the ICS/PAR form codes', async () => {
     await resetDb()
@@ -117,9 +120,22 @@ describe('constraints', () => {
     const { p } = await seed()
     expect(await code(pool.query(`INSERT INTO movements (property_id, type, date) VALUES ($1,'ISSUE','2026-03-01')`, [p]))).toBe('23514')
   })
-  it('rejects partial PDF columns (23514)', async () => {
-    const { d } = await seed()
-    expect(await code(pool.query(`UPDATE documents SET pdf_stored_name='x.pdf' WHERE id=$1`, [d]))).toBe('23514')
+  it('a generated file has no original name, an uploaded one must have it (23514)', async () => {
+    const { d, u } = await seed()
+    const ins = (kind: string, original: string | null) => pool.query(
+      `INSERT INTO document_files (document_id, kind, stored_name, original_name, size_bytes, page_count, created_by) VALUES ($1,$2,'x.pdf',$3,10,1,$4)`, [d, kind, original, u])
+    expect(await code(ins('generated', 'scan.pdf'))).toBe('23514')
+    expect(await code(ins('uploaded', null))).toBe('23514')
+    expect(await code(ins('generated', null))).toBeNull()
+    expect(await code(ins('uploaded', 'scan.pdf'))).toBeNull()
+    expect(await code(ins('uploaded', 'again.pdf'))).toBe('23505') // one file per kind
+  })
+  it('a line can hold one region per kind of PDF (23505 for a second of the same kind)', async () => {
+    const { l } = await seed()
+    const ins = (kind: string) => pool.query(`INSERT INTO line_pdf_regions (line_id, kind, page, x, y, w, h) VALUES ($1,$2,1,0.1,0.1,0.5,0.1)`, [l, kind])
+    expect(await code(ins('generated'))).toBeNull()
+    expect(await code(ins('uploaded'))).toBeNull()
+    expect(await code(ins('uploaded'))).toBe('23505')
   })
   it('rejects a property_no with invalid characters (23514)', async () => {
     const { l } = await seed()

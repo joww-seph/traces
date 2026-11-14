@@ -5,7 +5,7 @@ import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 import { createApp } from '../app.js'
 import { pool } from '../db/client.js'
 import { testPool, resetDb } from './db.js'
-import { agentFor, itemFor, loginAs, makeDocument } from './helpers.js'
+import { agentFor, itemFor, loginAs, makeDocument, signDocument } from './helpers.js'
 
 const STORAGE = path.resolve(process.env.STORAGE_DIR!)
 beforeEach(async () => { await resetDb(); rmSync(STORAGE, { recursive: true, force: true }) })
@@ -46,6 +46,7 @@ describe('GET /api/properties/:no/view (admin)', () => {
 
   it('ICS/PAR tab: this document lines only, this line highlighted; scanning the mouse names the set', async () => {
     const { agent, ics } = await seed()
+    await signDocument(agent, ics.doc.id)
     const v = (await agent.get('/api/properties/L-1a/view')).body
     expect(v.tabs.icsPar.rows).toHaveLength(2)
     expect(v.tabs.icsPar.rows[0]).toMatchObject({ lineNo: 1, propertyNos: ['L-1', 'L-1a'], totalCostCentavos: 9645000 })

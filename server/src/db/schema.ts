@@ -2,7 +2,7 @@
 // Views live in a hand-written migration (see drizzle/*_views.sql) and are typed in views.ts.
 import { sql } from 'drizzle-orm'
 import {
-  bigint, boolean, char, check, date, foreignKey, index, inet, integer, json, jsonb, numeric, pgEnum, pgTable,
+  type AnyPgColumn, bigint, boolean, char, check, date, foreignKey, index, inet, integer, json, jsonb, numeric, pgEnum, pgTable,
   primaryKey, smallint, text, timestamp, unique, uniqueIndex, uuid, varchar,
 } from 'drizzle-orm/pg-core'
 
@@ -12,6 +12,7 @@ export const docType = pgEnum('doc_type', ['ICS', 'PAR'])
 export const itemCategory = pgEnum('item_category', ['semi', 'ppe'])
 export const movementType = pgEnum('movement_type', ['RECEIPT', 'ISSUE', 'RETURN', 'REISSUE', 'DISPOSE'])
 export const itemCondition = pgEnum('item_condition', ['serviceable', 'unserviceable'])
+export const pdfKind = pgEnum('pdf_kind', ['generated', 'uploaded'])
 export const cardRowMode = pgEnum('card_row_mode', ['merged', 'split'])
 export const signatoryRole = pgEnum('signatory_role', ['committee', 'head_of_agency', 'coa_representative'])
 
@@ -53,6 +54,8 @@ export const settings = pgTable('settings', {
   icsFormRevision: text('ics_form_revision').notNull().default('Rev. 1/07-25-22'),
   parFormCode: text('par_form_code').notNull().default('FM-FAS-SUPPLY-07-09'),
   parFormRevision: text('par_form_revision').notNull().default('Rev. 1/07-25-22'),
+  // default "Received from / Issued by" on generated ICS/PAR (the supply officer)
+  defaultIssuedByOfficerId: uuid('default_issued_by_officer_id').references((): AnyPgColumn => officers.id),
   updatedAt: tstz('updated_at').notNull().defaultNow(),
   updatedBy: uuid('updated_by').references(() => users.id),
 }, (t) => [
@@ -118,23 +121,30 @@ export const documents = pgTable('documents', {
   receivedByOfficerId: uuid('received_by_officer_id').notNull().references(() => officers.id),
   receivedByPosition: text('received_by_position').notNull(), // as printed on the form (historical fact)
   purpose: text('purpose'),
-  pdfStoredName: text('pdf_stored_name'),
-  pdfOriginalName: text('pdf_original_name'),
-  pdfSizeBytes: integer('pdf_size_bytes'),
-  pdfPageCount: smallint('pdf_page_count'),
   createdBy: uuid('created_by').notNull().references(() => users.id),
   createdAt: tstz('created_at').notNull().defaultNow(),
   deletedAt: tstz('deleted_at'),
 }, (t) => [
   unique('documents_type_doc_no_uq').on(t.type, t.docNo),
-  check('documents_pdf_size_positive', sql`${t.pdfSizeBytes} > 0`),
-  check('documents_pdf_pages_positive', sql`${t.pdfPageCount} > 0`),
-  check('documents_pdf_all_or_none', sql`
-    (${t.pdfStoredName} IS NULL) = (${t.pdfOriginalName} IS NULL) AND
-    (${t.pdfStoredName} IS NULL) = (${t.pdfSizeBytes} IS NULL) AND
-    (${t.pdfStoredName} IS NULL) = (${t.pdfPageCount} IS NULL)`),
   index('documents_issued_date_idx').on(t.issuedDate.desc()),
   index('documents_received_by_idx').on(t.receivedByOfficerId),
+])
+
+// Up to two PDFs per document: the one TRACES generated and the uploaded one (signed scan or an existing file)
+export const documentFiles = pgTable('document_files', {
+  documentId: uuid('document_id').notNull().references(() => documents.id),
+  kind: pdfKind('kind').notNull(),
+  storedName: text('stored_name').notNull(),
+  originalName: text('original_name'), // NULL for generated files
+  sizeBytes: integer('size_bytes').notNull(),
+  pageCount: smallint('page_count').notNull(),
+  createdBy: uuid('created_by').notNull().references(() => users.id),
+  createdAt: tstz('created_at').notNull().defaultNow(),
+}, (t) => [
+  primaryKey({ columns: [t.documentId, t.kind] }),
+  check('document_files_size_positive', sql`${t.sizeBytes} > 0`),
+  check('document_files_pages_positive', sql`${t.pageCount} > 0`),
+  check('document_files_name_rule', sql`(${t.kind} = 'generated') = (${t.originalName} IS NULL)`),
 ])
 
 export const lines = pgTable('lines', {
@@ -163,15 +173,17 @@ export const lines = pgTable('lines', {
   index('lines_category_idx').on(t.category).where(sql`deleted_at IS NULL`),
 ])
 
-// x/y/w/h are fractions (0-1) of the page
+// x/y/w/h are fractions (0-1) of the page. One box per line on each kind of PDF.
 export const linePdfRegions = pgTable('line_pdf_regions', {
-  lineId: uuid('line_id').primaryKey().references(() => lines.id, { onDelete: 'cascade' }),
+  lineId: uuid('line_id').notNull().references(() => lines.id, { onDelete: 'cascade' }),
+  kind: pdfKind('kind').notNull(),
   page: smallint('page').notNull(),
   x: numeric('x', { precision: 6, scale: 5 }).notNull(),
   y: numeric('y', { precision: 6, scale: 5 }).notNull(),
   w: numeric('w', { precision: 6, scale: 5 }).notNull(),
   h: numeric('h', { precision: 6, scale: 5 }).notNull(),
 }, (t) => [
+  primaryKey({ columns: [t.lineId, t.kind] }),
   check('line_pdf_regions_page_positive', sql`${t.page} > 0`),
   check('line_pdf_regions_x', sql`${t.x} >= 0 AND ${t.x} <= 1`),
   check('line_pdf_regions_y', sql`${t.y} >= 0 AND ${t.y} <= 1`),

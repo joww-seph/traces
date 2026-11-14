@@ -5,6 +5,7 @@ import { db } from '../db/client.js'
 import { documents, items, linePdfRegions, lines, movements, properties, propertyTypes, qrTokens } from '../db/schema.js'
 import { AppError, pgErrorOf } from '../middleware/error.js'
 import { audit, type Ctx } from './audit.js'
+import { assertNotSigned } from './documentFiles.js'
 import { insertItem } from './items.js'
 import { newToken } from './qr.js'
 import { getSettings } from './settings.js'
@@ -93,15 +94,19 @@ export async function getLine(lineId: string) {
   if (!row) throw new AppError('LINE_NOT_FOUND', 404, 'Line not found')
   const doc = (await db.select({ id: documents.id }).from(documents).where(and(eq(documents.id, row.line.documentId), isNull(documents.deletedAt))))[0]
   if (!doc) throw new AppError('DOCUMENT_NOT_FOUND', 404, 'Document not found')
-  const region = (await db.select().from(linePdfRegions).where(eq(linePdfRegions.lineId, lineId)))[0]
+  const regions = await db.select().from(linePdfRegions).where(eq(linePdfRegions.lineId, lineId))
   const props = await db.select().from(properties)
     .where(and(eq(properties.lineId, lineId), isNull(properties.voidedAt))).orderBy(asc(properties.propertyNo))
   const { line, ...card } = row
-  return { ...line, ...card, region: regionOut(region), properties: props }
+  return {
+    ...line, ...card, properties: props,
+    region: regionOut(regions.find((r) => r.kind === 'uploaded')), generatedRegion: regionOut(regions.find((r) => r.kind === 'generated')),
+  }
 }
 
-const regionValues = (lineId: string, r: Region) =>
-  ({ lineId, page: r.page, x: String(r.x), y: String(r.y), w: String(r.w), h: String(r.h) })
+// a box drawn by hand sits on the uploaded (signed) copy; boxes of the generated copy come from the layout
+export const regionValues = (lineId: string, r: Region, kind: 'generated' | 'uploaded' = 'uploaded') =>
+  ({ lineId, kind, page: r.page, x: String(r.x), y: String(r.y), w: String(r.w), h: String(r.h) })
 
 // One token + RECEIPT (date acquired) and ISSUE (document date) movements per property (BR-04).
 async function insertProperties(tx: Tx, line: typeof lines.$inferSelect, doc: Doc, props: PropertyInput[]) {
@@ -156,7 +161,7 @@ export async function insertLineTx(
   const itemId = await resolveItem(tx, input.item, category, o.cache)
   const { lineNo: _ignored, ...fields } = input.line
   const [line] = await tx.insert(lines).values({ ...fields, lineNo: o.lineNo, documentId: doc.id, itemId, category }).returning()
-  if (input.region) await tx.insert(linePdfRegions).values(regionValues(line.id, input.region))
+  if (input.region) await tx.insert(linePdfRegions).values(regionValues(line.id, input.region, 'uploaded'))
   await insertProperties(tx, line, doc, input.properties)
   await audit(tx, o.ctx, 'line.create', 'lines', line.id, null, input)
   return { lineId: line.id, category, itemId, warning: mismatchWarning(doc.type, category, o.thresholdCentavos) }
@@ -169,6 +174,7 @@ export async function createLine(docId: string, input: LineInput, ctx: Ctx) {
   try {
     return await withTokenRetry(() => db.transaction(async (tx) => {
       const doc = await lockLiveDocument(tx, docId) // also serialises line_no allocation
+      await assertNotSigned(tx, docId)
       const s = await getSettings(tx)
       await assertNoDuplicateNumbers(tx, [input.properties])
       const lineNo = input.line.lineNo ?? await nextLineNo(tx, docId)
@@ -183,6 +189,7 @@ export async function createLinesBatch(docId: string, rows: LineInput[], ctx: Ct
   try {
     return await withTokenRetry(() => db.transaction(async (tx) => {
       const doc = await lockLiveDocument(tx, docId)
+      await assertNotSigned(tx, docId)
       const s = await getSettings(tx)
       await assertNoDuplicateNumbers(tx, rows.map((r) => r.properties))
       const cache: ItemCache = new Map()
@@ -217,6 +224,7 @@ export async function updateLine(lineId: string, patch: z.infer<typeof linePatch
     return await withTokenRetry(() => db.transaction(async (tx) => {
       const before = await lockLiveLine(tx, lineId)
       const doc = await lockLiveDocument(tx, before.documentId)
+      if (patch.line || patch.addProperties?.length || patch.removePropertyNos?.length) await assertNotSigned(tx, doc.id) // boxes stay editable
       const s = await getSettings(tx)
       const { lineNo, ...fields } = patch.line ?? {}
 
@@ -229,11 +237,8 @@ export async function updateLine(lineId: string, patch: z.infer<typeof linePatch
       if (Object.keys(fields).length) await tx.update(lines).set(fields).where(eq(lines.id, lineId))
       if (lineNo !== undefined && lineNo !== before.lineNo) await reorder(tx, doc.id, lineId, lineNo)
 
-      if (patch.region === null) await tx.delete(linePdfRegions).where(eq(linePdfRegions.lineId, lineId))
-      else if (patch.region) {
-        const v = regionValues(lineId, patch.region)
-        await tx.insert(linePdfRegions).values(v).onConflictDoUpdate({ target: linePdfRegions.lineId, set: v })
-      }
+      if (patch.region === null) await tx.delete(linePdfRegions).where(and(eq(linePdfRegions.lineId, lineId), eq(linePdfRegions.kind, 'uploaded')))
+      else if (patch.region) await upsertRegion(tx, lineId, patch.region, 'uploaded')
 
       // removal voids the property and revokes its token; nothing is hard-deleted (BR-05)
       for (const no of patch.removePropertyNos ?? []) {
@@ -258,7 +263,23 @@ export async function updateLine(lineId: string, patch: z.infer<typeof linePatch
 export async function deleteLine(lineId: string, ctx: Ctx) {
   await db.transaction(async (tx) => {
     const before = await lockLiveLine(tx, lineId)
+    await assertNotSigned(tx, before.documentId)
     await tx.update(lines).set({ deletedAt: new Date() }).where(eq(lines.id, lineId))
     await audit(tx, ctx, 'line.delete', 'lines', lineId, before, null)
   })
+}
+
+export async function upsertRegion(tx: Tx, lineId: string, r: Region, kind: 'generated' | 'uploaded') {
+  const v = regionValues(lineId, r, kind)
+  await tx.insert(linePdfRegions).values(v).onConflictDoUpdate({ target: [linePdfRegions.lineId, linePdfRegions.kind], set: v })
+}
+
+// PUT /api/lines/:id/region: a box on one kind of PDF. Allowed on signed documents: it never changes the entries.
+export async function setRegion(lineId: string, kind: 'generated' | 'uploaded', r: Region, ctx: Ctx) {
+  await db.transaction(async (tx) => {
+    await lockLiveLine(tx, lineId)
+    await upsertRegion(tx, lineId, r, kind)
+    await audit(tx, ctx, 'line.region', 'lines', lineId, null, { kind, ...r })
+  })
+  return regionOut((await db.select().from(linePdfRegions).where(and(eq(linePdfRegions.lineId, lineId), eq(linePdfRegions.kind, kind))))[0])
 }

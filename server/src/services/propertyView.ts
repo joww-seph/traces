@@ -1,6 +1,7 @@
 import { and, eq, isNull } from 'drizzle-orm'
 import { db } from '../db/client.js'
 import { documents, items, linePdfRegions, lines, officers, properties, propertyTypes, qrTokens } from '../db/schema.js'
+import { filesOf } from './documentFiles.js'
 import { vCustody } from '../db/views.js'
 import { AppError } from '../middleware/error.js'
 import { buildPropertyView, type PropertyViewData } from '../projections/propertyView.js'
@@ -23,7 +24,9 @@ async function load(p: Prop, token: string | null): Promise<PropertyViewData> {
     db.select().from(officers).where(eq(officers.id, doc.issuedByOfficerId)),
     db.select().from(officers).where(eq(officers.id, doc.receivedByOfficerId)),
   ])
-  const region = (await db.select().from(linePdfRegions).where(eq(linePdfRegions.lineId, line.id)))[0]
+  const files = (await filesOf([doc.id])).get(doc.id)!
+  const pdfKind = files.uploaded ? 'uploaded' as const : files.generated ? 'generated' as const : null
+  const region = pdfKind ? (await db.select().from(linePdfRegions).where(and(eq(linePdfRegions.lineId, line.id), eq(linePdfRegions.kind, pdfKind))))[0] : undefined
   const holder = (await db.select({ holder: vCustody.holderOfficerId }).from(vCustody).where(eq(vCustody.propertyId, p.id)))[0]?.holder ?? null
   const mainNo = p.componentLabel
     ? (await db.select({ no: properties.propertyNo }).from(properties)
@@ -48,7 +51,7 @@ async function load(p: Prop, token: string | null): Promise<PropertyViewData> {
     },
     region: regionOut(region),
     document: {
-      id: doc.id, type: doc.type, docNo: doc.docNo, fundCluster: doc.fundCluster, issuedDate: doc.issuedDate, hasPdf: doc.pdfStoredName !== null,
+      id: doc.id, type: doc.type, docNo: doc.docNo, fundCluster: doc.fundCluster, issuedDate: doc.issuedDate, pdfKind,
       issuedBy: { name: issuer[0].fullName, position: doc.issuedByPosition },
       receivedBy: { name: receiver[0].fullName, position: doc.receivedByPosition },
     },

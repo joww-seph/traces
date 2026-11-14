@@ -5,7 +5,7 @@ import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 import { createApp } from '../app.js'
 import { pool } from '../db/client.js'
 import { testPool, resetDb } from './db.js'
-import { itemFor, loginAs, makeDocument } from './helpers.js'
+import { itemFor, loginAs, makeDocument, signDocument } from './helpers.js'
 
 const STORAGE = path.resolve(process.env.STORAGE_DIR!)
 beforeEach(async () => { await resetDb(); rmSync(STORAGE, { recursive: true, force: true }) })
@@ -31,7 +31,8 @@ const anon = () => request(createApp())
 
 describe('GET /api/public/q/:token', () => {
   it('opens the property without a login; no UUID, no user data, noindex', async () => {
-    const { token } = await seed()
+    const { agent, doc, token } = await seed()
+    await signDocument(agent, doc.id)
     const res = await anon().get(`/api/public/q/${await token('L-1')}`)
     expect(res.status).toBe(200)
     expect(res.headers['x-robots-tag']).toBe('noindex')
@@ -42,6 +43,7 @@ describe('GET /api/public/q/:token', () => {
     expect(res.body.property).not.toHaveProperty('token')
     expect(res.body.document.pdfUrl).toMatch(/^\/api\/public\/q\/[0-9A-Za-z]{10}\/pdf$/)
     expect(res.body.document.pdfRegion).toMatchObject({ page: 1, x: 0.1 })
+    expect(res.body.document.signed).toBe(true)
   })
 
   it('every tab highlights a row present in that tab, with opaque row ids', async () => {
@@ -109,7 +111,8 @@ describe('GET /api/public/q/:token', () => {
 
 describe('GET /api/public/q/:token/pdf', () => {
   it('streams the signed PDF to anyone holding the token', async () => {
-    const { token } = await seed()
+    const { agent, doc, token } = await seed()
+    await signDocument(agent, doc.id)
     const res = await anon().get(`/api/public/q/${await token('L-1')}/pdf`).buffer(true).parse((r, cb) => {
       const chunks: Buffer[] = []
       r.on('data', (c: Buffer) => chunks.push(c)); r.on('end', () => cb(null, Buffer.concat(chunks)))
@@ -118,6 +121,38 @@ describe('GET /api/public/q/:token/pdf', () => {
     expect(res.headers['content-type']).toContain('application/pdf')
     expect((res.body as Buffer).subarray(0, 5).toString()).toBe('%PDF-')
     expect(res.headers['x-robots-tag']).toBe('noindex')
+  })
+})
+
+describe('which PDF the QR page shows (update 02 V-05)', () => {
+  const put = async (docId: string, kind: 'generated') =>
+    testPool.query(`INSERT INTO document_files (document_id, kind, stored_name, size_bytes, page_count, created_by) VALUES ($1,$2,'g.pdf',10,1,(SELECT id FROM users LIMIT 1))`, [docId, kind])
+
+  it('without any PDF the view has no pdfUrl and no region (the structured table is shown) and the pdf route is 404', async () => {
+    const { token } = await seed()
+    const t = await token('L-1')
+    const res = await anon().get(`/api/public/q/${t}`)
+    expect(res.status).toBe(200)
+    expect(res.body.document).toMatchObject({ pdfUrl: null, pdfRegion: null, signed: false })
+    expect((await anon().get(`/api/public/q/${t}/pdf`)).status).toBe(404)
+  })
+
+  it('only a generated copy: shown as unsigned, with the generated box', async () => {
+    const { lineId, doc, token } = await seed()
+    await put(doc.id, 'generated')
+    await testPool.query(`UPDATE line_pdf_regions SET kind = 'generated' WHERE line_id = $1`, [lineId]) // the box in the seed becomes the generated box
+    const res = await anon().get(`/api/public/q/${await token('L-1')}`)
+    expect(res.body.document).toMatchObject({ signed: false, pdfRegion: { page: 1, x: 0.1 } })
+    expect(res.body.document.pdfUrl).toMatch(/\/pdf$/)
+  })
+
+  it('a signed copy wins over the generated one and uses the uploaded box', async () => {
+    const { agent, lineId, doc, token } = await seed()
+    await put(doc.id, 'generated')
+    await testPool.query(`INSERT INTO line_pdf_regions (line_id, kind, page, x, y, w, h) VALUES ($1,'generated',2,0.3,0.3,0.4,0.1)`, [lineId])
+    await signDocument(agent, doc.id)
+    const res = await anon().get(`/api/public/q/${await token('L-1')}`)
+    expect(res.body.document).toMatchObject({ signed: true, pdfRegion: { page: 1, x: 0.1 } }) // the uploaded box, not the generated one
   })
 })
 
