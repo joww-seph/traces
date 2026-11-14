@@ -9,8 +9,8 @@
    cd server
    export DATABASE_URL=postgres://traces:traces@127.0.0.1:5432/traces_manual STORAGE_DIR=./storage-manual NODE_ENV=development
    npx drizzle-kit migrate
-   npx tsx src/scripts/seed-superadmin.ts --email it.admin@dost1.example --password Manual-Admin-2026 --name "IT Admin" --base-url http://localhost:5373
-   npx tsx src/scripts/seed-superadmin.ts --email supply.officer@dost1.example --password Manual-Supply-2026 --name "Supply Officer" --role supply_admin
+   npx tsx src/scripts/seed-superadmin.ts --email it@region1.dost.gov.ph --password Manual-Admin-2026 --name "IT Administrator" --base-url http://localhost:5373
+   npx tsx src/scripts/seed-superadmin.ts --email jdelacruz@region1.dost.gov.ph --password Manual-Supply-2026 --name "Juan Dela Cruz" --role supply_admin
    ```
 2. Start the demo servers (two terminals, from the repository root):
    ```bash

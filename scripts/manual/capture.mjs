@@ -7,8 +7,8 @@ import { chromium } from '@playwright/test'
 
 const BASE = process.env.MANUAL_BASE ?? 'http://localhost:5373'
 const OUT = path.resolve('docs/manual/shots')
-const SUPPLY = { email: 'supply.officer@dost1.example', password: 'Manual-Supply-2026' }
-const ADMIN = { email: 'it.admin@dost1.example', password: 'Manual-Admin-2026' }
+const SUPPLY = { email: 'jdelacruz@region1.dost.gov.ph', password: 'Manual-Supply-2026' }
+const ADMIN = { email: 'it@region1.dost.gov.ph', password: 'Manual-Admin-2026' }
 
 rmSync(OUT, { recursive: true, force: true })
 mkdirSync(OUT, { recursive: true })

@@ -7,4 +7,4 @@ export DATABASE_URL=postgres://traces:traces@127.0.0.1:5432/traces_manual STORAG
 npx tsx src/scripts/seed-dev.ts --reset
 npx tsx src/scripts/seed-dev.ts --more
 docker compose -f ../docker-compose.yml exec -T db psql -U traces -d traces_manual -q \
-  -c "DELETE FROM session; DELETE FROM users WHERE email NOT IN ('it.admin@dost1.example','supply.officer@dost1.example'); DELETE FROM report_signatories;"
+  -c "DELETE FROM session; DELETE FROM users WHERE email NOT IN ('it@region1.dost.gov.ph','jdelacruz@region1.dost.gov.ph'); DELETE FROM report_signatories;"
