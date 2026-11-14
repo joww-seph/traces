@@ -124,3 +124,11 @@ test('admin pages fit a phone', async ({ page }) => {
     expect(await noHorizontalScroll(page), url).toBe(0)
   }
 })
+
+test('an unknown address shows a not-found page inside the app', async ({ page }) => {
+  await login(page)
+  await page.goto('/no/such/page')
+  await expect(page.getByText('Page not found')).toBeVisible()
+  await page.getByRole('link', { name: 'Go to the dashboard' }).click()
+  await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible()
+})

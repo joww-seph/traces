@@ -3,6 +3,7 @@ import { RequireRole } from '@/auth/RequireRole'
 import AdminLayout from '@/layouts/AdminLayout'
 import Dashboard from '@/pages/Dashboard'
 import Login from '@/pages/Login'
+import NotFound from '@/pages/NotFound'
 import Password from '@/pages/account/Password'
 import Audit from '@/pages/admin/Audit'
 import SettingsPage from '@/pages/admin/Settings'
@@ -50,6 +51,7 @@ export const router = createBrowserRouter([
             { path: 'admin/audit', element: <Audit /> },
           ],
         },
+        { path: '*', element: <NotFound /> },
       ],
     }],
   },

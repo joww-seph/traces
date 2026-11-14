@@ -23,7 +23,9 @@ import { stickersRouter } from './routes/stickers.js'
 export function createApp() {
   const app = express()
   if (process.env.NODE_ENV === 'production') app.set('trust proxy', 1) // behind nginx
-  app.use(helmet())
+  // COOKIE_SECURE=false is the plain-http LAN demo: without this the browser would upgrade every asset request to https and the page would not load.
+  const plainHttp = process.env.COOKIE_SECURE === 'false'
+  app.use(helmet(plainHttp ? { contentSecurityPolicy: { directives: { 'upgrade-insecure-requests': null } }, strictTransportSecurity: false } : undefined))
   app.use(originCheck())
   app.use(express.json({ limit: '1mb' }))
   app.use(sessionMiddleware())
