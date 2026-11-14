@@ -111,8 +111,7 @@ export const cardColumns = (category: 'semi' | 'ppe'): Cols<CardRow> => [
 export const reportColumns: Cols<ReportRow> = [
   { headerName: 'Article', field: 'article', width: 150 },
   { headerName: 'Description', field: 'description', flex: 2, minWidth: 220, cellClass: 'traces-pre' },
-  { headerName: 'Property No.', valueGetter: (p) => p.data?.propertyNos.join('
-'), cellClass: 'traces-pre', minWidth: 190 },
+  { headerName: 'Property No.', valueGetter: (p) => p.data?.propertyNos.join('\n'), cellClass: 'traces-pre', minWidth: 190 },
   { headerName: 'Unit of Measure', field: 'unit', width: 110 },
   moneyCol('unitValueCentavos', 'Unit Value', { width: 140 }) as ColDef<ReportRow>,
   { headerName: 'Balance per Card', children: [num('Qty.', 'balancePerCard', { width: 90 })] },
