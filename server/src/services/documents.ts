@@ -11,6 +11,7 @@ import { AppError, pgErrorOf } from '../middleware/error.js'
 import { archivePdf, pdfDir } from '../middleware/upload.js'
 import { audit, type Ctx } from './audit.js'
 import { regionOut } from './lines.js'
+import { assertCanReceive } from './officers.js'
 
 type Tx = Pick<typeof db, 'select' | 'insert' | 'update'>
 type Doc = typeof documents.$inferSelect
@@ -48,6 +49,7 @@ function duplicateNo(e: unknown, type: string, docNo: string): never {
 export async function createDocument(meta: z.infer<typeof documentMeta>, file: DocFile, userId: string, ctx: Ctx) {
   try {
     return await db.transaction(async (tx) => {
+      await assertCanReceive(tx, meta.receivedByOfficerId)
       const [doc] = await tx.insert(documents).values({
         ...meta,
         ...pdfColumns(file),
@@ -118,6 +120,7 @@ export async function patchDocument(id: string, patch: z.infer<typeof documentPa
       const before = (await tx.select().from(documents).where(and(eq(documents.id, id), isNull(documents.deletedAt))).for('update'))[0]
       if (!before) throw new AppError('DOCUMENT_NOT_FOUND', 404, 'Document not found')
       const set: Partial<typeof documents.$inferInsert> = { ...patch, ...(file ? pdfColumns(file) : {}) }
+      if (patch.receivedByOfficerId) await assertCanReceive(tx, patch.receivedByOfficerId)
       // new officer without an explicit position -> snapshot that officer's current position
       if (patch.issuedByOfficerId && !patch.issuedByPosition) set.issuedByPosition = await positionOf(tx, patch.issuedByOfficerId)
       if (patch.receivedByOfficerId && !patch.receivedByPosition) set.receivedByPosition = await positionOf(tx, patch.receivedByOfficerId)

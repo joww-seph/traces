@@ -38,7 +38,7 @@ export async function makeDocument(
   over: { type?: 'ICS' | 'PAR'; docNo?: string; issuedDate?: string } = {},
 ) {
   const mk = async (shortName: string, position: string) =>
-    (await agent.post('/api/officers').send({ fullName: `${shortName} Full`, shortName, position })).body
+    (await agent.post('/api/officers').send({ fullName: `${shortName} Full`, shortName, position, canReceive: true })).body
   const existing = (await agent.get('/api/officers')).body as { id: string; shortName: string }[]
   const issuer = existing.find((o) => o.shortName === 'JDelaCruz') ?? (await mk('JDelaCruz', 'Supply Officer IV'))
   const receiver = existing.find((o) => o.shortName === 'MSantos') ?? (await mk('MSantos', 'Engineer II'))

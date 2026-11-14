@@ -30,7 +30,7 @@ type Agent = Awaited<ReturnType<typeof loginAs>>['agent']
 async function setup() {
   const { agent } = await loginAs('supply_admin')
   const mk = async (shortName: string, position: string) =>
-    (await agent.post('/api/officers').send({ fullName: `${shortName} Full`, shortName, position })).body
+    (await agent.post('/api/officers').send({ fullName: `${shortName} Full`, shortName, position, canReceive: true })).body
   const issuer = await mk('JDelaCruz', 'Supply Officer IV')
   const receiver = await mk('MSantos', 'Engineer II')
   const meta = (over: object = {}) => ({

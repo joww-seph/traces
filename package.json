@@ -17,6 +17,7 @@
     "start": "npm -w server run start",
     "seed:superadmin": "npm -w server run seed:superadmin --",
     "seed:dev": "npm -w server run seed:dev --",
+    "seed:officers": "npm -w server run seed:officers --",
     "backup": "npm -w server run backup",
     "lan": "npm -w server run lan --",
     "reset:password": "npm -w server run reset:password --",
