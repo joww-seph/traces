@@ -5,7 +5,9 @@ import { pool } from './db/client.js'
 import { errorHandler, notFound } from './middleware/error.js'
 import { originCheck } from './middleware/origin.js'
 import { sessionMiddleware } from './middleware/session.js'
+import { adminAuditRouter } from './routes/admin/audit.js'
 import { adminSettingsRouter } from './routes/admin/settings.js'
+import { adminUsersRouter } from './routes/admin/users.js'
 import { authRouter } from './routes/auth.js'
 import { countsRouter } from './routes/counts.js'
 import { documentsRouter } from './routes/documents.js'
@@ -31,7 +33,7 @@ export function createApp() {
     res.json({ ok: true, db: true })
   })
 
-  app.use('/api', authRouter(), settingsRouter(), officersRouter(), documentsRouter(), linesRouter(), countsRouter(), exportsRouter(), propertiesRouter(), viewsRouter(), stickersRouter(), publicRouter(), adminSettingsRouter())
+  app.use('/api', authRouter(), settingsRouter(), officersRouter(), documentsRouter(), linesRouter(), countsRouter(), exportsRouter(), propertiesRouter(), viewsRouter(), stickersRouter(), publicRouter(), adminSettingsRouter(), adminUsersRouter(), adminAuditRouter())
   // routers mount here as they are built
   app.use('/api', notFound)
 

@@ -5,6 +5,7 @@ import { Link, useParams } from 'react-router'
 import { toast } from 'sonner'
 import { ApiError, api } from '@/api'
 import { NativeSelect } from '@/components/NativeSelect'
+import { ExportButton } from '@/components/ExportButton'
 import { EmptyState, PageHeader } from '@/components/PageHeader'
 import { PropertySummary, PropertyTabs } from '@/components/PropertyTabs'
 import { TypeBadge } from '@/components/TypeBadge'
@@ -86,6 +87,7 @@ export default function PropertyDetail() {
         title={<span className="flex flex-wrap items-center gap-3"><TypeBadge type={d.type} className="h-7 w-12 text-sm" /><span className="figures">{p.propertyNo}</span></span>}
         description={`${l.article}${p.componentLabel ? `, ${p.componentLabel}` : ''}`}
         actions={<>
+          <ExportButton path={`/api/exports/${p.category === 'semi' ? 'spc' : 'pc'}?no=${encodeURIComponent(p.propertyNo)}`} label={p.category === 'semi' ? 'Export SPC' : 'Export PC'} />
           <Link to={`/stickers?nos=${encodeURIComponent(p.propertyNo)}`} className={buttonVariants({ variant: 'outline' })}><QrCode /> Print sticker</Link>
           <Button variant="outline" onClick={() => setConfirm(true)}><RefreshCw /> Replace QR code</Button>
         </>}

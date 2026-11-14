@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link, useParams } from 'react-router'
 import { api } from '@/api'
+import { ExportButton } from '@/components/ExportButton'
 import { CardPanel } from '@/components/PropertyTabs'
 import { EmptyState, PageHeader } from '@/components/PageHeader'
 import { buttonVariants } from '@/components/ui/button'
@@ -20,7 +21,8 @@ export default function Card() {
   return (
     <>
       <PageHeader crumbs={[{ label: 'Registry', to: '/registry' }, { label: data.property.propertyNo, to: `/properties/${encodeURIComponent(data.property.propertyNo)}` }, { label: 'Card' }]}
-        title={data.tabs.card.header.title} description={`${data.line.article} · ${data.property.propertyNo}`} />
+        title={data.tabs.card.header.title} description={`${data.line.article} · ${data.property.propertyNo}`}
+        actions={<ExportButton path={`/api/exports/${data.property.category === 'semi' ? 'spc' : 'pc'}?no=${encodeURIComponent(data.property.propertyNo)}`} label={data.property.category === 'semi' ? 'Export SPC' : 'Export PC'} />} />
       <CardPanel view={data} />
     </>
   )

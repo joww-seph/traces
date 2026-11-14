@@ -8,6 +8,7 @@ import { api } from '@/api'
 import { EmptyState, PageHeader } from '@/components/PageHeader'
 import { TypeBadge } from '@/components/TypeBadge'
 import { FormGrid, moneyCol } from '@/components/FormGrid'
+import { ExportButton } from '@/components/ExportButton'
 import { PdfViewer } from '@/components/PdfViewer'
 import { buttonVariants } from '@/components/ui/button'
 import { useOfficers } from '@/lib/queries'
@@ -77,6 +78,7 @@ export default function DocumentDetail() {
         crumbs={[{ label: 'ICS and PAR', to: '/documents' }, { label: doc.docNo }]}
         title={<span className="flex flex-wrap items-center gap-3"><TypeBadge type={doc.type} className="h-7 w-12 text-sm" /><span className="figures">{doc.docNo}</span></span>}
         actions={<>
+          <ExportButton path={`/api/exports/${doc.type.toLowerCase()}?documentId=${doc.id}`} label={`Export ${doc.type}`} disabled={!doc.lines.length} />
           <Link to={`/stickers?documentId=${doc.id}`} className={buttonVariants({ variant: "outline" })}><QrCode /> Print stickers</Link>
           <Link to={`/documents/${doc.id}/lines/new`} className={buttonVariants()}><Plus /> Add line</Link>
         </>}

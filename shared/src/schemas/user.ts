@@ -6,8 +6,7 @@ export const userCreate = z.object({
   email: z.string().trim().email(),
   displayName: nonEmpty,
   role,
-  temporaryPassword: z.string().min(10, 'At least 10 characters'),
-})
+}) // the server generates the temporary password and shows it once
 export const userPatch = z.object({
   displayName: nonEmpty.optional(),
   role: role.optional(),

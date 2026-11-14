@@ -1,11 +1,10 @@
 import 'dotenv/config'
-import { randomInt } from 'node:crypto'
 import { parseArgs } from 'node:util'
 import { eq, sql } from 'drizzle-orm'
 import { db, pool } from '../db/client.js'
 import { users } from '../db/schema.js'
 import { audit } from '../services/audit.js'
-import { hashPassword } from '../services/users.js'
+import { generatePassword, hashPassword } from '../services/users.js'
 
 // Last-resort password reset from the server console (the superadmin page does this in the browser).
 //   npm run reset:password -- --email it@traces.local --generate
@@ -18,17 +17,7 @@ if (!values.email || (!values.password && !values.generate)) {
   process.exit(1)
 }
 
-// 20 characters, no look-alikes (0/O, 1/l/I), at least one of each class
-function generate(): string {
-  const sets = ['ABCDEFGHJKLMNPQRSTUVWXYZ', 'abcdefghijkmnopqrstuvwxyz', '23456789', '!@#$%^&*-_=+']
-  const all = sets.join('')
-  const chars = sets.map((s) => s[randomInt(s.length)])
-  while (chars.length < 20) chars.push(all[randomInt(all.length)])
-  for (let i = chars.length - 1; i > 0; i--) { const j = randomInt(i + 1); [chars[i], chars[j]] = [chars[j], chars[i]] }
-  return chars.join('')
-}
-
-const password = values.password ?? generate()
+const password = values.password ?? generatePassword()
 if (password.length < 10) { console.error('Password must be at least 10 characters'); process.exit(1) }
 
 try {

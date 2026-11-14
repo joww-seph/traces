@@ -3,6 +3,7 @@ import { formatPeso } from '@traces/shared'
 import { useState } from 'react'
 import { useNavigate } from 'react-router'
 import { api } from '@/api'
+import { ExportButton } from '@/components/ExportButton'
 import { FormGrid } from '@/components/FormGrid'
 import { EmptyState, PageHeader } from '@/components/PageHeader'
 import { Button } from '@/components/ui/button'
@@ -29,7 +30,8 @@ export default function Registry() {
 
   return (
     <>
-      <PageHeader title="Registry" description="One row per ICS or PAR line, worked out from the lines you entered. Select a row to open its first property." />
+      <PageHeader title="Registry" description="One row per ICS or PAR line, worked out from the lines you entered. Select a row to open its first property."
+        actions={<ExportButton path={`/api/exports/${category === 'semi' ? 'regspi' : 'regppe'}?${new URLSearchParams({ ...(from && { from }), ...(to && { to }) })}`} label={category === 'semi' ? 'Export RegSPI' : 'Export registry'} />} />
 
       <div className="mb-4 flex flex-wrap items-end gap-x-6 gap-y-3">
         <div role="radiogroup" aria-label="Category" className="inline-flex rounded-lg bg-muted p-1">

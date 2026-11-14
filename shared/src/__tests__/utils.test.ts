@@ -86,9 +86,10 @@ describe('auth + user schemas', () => {
     expect(loginInput.safeParse({ email: 'a@b.co', password: 'x' }).success).toBe(true)
     expect(loginInput.safeParse({ email: 'nope', password: 'x' }).success).toBe(false)
   })
-  it('userCreate enforces a 10-char temporary password', () => {
+  it('userCreate takes email, name and role only (the server makes the temporary password)', () => {
     const base = { email: 'a@b.co', displayName: 'A', role: 'supply_admin' as const }
-    expect(userCreate.safeParse({ ...base, temporaryPassword: 'short' }).success).toBe(false)
-    expect(userCreate.safeParse({ ...base, temporaryPassword: 'longenough1' }).success).toBe(true)
+    expect(userCreate.safeParse(base).success).toBe(true)
+    expect(userCreate.safeParse({ ...base, role: 'root' }).success).toBe(false)
+    expect(userCreate.safeParse({ ...base, email: 'nope' }).success).toBe(false)
   })
 })

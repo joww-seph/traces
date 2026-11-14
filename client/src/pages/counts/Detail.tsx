@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { toast } from 'sonner'
 import { ApiError, api } from '@/api'
+import { ExportButton } from '@/components/ExportButton'
 import { FormGrid } from '@/components/FormGrid'
 import { EmptyState, PageHeader } from '@/components/PageHeader'
 import { Badge } from '@/components/ui/badge'
@@ -137,12 +138,13 @@ export default function CountDetail() {
         crumbs={[{ label: 'Physical counts', to: '/counts' }, { label: `${count.officerShortName}, ${formatLongDate(count.asAt)}` }]}
         title={<span className="flex flex-wrap items-center gap-3">{title}<Badge variant={open ? 'default' : 'secondary'}>{open ? 'Open' : 'Closed'}</Badge></span>}
         description={`${count.typeLabel} · ${count.officerName}, ${count.officerPosition} · as at ${formatLongDate(count.asAt)}`}
-        actions={open ? (
+        actions={(
           <>
-            <Button variant="outline" onClick={() => refresh.mutate()} disabled={refresh.isPending}><RefreshCw /> Add new holdings</Button>
-            <Button onClick={() => setConfirmClose(true)}><Lock /> Close count</Button>
+            <ExportButton path={`/api/exports/${count.category === 'ppe' ? 'rpcppe' : 'rpcsp'}?countId=${count.id}`} label={`Export ${title}`} />
+            {open && <Button variant="outline" onClick={() => refresh.mutate()} disabled={refresh.isPending}><RefreshCw /> Add new holdings</Button>}
+            {open && <Button onClick={() => setConfirmClose(true)}><Lock /> Close count</Button>}
           </>
-        ) : undefined}
+        )}
       />
 
       <div className="grid gap-5 [&>*]:min-w-0">
