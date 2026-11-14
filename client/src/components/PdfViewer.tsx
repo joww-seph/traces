@@ -10,12 +10,14 @@ type Props = {
   url: string
   page: number
   onPageChange: (page: number) => void
+  /** Called once the page canvas has been drawn (its size is final from then on). */
+  onPageRender?: () => void
   /** Drawn on top of the page, covering it exactly (coordinates are fractions of the page). */
   children?: ReactNode
 }
 
 // Fits the page to the container width, so it also works at 360 px.
-export function PdfViewer({ url, page, onPageChange, children }: Props) {
+export function PdfViewer({ url, page, onPageChange, onPageRender, children }: Props) {
   const box = useRef<HTMLDivElement>(null)
   const [width, setWidth] = useState(0)
   const [pages, setPages] = useState(0)
@@ -50,7 +52,7 @@ export function PdfViewer({ url, page, onPageChange, children }: Props) {
             onLoadSuccess={(d) => setPages(d.numPages)} onLoadError={() => setError(true)}>
             {width > 0 && (
               <div className="relative" style={{ width }}>
-                <Page pageNumber={page} width={width} renderTextLayer={false} renderAnnotationLayer={false} />
+                <Page pageNumber={page} width={width} renderTextLayer={false} renderAnnotationLayer={false} onRenderSuccess={onPageRender} />
                 {children && <div className="absolute inset-0">{children}</div>}
               </div>
             )}

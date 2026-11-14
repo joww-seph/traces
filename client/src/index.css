@@ -150,3 +150,37 @@
     padding-top: 10px;
     padding-bottom: 10px;
 }
+
+/* QR sticker sheets (design §12): cells are real millimetres so a 100% print lands on the paper */
+.sticker-sheet {
+    display: grid;
+    gap: 3mm;
+    justify-content: start;
+}
+.sticker-sheet[data-size="1x1"] { grid-template-columns: repeat(6, 25.4mm); grid-auto-rows: 25.4mm; }
+.sticker-sheet[data-size="passport"] { grid-template-columns: repeat(4, 35mm); grid-auto-rows: 45mm; }
+.sticker {
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    break-inside: avoid;
+    background: #fff;
+    color: #000;
+    overflow: hidden;
+}
+.sticker img, .sticker-blank { width: 19mm; height: 19mm; display: block; }
+.sticker-no { font: 700 6.5pt/1.1 ui-monospace, "Cascadia Mono", Consolas, monospace; text-align: center; max-width: 100%; word-break: break-all; padding: 0 1mm; }
+.sticker-sheet[data-size="passport"] .sticker img,
+.sticker-sheet[data-size="passport"] .sticker-blank { width: 28mm; height: 28mm; }
+.sticker-sheet[data-size="passport"] .sticker-no { font-size: 8pt; }
+@media screen {
+    .sticker-sheet { background: #fff; padding: 4mm; border: 1px solid var(--border); border-radius: 8px; max-width: 100%; overflow-x: auto; }
+    .sticker { outline: 1px dashed #c7d2dc; }
+}
+@media print {
+    @page { size: A4; margin: 10mm; }
+    html, body { background: #fff !important; }
+    .sticker-sheet { background: none; }
+}

@@ -9,12 +9,17 @@ import Documents from '@/pages/documents/List'
 import NewDocument from '@/pages/documents/New'
 import LineForm from '@/pages/lines/LineForm'
 import Officers from '@/pages/officers/List'
+import Card from '@/pages/cards/Card'
 import Placeholder from '@/pages/Placeholder'
+import PropertyDetail from '@/pages/properties/Detail'
+import QrView from '@/pages/public/QrView'
+import Registry from '@/pages/registry/Registry'
+import StickerSheet from '@/pages/stickers/StickerSheet'
 
 const p = (title: string) => <Placeholder title={title} />
 
 export const router = createBrowserRouter([
-  { path: '/q/:token', element: p('Property view') }, // public; built in Task 16
+  { path: '/q/:token', element: <QrView /> }, // public, no login
   { path: '/login', element: <Login /> },
   {
     element: <RequireRole roles={['supply_admin', 'superadmin']} />,
@@ -27,13 +32,13 @@ export const router = createBrowserRouter([
         { path: 'documents/:id', element: <DocumentDetail /> },
         { path: 'documents/:id/lines/new', element: <LineForm /> },
         { path: 'lines/:lineId/edit', element: <LineForm /> },
-        { path: 'properties/:no', element: p('Property') },
-        { path: 'registry', element: p('Registry') },
-        { path: 'cards/:no', element: p('Card') },
+        { path: 'properties/:no', element: <PropertyDetail /> },
+        { path: 'registry', element: <Registry /> },
+        { path: 'cards/:no', element: <Card /> },
         { path: 'counts', element: p('Physical counts') },
         { path: 'counts/:id', element: p('Physical count') },
         { path: 'officers', element: <Officers /> },
-        { path: 'stickers', element: p('Stickers') },
+        { path: 'stickers', element: <StickerSheet /> },
         { path: 'account/password', element: <Password /> },
         {
           element: <RequireRole roles={['superadmin']} />,

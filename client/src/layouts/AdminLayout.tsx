@@ -94,18 +94,18 @@ export default function AdminLayout() {
   const onLogout = async () => { await logout(); navigate('/login') }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background print:bg-white">
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded-md focus:bg-card focus:px-3 focus:py-2">
         Skip to content
       </a>
 
       {/* desktop sidebar */}
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 overflow-y-auto bg-sidebar lg:block">
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 overflow-y-auto bg-sidebar lg:block print:hidden">
         <SidebarContents onLogout={onLogout} />
       </aside>
 
       {/* phone / tablet top bar with a slide-down menu */}
-      <header className="sticky top-0 z-30 flex items-center gap-3 bg-sidebar px-4 py-2.5 lg:hidden">
+      <header className="sticky top-0 z-30 flex items-center gap-3 bg-sidebar px-4 py-2.5 lg:hidden print:hidden">
         <button type="button" onClick={() => setMenuOpen((o) => !o)} aria-expanded={menuOpen} aria-controls="mobile-nav"
           aria-label={menuOpen ? 'Close menu' : 'Open menu'}
           className="grid size-9 place-items-center rounded-md text-white hover:bg-sidebar-accent focus-visible:outline-2 focus-visible:outline-sidebar-ring">
@@ -120,8 +120,8 @@ export default function AdminLayout() {
         </div>
       )}
 
-      <main id="main" className="lg:pl-64">
-        <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-10 lg:py-8">
+      <main id="main" className="lg:pl-64 print:pl-0">
+        <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-10 lg:py-8 print:max-w-none print:p-0">
           <Outlet />
         </div>
       </main>
