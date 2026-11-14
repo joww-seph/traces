@@ -5,7 +5,7 @@ import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 import { createApp } from '../app.js'
 import { pool } from '../db/client.js'
 import { testPool, resetDb } from './db.js'
-import { agentFor, loginAs, makeDocument } from './helpers.js'
+import { agentFor, itemFor, loginAs, makeDocument } from './helpers.js'
 
 const STORAGE = path.resolve(process.env.STORAGE_DIR!)
 beforeEach(async () => { await resetDb(); rmSync(STORAGE, { recursive: true, force: true }) })
@@ -15,11 +15,11 @@ async function seed() {
   const { agent } = await loginAs('supply_admin')
   const { doc } = await makeDocument(agent)
   const line = (await agent.post(`/api/documents/${doc.id}/lines`).send({
-    line: { qty: 1, unit: 'set', unitCostCentavos: 9645000, article: 'Laptop', description: 'Laptop set' },
+    line: { qty: 1, unitCostCentavos: 9645000, description: 'Laptop set', dateAcquired: '2026-02-01' }, item: itemFor(9645000),
     properties: [{ propertyNo: 'L-1' }, { propertyNo: 'L-1a', componentLabel: 'Mouse' }],
   })).body
   await agent.post(`/api/documents/${doc.id}/lines`).send({
-    line: { qty: 1, unit: 'unit', unitCostCentavos: 100000, article: 'Chair', description: 'Chair' }, properties: [{ propertyNo: 'S-1' }],
+    line: { qty: 1, unitCostCentavos: 100000, description: 'Chair', dateAcquired: '2026-02-01' }, item: itemFor(100000), properties: [{ propertyNo: 'S-1' }],
   })
   const token = async (no: string) =>
     (await testPool.query(`SELECT t.token FROM qr_tokens t JOIN properties p ON p.id=t.property_id WHERE p.property_no=$1 AND t.revoked_at IS NULL`, [no])).rows[0].token.trim() as string

@@ -3,14 +3,14 @@ import path from 'node:path'
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 import { pool } from '../db/client.js'
 import { testPool, resetDb } from './db.js'
-import { agentFor, loginAs, makeDocument } from './helpers.js'
+import { agentFor, itemFor, loginAs, makeDocument } from './helpers.js'
 
 const STORAGE = path.resolve(process.env.STORAGE_DIR!)
 beforeEach(async () => { await resetDb(); rmSync(STORAGE, { recursive: true, force: true }) })
 afterAll(async () => { rmSync(STORAGE, { recursive: true, force: true }); await pool.end(); await testPool.end() })
 
 const line = (cost: number, nos: { propertyNo: string; componentLabel?: string; oldPropertyNo?: string }[]) => ({
-  line: { qty: 1, unit: 'set', unitCostCentavos: cost, article: 'Laptop', description: 'Laptop set' }, properties: nos,
+  line: { qty: 1, unitCostCentavos: cost, description: 'Laptop set', dateAcquired: '2026-02-01' }, item: itemFor(cost), properties: nos,
 })
 
 async function setup() {

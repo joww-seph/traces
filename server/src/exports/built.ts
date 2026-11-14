@@ -78,7 +78,7 @@ export async function buildRpcsp(entityName: string, d: CountData) {
   cell(ws, 'A4', `As at ${formatLongDate(d.asAt)}`, { merge: 'A4:J4', alignment: center })
   cell(ws, 'A6', `Fund Cluster: ${d.fundCluster}`, { merge: 'A6:J6', font: heading })
   cell(ws, 'A7',
-    `For which ${d.officerName}, ${d.officerPosition}, ${entityName} is accountable, having assumed such accountability on ${d.assumptionDate ? formatLongDate(d.assumptionDate) : '________'}`,
+    `For which ${d.officerName}, ${d.officerPosition}, ${entityName} is accountable, having assumed such accountability on ________`,
     { merge: 'A7:J7', alignment: { vertical: 'middle', wrapText: true } })
   ws.getRow(7).height = 30
 
@@ -95,9 +95,9 @@ export async function buildRpcsp(entityName: string, d: CountData) {
   d.rows.forEach((x, i) => {
     const r = 11 + i
     const set = (col: string, v: ExcelJS.CellValue, numFmt?: string) => cell(ws, `${col}${r}`, v, { border: BOX, numFmt })
-    set('A', x.article); set('B', x.description); set('C', x.propertyNo); set('D', x.unit)
-    set('E', pesos(x.unitValueCentavos), MONEY); set('F', x.balancePerCard); set('G', x.qtyOnHand ?? '')
-    set('H', x.shortageOverageQty ?? ''); set('I', x.shortageOverageValueCentavos === null ? '' : pesos(x.shortageOverageValueCentavos), MONEY)
+    set('A', x.article); set('B', x.description); set('C', x.propertyNos.join('\n')); set('D', x.unit)
+    set('E', pesos(x.unitValueCentavos), MONEY); set('F', x.balancePerCard); set('G', '')
+    set('H', ''); set('I', '')
     set('J', x.remarks ?? '')
     sizeRow(ws, r, ['A', 'B', 'C', 'J'], { perLine: 12.5 })
   })

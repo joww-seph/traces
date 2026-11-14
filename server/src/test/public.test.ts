@@ -5,7 +5,7 @@ import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 import { createApp } from '../app.js'
 import { pool } from '../db/client.js'
 import { testPool, resetDb } from './db.js'
-import { loginAs, makeDocument } from './helpers.js'
+import { itemFor, loginAs, makeDocument } from './helpers.js'
 
 const STORAGE = path.resolve(process.env.STORAGE_DIR!)
 beforeEach(async () => { await resetDb(); rmSync(STORAGE, { recursive: true, force: true }) })
@@ -17,7 +17,8 @@ async function seed() {
   const { agent } = await loginAs('supply_admin')
   const { doc } = await makeDocument(agent)
   const made = await agent.post(`/api/documents/${doc.id}/lines`).send({
-    line: { qty: 1, unit: 'set', unitCostCentavos: 9645000, article: 'Laptop', description: 'Laptop set', estUsefulLifeYears: 5 },
+    line: { qty: 1, unitCostCentavos: 9645000, description: 'Laptop set', estUsefulLifeYears: 5, dateAcquired: '2026-02-01' },
+    item: itemFor(9645000),
     region: { page: 1, x: 0.1, y: 0.2, w: 0.8, h: 0.05 },
     properties: [{ propertyNo: 'L-1', serialNo: 'SN-1' }, { propertyNo: 'L-1a', componentLabel: 'Mouse' }],
   })
@@ -46,18 +47,22 @@ describe('GET /api/public/q/:token', () => {
   it('every tab highlights a row present in that tab, with opaque row ids', async () => {
     const { token } = await seed()
     const t = (await anon().get(`/api/public/q/${await token('L-1a')}`)).body.tabs
-    for (const tab of ['icsPar', 'registry', 'card'] as const) {
+    for (const tab of ['icsPar', 'registry', 'report'] as const) {
       expect(t[tab].rows.map((r: { id: string }) => r.id), tab).toContain(t[tab].highlightRowId)
-      expect(t[tab].highlightRowId).toMatch(/^[lgc]\d+$/)
+      expect(t[tab].highlightRowId).toMatch(/^[lgr]\d+$/)
     }
-    expect(t.report).toEqual({ empty: 'NOT_COUNTED' })
+    expect(t.card.highlightRowIds.length).toBeGreaterThan(0)
+    for (const id of t.card.highlightRowIds) {
+      expect(t.card.rows.map((r: { id: string }) => r.id)).toContain(id)
+      expect(id).toMatch(/^c\d+$/)
+    }
   })
 
   it('registry is limited to the same document', async () => {
     const { agent, token } = await seed()
     const other = await makeDocument(agent, { type: 'PAR', docNo: '2025-RO-68', issuedDate: '2025-05-31' })
     await agent.post(`/api/documents/${other.doc.id}/lines`).send({
-      line: { qty: 1, unit: 'unit', unitCostCentavos: 9200000, article: 'Hood', description: 'Fume hood' }, properties: [{ propertyNo: 'P-1' }],
+      line: { qty: 1, unitCostCentavos: 9200000, description: 'Fume hood', dateAcquired: '2025-01-01' }, item: itemFor(9200000), properties: [{ propertyNo: 'P-1' }],
     })
     const reg = (await anon().get(`/api/public/q/${await token('L-1')}`)).body.tabs.registry
     expect(reg.rows).toHaveLength(1)
@@ -93,7 +98,7 @@ describe('GET /api/public/q/:token', () => {
     expect(line.body.error.code).toBe('ITEM_REMOVED')
     // document removal on a fresh item
     const second = await agent.post(`/api/documents/${doc.id}/lines`).send({
-      line: { qty: 1, unit: 'unit', unitCostCentavos: 100000, article: 'X', description: 'Y' }, properties: [{ propertyNo: 'X-1' }],
+      line: { qty: 1, unitCostCentavos: 100000, description: 'Y', dateAcquired: '2026-02-01' }, item: itemFor(100000), properties: [{ propertyNo: 'X-1' }],
     })
     expect(second.status).toBe(201)
     const c = await token('X-1')
