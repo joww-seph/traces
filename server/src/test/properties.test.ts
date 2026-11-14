@@ -3,7 +3,7 @@ import path from 'node:path'
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 import { pool } from '../db/client.js'
 import { testPool, resetDb } from './db.js'
-import { agentFor, itemFor, loginAs, makeDocument } from './helpers.js'
+import { agentFor, itemFor, loginAs, makeDocument, signDocument } from './helpers.js'
 
 const STORAGE = path.resolve(process.env.STORAGE_DIR!)
 beforeEach(async () => { await resetDb(); rmSync(STORAGE, { recursive: true, force: true }) })
@@ -73,6 +73,8 @@ describe('dashboard', () => {
     expect((await agent.get('/api/dashboard')).body).toEqual({
       documents: { ICS: 0, PAR: 0 },
       categories: { semi: { properties: 0, mainUnits: 0, valueCentavos: 0 }, ppe: { properties: 0, mainUnits: 0, valueCentavos: 0 } },
+      cards: 2, // the two default test cards
+      unsignedDocuments: 0,
     })
     const { doc } = await makeDocument(agent)
     await agent.post(`/api/documents/${doc.id}/lines`).send(line(9645000, [{ propertyNo: 'P-1' }, { propertyNo: 'P-1a', componentLabel: 'Mouse' }]))
@@ -81,6 +83,9 @@ describe('dashboard', () => {
     expect(res.body.documents).toEqual({ ICS: 1, PAR: 0 })
     expect(res.body.categories.ppe).toEqual({ properties: 2, mainUnits: 1, valueCentavos: 9645000 })
     expect(res.body.categories.semi).toEqual({ properties: 1, mainUnits: 1, valueCentavos: 4870000 })
+    expect(res.body.unsignedDocuments).toBe(1) // no signed copy yet
+    await signDocument(agent, doc.id)
+    expect((await agent.get('/api/dashboard')).body.unsignedDocuments).toBe(0)
   })
 
   it('ignores deleted documents and lines; anonymous -> 401', async () => {

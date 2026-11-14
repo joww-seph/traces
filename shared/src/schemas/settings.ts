@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { nonEmpty } from './common.js'
+import { nonEmpty, uuid } from './common.js'
 
 export const settingsPatch = z.object({
   entityName: nonEmpty,
@@ -12,4 +12,5 @@ export const settingsPatch = z.object({
   icsFormRevision: nonEmpty,
   parFormCode: nonEmpty,
   parFormRevision: nonEmpty,
+  defaultIssuedByOfficerId: uuid.nullable(), // the supply officer printed as issuer on generated ICS/PAR
 }).partial()

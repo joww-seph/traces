@@ -163,4 +163,15 @@ describe('audit log', () => {
     expect(row.before.cardRowMode).toBe('merged')
     expect(row.after.cardRowMode).toBe('split')
   })
+
+  it('the default issuer of generated ICS/PAR can be set, cleared and must be a real officer', async () => {
+    const { agent } = await loginAs('superadmin')
+    const officer = (await agent.post('/api/officers').send({ fullName: 'Supply Officer', shortName: 'SOfficer', position: 'Supply Officer IV' })).body
+    const set = await agent.patch('/api/admin/settings').send({ defaultIssuedByOfficerId: officer.id })
+    expect(set.status).toBe(200)
+    expect((await agent.get('/api/settings')).body.defaultIssuedByOfficerId).toBe(officer.id)
+    expect((await agent.patch('/api/admin/settings').send({ defaultIssuedByOfficerId: '00000000-0000-4000-8000-0000000000ff' })).status).toBe(400)
+    expect((await agent.patch('/api/admin/settings').send({ defaultIssuedByOfficerId: null })).status).toBe(200)
+    expect((await agent.get('/api/settings')).body.defaultIssuedByOfficerId).toBeNull()
+  })
 })
