@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
-  categorize, formatLongDate, formatPeso, isIsoDate, lineInput, loginInput, nextInSequence,
-  normalizePropertyNo, pesoToCentavos, userCreate,
+  categorize, formatLongDate, formatPeso, formatPropertyNo, isIsoDate, itemInput, lineInput, loginInput, nextComponentSuffix,
+  nextInSequence, normalizePropertyNo, parseSeries, pesoToCentavos, propertyTypeInput, reportQuery, userCreate,
 } from '../index.js'
 
 describe('money', () => {
@@ -58,13 +58,27 @@ describe('propertyNo', () => {
 })
 
 const goodLine = {
-  line: { qty: 1, unit: 'set', unitCostCentavos: 9645000, article: 'Laptop', description: 'Laptop set', estUsefulLifeYears: 5 },
+  line: { qty: 1, unitCostCentavos: 9645000, description: 'Laptop set', estUsefulLifeYears: 5, dateAcquired: '2026-09-01' },
+  item: { itemId: '0b6f2c1e-8a3d-4c55-9b1e-3f2a7d9c4e10' },
   properties: [{ propertyNo: '2026-09ICT-0199' }, { propertyNo: '2026-09ICT-0199a', componentLabel: 'Mouse' }],
 }
 
 describe('lineInput', () => {
   it('accepts a valid line', () => {
     expect(lineInput.safeParse(goodLine).success).toBe(true)
+  })
+  it('rejects a missing dateAcquired and an unknown key', () => {
+    const { dateAcquired: _d, ...noDate } = goodLine.line
+    expect(lineInput.safeParse({ ...goodLine, line: noDate }).success).toBe(false)
+    expect(lineInput.safeParse({ ...goodLine, line: { ...goodLine.line, article: 'Laptop' } }).success).toBe(false)
+  })
+  it('takes the card as an existing id or a new one, not both and not neither', () => {
+    const newCard = { new: { propertyTypeId: 1, article: 'Laptop', description: 'Lenovo ThinkPad E14 Gen 5', unit: 'unit' } }
+    expect(lineInput.safeParse({ ...goodLine, item: newCard }).success).toBe(true)
+    expect(lineInput.safeParse({ ...goodLine, item: { ...newCard, itemId: goodLine.item.itemId } }).success).toBe(false)
+    expect(lineInput.safeParse({ ...goodLine, item: {} }).success).toBe(false)
+    const { item: _i, ...noItem } = goodLine
+    expect(lineInput.safeParse(noItem).success).toBe(false)
   })
   it('rejects qty 0', () => {
     expect(lineInput.safeParse({ ...goodLine, line: { ...goodLine.line, qty: 0 } }).success).toBe(false)
@@ -91,5 +105,42 @@ describe('auth + user schemas', () => {
     expect(userCreate.safeParse(base).success).toBe(true)
     expect(userCreate.safeParse({ ...base, role: 'root' }).success).toBe(false)
     expect(userCreate.safeParse({ ...base, email: 'nope' }).success).toBe(false)
+  })
+})
+
+describe('property number series', () => {
+  it('parses the YYYY-MMTYPE-NNNN format', () => {
+    expect(parseSeries('2026-03ICT-0187')).toEqual({ year: 2026, month: 3, code: 'ICT', n: 187, suffix: '' })
+    expect(parseSeries('2026-09ICT-202')).toMatchObject({ n: 202 })
+    expect(parseSeries('2026-09ICT-0199a')).toMatchObject({ n: 199, suffix: 'a' })
+  })
+  it('ignores older formats', () => {
+    expect(parseSeries('1998-05-140-TSE000-RSTL15')).toBeNull()
+  })
+  it('formats with 4 digits and the month of acquisition', () => {
+    expect(formatPropertyNo({ year: 2026, month: 3, code: 'ICT', n: 7 })).toBe('2026-03ICT-0007')
+    expect(formatPropertyNo({ year: 2026, month: 10, code: 'OE', n: 12345 })).toBe('2026-10OE-12345')
+  })
+  it('picks the next free component letter', () => {
+    expect(nextComponentSuffix([])).toBe('a')
+    expect(nextComponentSuffix(['a', 'b'])).toBe('c')
+    expect(nextComponentSuffix(['b'])).toBe('a')
+  })
+})
+
+describe('property types, cards and reports', () => {
+  it('property type code is 2-8 capital letters', () => {
+    expect(propertyTypeInput.safeParse({ code: 'ICT', name: 'x' }).success).toBe(true)
+    expect(propertyTypeInput.safeParse({ code: 'ict1', name: 'x' }).success).toBe(false)
+  })
+  it('a card needs type, article, model and unit', () => {
+    expect(itemInput.safeParse({ propertyTypeId: 1, article: 'Laptop', description: 'ThinkPad', unit: 'unit' }).success).toBe(true)
+    expect(itemInput.safeParse({ propertyTypeId: 1, article: 'Laptop', description: '', unit: 'unit' }).success).toBe(false)
+  })
+  it('the report needs an officer and a category; the type and date are optional', () => {
+    const id = '0b6f2c1e-8a3d-4c55-9b1e-3f2a7d9c4e10'
+    expect(reportQuery.safeParse({ officerId: id, category: 'ppe' }).success).toBe(true)
+    expect(reportQuery.safeParse({ officerId: id, category: 'ppe', typeId: '2', asAt: '2026-12-31' })).toMatchObject({ success: true, data: { typeId: 2 } })
+    expect(reportQuery.safeParse({ category: 'ppe' }).success).toBe(false)
   })
 })
