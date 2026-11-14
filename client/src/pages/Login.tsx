@@ -31,13 +31,13 @@ function BrandBlock({ large }: { large?: boolean }) {
   )
 }
 
-// Desktop only: the DOST Ilocos building sits, scaled down, at the bottom left. Phones skip the illustration so the form is reachable at once.
+// Desktop only: the DOST Ilocos building spans the narrow left panel, at its bottom. Phones skip the illustration so the form is reachable at once.
 function BrandPanel() {
   return (
     <section aria-label="TRACES" className="relative isolate hidden min-h-screen items-center justify-center overflow-hidden bg-[#baccd8] px-10 pb-[25vh] lg:flex">
-      {/* the whole art at 25% of the screen width, proportions kept, flush with the panel's left edge; only the top (plain sky) fades */}
+      {/* the whole art, proportions kept, as wide as the narrow brand panel; only its top (plain sky) fades */}
       <img src="/login-bg.webp" alt="" style={{ maskImage: 'linear-gradient(to bottom, transparent, #000 25%)', clipPath: 'inset(0 2px 0 0)' }}
-        className="absolute bottom-0 left-0 -z-10 h-auto w-[25vw] max-w-none duration-700 animate-in fade-in" />
+        className="absolute inset-x-0 bottom-0 -z-10 h-auto w-full duration-700 animate-in fade-in" />
       <BrandBlock large />
     </section>
   )
@@ -67,7 +67,7 @@ export default function Login() {
   })
 
   return (
-    <div className="grid min-h-dvh bg-background lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
+    <div className="grid min-h-dvh bg-background lg:grid-cols-[minmax(0,0.6fr)_minmax(0,1fr)]">
       <BrandPanel />
 
       <main className="relative flex min-h-dvh flex-col px-5 pt-8 pb-6 sm:px-10 lg:px-16 lg:py-10">
