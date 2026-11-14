@@ -14,31 +14,35 @@ export type RegistryRow = {
   disposedQty: number; balanceQty: number; amountCentavos: number; remarks: string | null; fundCluster: string
 }
 export type CardRow = {
-  id: string; date: string; reference: string | null; receiptQty: number | null; unitCostCentavos: number; totalCostCentavos: number | null
+  id: string; lineId?: string; date: string; reference: string | null; receiptQty: number | null; unitCostCentavos: number; totalCostCentavos: number | null
   issueItemNo: string | null; issueQty: number | null; officer: string | null; officerFullName: string | null
   balanceQty: number; amountCentavos: number; remarks: string | null
 }
-export type CountRow = {
-  id: string; article: string; description: string; propertyNo: string; unit: string; unitValueCentavos: number
-  balancePerCard: number; qtyOnHand: number | null; shortageOverageQty: number | null; shortageOverageValueCentavos: number | null
-  remarks: string | null; ownRemarks?: string | null
+// RPCSP / RPCPPE row: On Hand per Count and Shortage/Overage are printed blank, so they are not in the data.
+export type ReportRow = {
+  id: string; article: string; description: string; propertyNos: string[]; unit: string; unitValueCentavos: number
+  balancePerCard: number; reference: string; remarks: string | null
 }
 type Tab<H, R> = { header: H; rows: R[]; highlightRowId: string | null }
 export type PropertyView = {
-  property: { propertyNo: string; serialNo: string | null; oldPropertyNo: string | null; componentLabel: string | null
+  property: { propertyNo: string; serialNo: string | null; oldPropertyNo: string | null; componentLabel: string | null; partOfSetNo: string | null
     condition: 'serviceable' | 'unserviceable'; category: 'semi' | 'ppe'; token?: string | null }
-  line: { article: string; description: string; qty: number; unit: string; unitCostCentavos: number; totalCostCentavos: number
+  line: { itemId?: string; article: string; description: string; qty: number; unit: string; unitCostCentavos: number; totalCostCentavos: number
     estUsefulLifeYears: number | null; dateAcquired: string | null }
   document: { type: 'ICS' | 'PAR'; docNo: string; fundCluster: string; issuedDate: string
-    issuedBy: { name: string; position: string }; receivedBy: { name: string; position: string }; pdfUrl: string | null; pdfRegion: Region | null }
+    issuedBy: { name: string; position: string }; receivedBy: { name: string; position: string }
+    pdfUrl: string | null; pdfRegion: Region | null; signed: boolean }
   tabs: {
     icsPar: Tab<{ title: string; type: 'ICS' | 'PAR'; docNo: string; fundCluster: string; entityName: string }, IcsParRow>
     report: Tab<{
       title: string; typeLabel: string; asAt: string; fundCluster: string; entityName: string; officerName: string; officerPosition: string
-      assumptionDate: string | null; status: 'open' | 'closed'; signatories: { role: string; name: string; position: string | null }[]
-    }, CountRow> | { empty: 'NOT_COUNTED' }
-    registry: Tab<{ title: string; category: 'semi' | 'ppe'; entityName: string; fundCluster: string }, RegistryRow>
-    card: Tab<{ title: string; category: 'semi' | 'ppe'; entityName: string; fundCluster: string; propertyNo: string; article: string; description: string }, CardRow>
+    }, ReportRow> | { empty: 'NOT_ISSUED' }
+    registry: Tab<{ title: string; category: 'semi' | 'ppe'; typeName: string; entityName: string; fundCluster: string }, RegistryRow>
+    card: {
+      header: { title: string; category: 'semi' | 'ppe'; entityName: string; fundCluster: string; article: string; description: string; typeName: string
+        propertyNoFirst: string | null; propertyNoLast: string | null }
+      rows: CardRow[]; highlightRowIds: string[]
+    }
   }
 }
 
@@ -103,32 +107,16 @@ export const cardColumns = (category: 'semi' | 'ppe'): Cols<CardRow> => [
   { headerName: 'Remarks', field: 'remarks', minWidth: 160, flex: 1 },
 ] as Cols<CardRow>
 
-// `editable`: the open count grid lets staff type On Hand per Count and Remarks straight into the cells.
-export const countColumns = (editable = false): Cols<CountRow> => [
+// The officer report (RPCSP / RPCPPE): "On Hand per Count" and "Shortage/Overage" stay empty, they are filled in by hand when printed.
+export const reportColumns: Cols<ReportRow> = [
   { headerName: 'Article', field: 'article', width: 150 },
   { headerName: 'Description', field: 'description', flex: 2, minWidth: 220, cellClass: 'traces-pre' },
-  { headerName: 'Property No.', field: 'propertyNo', width: 180 },
+  { headerName: 'Property No.', valueGetter: (p) => p.data?.propertyNos.join('
+'), cellClass: 'traces-pre', minWidth: 190 },
   { headerName: 'Unit of Measure', field: 'unit', width: 110 },
-  moneyCol('unitValueCentavos', 'Unit Value', { width: 140 }) as ColDef<CountRow>,
+  moneyCol('unitValueCentavos', 'Unit Value', { width: 140 }) as ColDef<ReportRow>,
   { headerName: 'Balance per Card', children: [num('Qty.', 'balancePerCard', { width: 90 })] },
-  {
-    headerName: 'On Hand per Count',
-    children: [num('Qty.', 'qtyOnHand', {
-      width: 110, valueFormatter: (p) => dash(p.value), editable,
-      cellClass: editable ? 'traces-editable' : undefined,
-      // blank = not counted yet; anything else must be a whole number, 0 or more
-      valueParser: (p) => { const t = String(p.newValue ?? '').trim(); if (t === '') return null; const n = Number(t); return Number.isInteger(n) && n >= 0 ? n : p.oldValue },
-    })],
-  },
-  {
-    headerName: 'Shortage/Overage',
-    children: [
-      num('Qty.', 'shortageOverageQty', { width: 90, valueFormatter: (p) => dash(p.value) }),
-      moneyCol('shortageOverageValueCentavos', 'Value', { width: 140 }),
-    ],
-  },
-  {
-    headerName: 'Remarks', field: 'ownRemarks', minWidth: 200, flex: 1, editable, cellClass: editable ? 'traces-pre traces-editable' : 'traces-pre',
-    valueFormatter: (p) => p.data?.remarks ?? '', // shows the typed remark plus the old P# line
-  },
-] as Cols<CountRow>
+  { headerName: 'On Hand per Count', children: [{ headerName: 'Qty.', width: 100, valueGetter: () => '' }] },
+  { headerName: 'Shortage/Overage', children: [{ headerName: 'Qty.', width: 90, valueGetter: () => '' }, { headerName: 'Value', width: 110, valueGetter: () => '' }] },
+  { headerName: 'Remarks', field: 'remarks', minWidth: 200, flex: 1, cellClass: 'traces-pre', valueFormatter: (p) => p.value ?? '' },
+]

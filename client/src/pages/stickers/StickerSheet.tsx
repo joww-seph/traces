@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { Printer, TriangleAlert } from 'lucide-react'
 import QRCode from 'qrcode'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
 import { api } from '@/api'
 import { NativeSelect } from '@/components/NativeSelect'
@@ -66,8 +66,8 @@ function Sheet({ stickers, size }: { stickers: Sticker[]; size: Size }) {
   }, [stickers])
   return (
     <div className="sticker-sheet" data-size={size} data-testid="sticker-sheet">
-      {stickers.map((s) => (
-        <figure key={s.url} className="sticker">
+      {stickers.map((s, i) => (
+        <figure key={`${s.url}-${i}`} className="sticker">
           {images[s.url] ? <img src={images[s.url]} alt={`QR code for ${s.propertyNo}`} /> : <span className="sticker-blank" aria-hidden />}
           <figcaption className="sticker-no">{s.propertyNo}</figcaption>
         </figure>
@@ -81,9 +81,13 @@ export default function StickerSheet() {
   const documentId = params.get('documentId')
   const nos = params.get('nos')
   const [size, setSize] = useState<Size>('1x1')
+  const [copies, setCopies] = useState<Record<string, number>>({}) // per property number, default 1
   const { data: settings } = useSettings()
   const qs = documentId ? `documentId=${documentId}` : nos ? `nos=${encodeURIComponent(nos)}` : ''
   const { data, isLoading, error } = useQuery({ queryKey: ['stickers', qs], enabled: !!qs, retry: false, queryFn: () => api.get<Sticker[]>(`/api/stickers?${qs}`) })
+
+  // every property prints `copies` times (a bigger item may want a sticker on each side); memoised so the QR images are not redrawn on every render
+  const sheet = useMemo(() => data?.flatMap((st) => Array.from({ length: copies[st.propertyNo] ?? 1 }, () => st)), [data, copies])
 
   if (!qs) {
     return (<><PageHeader title="Stickers" description="Print QR stickers for the items of one document, or for specific property numbers. Every property number, including components, gets its own sticker." /><Picker /></>)
@@ -95,7 +99,7 @@ export default function StickerSheet() {
     <>
       <div className="print:hidden">
         <PageHeader crumbs={[{ label: 'Stickers', to: '/stickers' }, { label: 'Sheet' }]} title="Sticker sheet"
-          description={data ? `${data.length} ${data.length === 1 ? 'sticker' : 'stickers'} · ${Math.max(1, Math.ceil(data.length / perSheet))} A4 ${Math.ceil(data.length / perSheet) === 1 ? 'sheet' : 'sheets'}` : undefined}
+          description={sheet ? `${sheet.length} ${sheet.length === 1 ? 'sticker' : 'stickers'} · ${Math.max(1, Math.ceil(sheet.length / perSheet))} A4 ${Math.ceil(sheet.length / perSheet) === 1 ? 'sheet' : 'sheets'}` : undefined}
           actions={<Button onClick={() => window.print()} disabled={!data?.length}><Printer /> Print</Button>} />
 
         {test && settings && (
@@ -116,11 +120,27 @@ export default function StickerSheet() {
           </div>
           <p className="text-sm text-muted-foreground">{SIZES.find((s) => s.id === size)!.detail}. Print at 100% scale (no “fit to page”), on A4 sticker paper.</p>
         </div>
+
+        {data && data.length > 0 && (
+          <details className="mb-5 rounded-lg border bg-card p-3">
+            <summary className="cursor-pointer text-sm font-medium">Copies per property number</summary>
+            <ul className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {data.map((st) => (
+                <li key={st.propertyNo} className="flex items-center justify-between gap-3 text-sm">
+                  <label htmlFor={`copies-${st.propertyNo}`} className="figures truncate">{st.propertyNo}</label>
+                  <input id={`copies-${st.propertyNo}`} type="number" min={1} max={20} className="h-8 w-16 rounded-lg border border-input bg-transparent px-2 text-right"
+                    value={copies[st.propertyNo] ?? 1}
+                    onChange={(e) => setCopies({ ...copies, [st.propertyNo]: Math.min(20, Math.max(1, Math.floor(Number(e.target.value)) || 1)) })} />
+                </li>
+              ))}
+            </ul>
+          </details>
+        )}
       </div>
 
       {isLoading && <p className="text-sm text-muted-foreground print:hidden">Preparing stickers</p>}
       {error && <div className="print:hidden"><EmptyState title="No stickers found" action={<Link to="/stickers" className={buttonVariants()}>Choose again</Link>}>No active QR codes match. Check the document or the property numbers.</EmptyState></div>}
-      {data && <Sheet stickers={data} size={size} />}
+      {sheet && <Sheet stickers={sheet} size={size} />}
     </>
   )
 }

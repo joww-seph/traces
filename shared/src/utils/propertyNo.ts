@@ -38,3 +38,21 @@ export function nextComponentSuffix(existing: string[]): string {
   }
   throw new Error('A set can have at most 26 components')
 }
+
+export type NumberSlot = { groupKey: string; year: number; month: number; code: string; typed: string }
+
+// The entry form fills every empty property number with the next one of its series (year + type). `bases[groupKey]` is
+// the first free running number the server suggested for that group. Numbers typed anywhere on the form are kept and
+// skipped, so two rows never get the same suggestion; the unique index on the server stays the real guard.
+export function suggestNumbers(slots: NumberSlot[], bases: Record<string, number>): string[] {
+  const taken = new Set(slots.map((s) => s.typed.trim().toUpperCase()).filter(Boolean))
+  const next = { ...bases }
+  return slots.map((s) => {
+    if (s.typed.trim()) return s.typed.trim()
+    for (;;) {
+      const no = formatPropertyNo({ year: s.year, month: s.month, code: s.code, n: next[s.groupKey] ?? 1 })
+      next[s.groupKey] = (next[s.groupKey] ?? 1) + 1
+      if (!taken.has(no.toUpperCase())) { taken.add(no.toUpperCase()); return no }
+    }
+  })
+}

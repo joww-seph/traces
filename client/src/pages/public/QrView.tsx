@@ -56,7 +56,7 @@ export default function QrView() {
             <span className="text-xs text-muted-foreground">{p.category === 'ppe' ? 'Property, plant and equipment' : 'Semi-expendable'}</span>
           </div>
           <h1 className="mt-2 text-2xl font-bold break-words">{l.article}</h1>
-          <p className="figures text-sm text-muted-foreground">{p.propertyNo}{p.componentLabel ? ` · ${p.componentLabel}` : ''} · {d.type} {d.docNo}</p>
+          <p className="figures text-sm text-muted-foreground">{p.propertyNo}{p.componentLabel ? ` · ${p.componentLabel}${p.partOfSetNo ? `, part of set ${p.partOfSetNo}` : ''}` : ''} · {d.type} {d.docNo}</p>
         </div>
         <PropertySummary view={data} />
         <PropertyTabs view={data} />

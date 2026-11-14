@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { formatLongDate, formatPeso } from '@traces/shared'
-import { FilePlus2 } from 'lucide-react'
+import { BookOpen, ClipboardList, FilePlus2, FileText, FileWarning, Layers, type LucideIcon } from 'lucide-react'
 import { Link } from 'react-router'
 import { api } from '@/api'
 import { EmptyState, PageHeader } from '@/components/PageHeader'
@@ -9,9 +9,20 @@ import { buttonVariants } from '@/components/ui/button'
 
 type DocRow = { id: string; type: 'ICS' | 'PAR'; docNo: string; issuedDate: string; receivedByShort: string }
 type Stat = { properties: number; mainUnits: number; valueCentavos: number }
-type Summary = { documents: { ICS: number; PAR: number }; categories: { semi: Stat; ppe: Stat } }
+type Summary = { documents: { ICS: number; PAR: number }; categories: { semi: Stat; ppe: Stat }; cards: number; unsignedDocuments: number }
 
 const plural = (n: number, one: string, many = `${one}s`) => `${n.toLocaleString('en-PH')} ${n === 1 ? one : many}`
+
+// A tile that opens its page: the dashboard is where most work starts.
+function Tile({ to, label, value, note, Icon, warn }: { to: string; label: string; value?: number; note: string; Icon: LucideIcon; warn?: boolean }) {
+  return (
+    <Link to={to} className="group grid content-start gap-1 rounded-xl border bg-card p-4 transition-colors hover:bg-accent/60 focus-visible:outline-2 focus-visible:outline-ring">
+      <span className="flex items-center gap-2 text-sm font-medium"><Icon aria-hidden className={`size-4 ${warn && value ? 'text-amber-600' : 'text-primary'}`} />{label}</span>
+      <span className="figures font-display text-2xl font-bold">{value === undefined ? ' ' : value.toLocaleString('en-PH')}</span>
+      <span className="text-xs text-muted-foreground group-hover:text-foreground">{note}</span>
+    </Link>
+  )
+}
 
 function Category({ name, form, stat, share, tone }: { name: string; form: string; stat?: Stat; share: number; tone: string }) {
   return (
@@ -44,8 +55,16 @@ export default function Dashboard() {
       <PageHeader
         title="Dashboard"
         description="Value and item counts come straight from every ICS and PAR line on record."
-        actions={<Link to="/documents/new" className={buttonVariants()}><FilePlus2 /> New ICS or PAR</Link>}
+        actions={<Link to="/issue" className={buttonVariants()}><FilePlus2 /> New issuance</Link>}
       />
+
+      <section aria-label="Shortcuts" className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+        <Tile to="/cards" label="Cards" value={s?.cards} note="One per model" Icon={Layers} />
+        <Tile to="/registry" label="Registry" value={s && s.categories.semi.mainUnits + s.categories.ppe.mainUnits} note="Items issued" Icon={BookOpen} />
+        <Tile to="/reports" label="Reports" note="RPCSP and RPCPPE by officer" Icon={ClipboardList} />
+        <Tile to="/documents" label="ICS and PAR" value={s && s.documents.ICS + s.documents.PAR} note="All documents" Icon={FileText} />
+        <Tile to="/documents?status=unsigned" label="Unsigned ICS/PAR" value={s?.unsignedDocuments} note="Entries without a signed copy" Icon={FileWarning} warn />
+      </section>
 
       <section aria-label="Totals" className="grid overflow-hidden rounded-xl border bg-card md:grid-cols-[1fr_1fr_minmax(0,0.7fr)] md:divide-x max-md:divide-y">
         <Category name="Semi-expendable" form="ICS, RegSPI, RPCSP" stat={s?.categories.semi} share={share(s?.categories.semi.valueCentavos)} tone="bg-cyan" />
@@ -67,8 +86,8 @@ export default function Dashboard() {
         </div>
         {docs.data && !docs.data.rows.length ? (
           <EmptyState title="No ICS or PAR yet"
-            action={<Link to="/documents/new" className={buttonVariants()}>Enter the first document</Link>}>
-            Upload a signed ICS or PAR and enter its lines once; cards, registry rows and stickers follow from it.
+            action={<Link to="/issue" className={buttonVariants()}>Enter the first issuance</Link>}>
+            Enter an issuance once; the cards, registry rows, report and the ICS or PAR itself follow from it.
           </EmptyState>
         ) : (
           <div className="overflow-hidden rounded-xl border bg-card">

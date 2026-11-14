@@ -38,7 +38,7 @@ describe('GET /api/public/q/:token', () => {
     expect(res.headers['x-robots-tag']).toBe('noindex')
     const text = JSON.stringify(res.body)
     expect(text).not.toMatch(UUID)
-    for (const banned of ['createdBy', 'email', 'passwordHash', 'userId', 'actor']) expect(text).not.toContain(banned)
+    for (const banned of ['createdBy', 'email', 'passwordHash', 'userId', 'actor', 'itemId']) expect(text).not.toContain(banned)
     expect(res.body.property).toMatchObject({ propertyNo: 'L-1', serialNo: 'SN-1', category: 'ppe' })
     expect(res.body.property).not.toHaveProperty('token')
     expect(res.body.document.pdfUrl).toMatch(/^\/api\/public\/q\/[0-9A-Za-z]{10}\/pdf$/)

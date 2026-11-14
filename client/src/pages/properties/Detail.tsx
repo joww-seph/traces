@@ -87,7 +87,8 @@ export default function PropertyDetail() {
         title={<span className="flex flex-wrap items-center gap-3"><TypeBadge type={d.type} className="h-7 w-12 text-sm" /><span className="figures">{p.propertyNo}</span></span>}
         description={`${l.article}${p.componentLabel ? `, ${p.componentLabel}` : ''}`}
         actions={<>
-          <ExportButton path={`/api/exports/${p.category === 'semi' ? 'spc' : 'pc'}?no=${encodeURIComponent(p.propertyNo)}`} label={p.category === 'semi' ? 'Export SPC' : 'Export PC'} />
+          {l.itemId && <ExportButton path={`/api/exports/${p.category === 'semi' ? 'spc' : 'pc'}?itemId=${l.itemId}`} label={p.category === 'semi' ? 'Export SPC' : 'Export PC'} />}
+          {l.itemId && <Link to={`/cards/${l.itemId}`} className={buttonVariants({ variant: 'outline' })}>Open the card</Link>}
           <Link to={`/stickers?nos=${encodeURIComponent(p.propertyNo)}`} className={buttonVariants({ variant: 'outline' })}><QrCode /> Print sticker</Link>
           <Button variant="outline" onClick={() => setConfirm(true)}><RefreshCw /> Replace QR code</Button>
         </>}

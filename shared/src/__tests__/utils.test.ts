@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   categorize, formatLongDate, formatPeso, formatPropertyNo, isIsoDate, itemInput, lineInput, loginInput, nextComponentSuffix,
-  nextInSequence, normalizePropertyNo, parseSeries, pesoToCentavos, propertyTypeInput, reportQuery, userCreate,
+  nextInSequence, normalizePropertyNo, parseSeries, suggestNumbers, pesoToCentavos, propertyTypeInput, reportQuery, userCreate,
 } from '../index.js'
 
 describe('money', () => {
@@ -142,5 +142,20 @@ describe('property types, cards and reports', () => {
     expect(reportQuery.safeParse({ officerId: id, category: 'ppe' }).success).toBe(true)
     expect(reportQuery.safeParse({ officerId: id, category: 'ppe', typeId: '2', asAt: '2026-12-31' })).toMatchObject({ success: true, data: { typeId: 2 } })
     expect(reportQuery.safeParse({ category: 'ppe' }).success).toBe(false)
+  })
+})
+
+describe('suggestNumbers (the entry form fills the empty property numbers)', () => {
+  const slot = (over: object = {}) => ({ groupKey: '2026|1', year: 2026, month: 10, code: 'ICT', typed: '', ...over })
+  it('continues the series of each year + type from its base, in order, with the month of each row', () => {
+    const out = suggestNumbers([slot(), slot({ month: 11 }), slot({ groupKey: '2026|3', code: 'OE' }), slot()], { '2026|1': 203, '2026|3': 8 })
+    expect(out).toEqual(['2026-10ICT-0203', '2026-11ICT-0204', '2026-10OE-0008', '2026-10ICT-0205'])
+  })
+  it('keeps what was typed and never suggests a number that is already on the form', () => {
+    const out = suggestNumbers([slot({ typed: '2026-10ICT-0204' }), slot(), slot(), slot({ typed: 'LEGACY-1' })], { '2026|1': 203 })
+    expect(out).toEqual(['2026-10ICT-0204', '2026-10ICT-0203', '2026-10ICT-0205', 'LEGACY-1'])
+  })
+  it('does not collide case-insensitively and starts at 1 without a base', () => {
+    expect(suggestNumbers([slot({ typed: '2026-10ict-0001' }), slot()], {})).toEqual(['2026-10ict-0001', '2026-10ICT-0002'])
   })
 })

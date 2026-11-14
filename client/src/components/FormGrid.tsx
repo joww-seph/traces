@@ -25,6 +25,8 @@ type Props<T> = {
   /** Field holding each row's unique id (also what highlightRowId matches). */
   idKey?: keyof T & string
   highlightRowId?: string | number | null
+  /** Several rows to highlight (a model card marks every row of the scanned line). */
+  highlightRowIds?: string[]
   /** Fixed height in px for long grids; omit to size to the rows. */
   height?: number
   onRowClicked?: (row: T) => void
@@ -33,18 +35,20 @@ type Props<T> = {
 }
 
 // Spreadsheet-style view: sort + filter on every column, fixed header, one highlighted row.
-export function FormGrid<T extends object>({ columnDefs, rowData, idKey = 'id' as keyof T & string, highlightRowId, height, onRowClicked, onCellEdit }: Props<T>) {
+export function FormGrid<T extends object>({ columnDefs, rowData, idKey = 'id' as keyof T & string, highlightRowId, highlightRowIds, height, onRowClicked, onCellEdit }: Props<T>) {
   const api = useRef<GridApi<T> | null>(null)
 
+  const marked = new Set([...(highlightRowIds ?? []), ...(highlightRowId == null ? [] : [String(highlightRowId)])])
   const reveal = () => {
-    if (highlightRowId == null || !api.current) return
-    const node = api.current.getRowNode(String(highlightRowId))
+    const first = [...marked][0]
+    if (first === undefined || !api.current) return
+    const node = api.current.getRowNode(first)
     if (node) api.current.ensureNodeVisible(node, 'middle')
   }
   useEffect(() => {
     api.current?.redrawRows()
     reveal()
-  }, [highlightRowId, rowData]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [highlightRowId, highlightRowIds?.join('|'), rowData]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div style={height ? { height } : undefined} className="w-full">
@@ -55,7 +59,7 @@ export function FormGrid<T extends object>({ columnDefs, rowData, idKey = 'id' a
         domLayout={height ? 'normal' : 'autoHeight'}
         defaultColDef={{ sortable: true, filter: true, resizable: true, wrapText: true, autoHeight: true, wrapHeaderText: true, autoHeaderHeight: true }}
         getRowId={(p) => String(p.data[idKey])}
-        rowClassRules={{ 'traces-highlight': (p) => highlightRowId != null && p.data != null && String(p.data[idKey]) === String(highlightRowId) }}
+        rowClassRules={{ 'traces-highlight': (p) => p.data != null && marked.has(String(p.data[idKey])) }}
         onCellValueChanged={onCellEdit ? (e) => e.data && e.colDef.field && onCellEdit(e.data, e.colDef.field, e.newValue) : undefined}
         onGridReady={(e) => { api.current = e.api; reveal() }}
         onRowClicked={onRowClicked ? (e: RowClickedEvent<T>) => e.data && onRowClicked(e.data) : undefined}

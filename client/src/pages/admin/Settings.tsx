@@ -8,17 +8,18 @@ import { PageHeader } from '@/components/PageHeader'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { useSettings, type Settings } from '@/lib/queries'
+import { useOfficers, useSettings, type Settings } from '@/lib/queries'
 
-type Draft = Omit<Settings, 'ppeThresholdCentavos'> & { threshold: string }
+type Draft = Omit<Settings, 'ppeThresholdCentavos' | 'defaultIssuedByOfficerId'> & { threshold: string; issuer: string }
 
-const toDraft = (s: Settings): Draft => ({ ...s, threshold: (s.ppeThresholdCentavos / 100).toFixed(2) })
+const toDraft = (s: Settings): Draft => { const { defaultIssuedByOfficerId, ...rest } = s; return { ...rest, threshold: (s.ppeThresholdCentavos / 100).toFixed(2), issuer: defaultIssuedByOfficerId ?? '' } }
 
 const centavosOrNull = (v: string) => { try { return pesoToCentavos(v) } catch { return null } }
 
 export default function SettingsPage() {
   const qc = useQueryClient()
   const { data } = useSettings()
+  const { data: officers = [] } = useOfficers(true)
   const [d, setD] = useState<Draft | null>(null)
   useEffect(() => { if (data) setD(toDraft(data)) }, [data])
 
@@ -42,13 +43,13 @@ export default function SettingsPage() {
   const submit = (e: React.FormEvent) => {
     e.preventDefault()
     if (centavos === null) return toast.error('Enter the threshold as pesos, for example 50,000.00')
-    const { threshold: _threshold, ...rest } = d
-    save.mutate({ ...rest, ppeThresholdCentavos: centavos })
+    const { threshold: _threshold, issuer, ...rest } = d
+    save.mutate({ ...rest, ppeThresholdCentavos: centavos, defaultIssuedByOfficerId: issuer || null })
   }
 
   return (
     <>
-      <PageHeader title="Settings" description="Office details, the PPE threshold and the form codes printed on the Excel exports." />
+      <PageHeader title="Settings" description="Office details, the PPE threshold, who issues by default and the form codes printed on the generated ICS and PAR." />
       <form onSubmit={submit} className="grid max-w-2xl gap-5">
         <section className="grid gap-3 rounded-xl border bg-card p-5">
           <h2 className="font-medium">Office</h2>
@@ -75,7 +76,15 @@ export default function SettingsPage() {
           {text('ppeRegistryTitle', 'PPE registry title')}
         </section>
         <section className="grid gap-3 rounded-xl border bg-card p-5 sm:grid-cols-2">
-          <h2 className="font-medium sm:col-span-2">Form codes on exports</h2>
+          <h2 className="font-medium sm:col-span-2">Generated ICS and PAR</h2>
+          <div className="grid gap-1.5 sm:col-span-2">
+            <Label htmlFor="s-issuer">Issued by / Received from (default)</Label>
+            <NativeSelect id="s-issuer" value={d.issuer} onChange={set('issuer')}>
+              <option value="">None, choose on each issuance</option>
+              {officers.map((o) => <option key={o.id} value={o.id}>{o.fullName} ({o.shortName})</option>)}
+            </NativeSelect>
+            <p className="text-xs text-muted-foreground">The supply officer printed as the issuer on every new form. It can still be changed on the form.</p>
+          </div>
           {text('icsFormCode', 'ICS form code')}
           {text('icsFormRevision', 'ICS revision')}
           {text('parFormCode', 'PAR form code')}

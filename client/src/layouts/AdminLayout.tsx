@@ -1,5 +1,5 @@
 import {
-  BookOpen, ClipboardCheck, FileText, History, KeyRound, LayoutDashboard, LogOut, Menu, QrCode, Settings, UserCog, Users, X,
+  BookOpen, ClipboardList, FilePlus2, FileText, FolderTree, History, Layers, KeyRound, LayoutDashboard, LogOut, Menu, QrCode, Settings, UserCog, Users, X,
   type LucideIcon,
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
@@ -10,11 +10,14 @@ import { cn } from '@/lib/utils'
 type Item = { to: string; label: string; Icon: LucideIcon; end?: boolean }
 const RECORDS: Item[] = [
   { to: '/', label: 'Dashboard', Icon: LayoutDashboard, end: true },
+  { to: '/issue', label: 'New issuance', Icon: FilePlus2 },
   { to: '/documents', label: 'ICS and PAR', Icon: FileText },
+  { to: '/cards', label: 'Cards', Icon: Layers },
   { to: '/registry', label: 'Registry', Icon: BookOpen },
-  { to: '/counts', label: 'Physical counts', Icon: ClipboardCheck },
+  { to: '/reports', label: 'Reports', Icon: ClipboardList },
   { to: '/stickers', label: 'Stickers', Icon: QrCode },
   { to: '/officers', label: 'Officers', Icon: Users },
+  { to: '/property-types', label: 'Property types', Icon: FolderTree },
 ]
 const ADMIN: Item[] = [
   { to: '/admin/users', label: 'User accounts', Icon: UserCog },

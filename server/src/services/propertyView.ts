@@ -45,7 +45,7 @@ async function load(p: Prop, token: string | null): Promise<PropertyViewData> {
       condition: p.condition, partOfSetNo: mainNo,
     },
     line: {
-      id: line.id, category: line.category, article: item.article, description: line.description, itemDescription: item.description,
+      id: line.id, itemId: line.itemId, category: line.category, article: item.article, description: line.description, itemDescription: item.description,
       qty: line.qty, unit: item.unit, unitCostCentavos: line.unitCostCentavos, estUsefulLifeYears: line.estUsefulLifeYears,
       dateAcquired: line.dateAcquired, propertyTypeName: item.typeName,
     },

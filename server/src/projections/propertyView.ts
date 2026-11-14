@@ -26,7 +26,7 @@ export type PropertyViewData = {
     id: string; propertyNo: string; serialNo: string | null; oldPropertyNo: string | null; componentLabel: string | null
     condition: 'serviceable' | 'unserviceable'; partOfSetNo: string | null // the main number of the set when this is a component
   }
-  line: { id: string; category: 'semi' | 'ppe'; article: string; description: string; itemDescription: string; qty: number; unit: string
+  line: { id: string; itemId: string; category: 'semi' | 'ppe'; article: string; description: string; itemDescription: string; qty: number; unit: string
     unitCostCentavos: number; estUsefulLifeYears: number | null; dateAcquired: string | null; propertyTypeName: string }
   region: { page: number; x: number; y: number; w: number; h: number } | null
   document: {
@@ -77,6 +77,7 @@ export function buildPropertyView(d: PropertyViewData, audience: Audience) {
       article: d.line.article, description: d.line.description, qty: d.line.qty, unit: d.line.unit,
       unitCostCentavos: d.line.unitCostCentavos, totalCostCentavos: lineAmount,
       estUsefulLifeYears: d.line.estUsefulLifeYears, dateAcquired: d.line.dateAcquired,
+      ...(audience === 'admin' ? { itemId: d.line.itemId } : {}), // the card's id: staff only, never in the public view
     },
     document: {
       type: d.document.type, docNo: d.document.docNo, fundCluster: d.document.fundCluster, issuedDate: d.document.issuedDate,
