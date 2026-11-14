@@ -1,18 +1,19 @@
 import { categorize, formatPeso, type lineInput, type linePatch } from '@traces/shared'
-import { and, asc, eq, isNull, max, sql } from 'drizzle-orm'
+import { and, asc, eq, inArray, isNull, max, sql } from 'drizzle-orm'
 import type { z } from 'zod'
 import { db } from '../db/client.js'
-import { documents, linePdfRegions, lines, movements, properties, qrTokens } from '../db/schema.js'
+import { documents, items, linePdfRegions, lines, movements, properties, propertyTypes, qrTokens } from '../db/schema.js'
 import { AppError, pgErrorOf } from '../middleware/error.js'
 import { audit, type Ctx } from './audit.js'
+import { insertItem } from './items.js'
 import { newToken } from './qr.js'
 import { getSettings } from './settings.js'
 
-type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
-type LineInput = z.infer<typeof lineInput>
+export type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
+export type LineInput = z.infer<typeof lineInput>
 type PropertyInput = LineInput['properties'][number]
 type Region = NonNullable<LineInput['region']>
-type Doc = typeof documents.$inferSelect
+export type Doc = typeof documents.$inferSelect
 
 // BR-11: a token primary-key collision retries the whole transaction (max 3 attempts).
 export async function withTokenRetry<T>(fn: () => Promise<T>): Promise<T> {
@@ -24,15 +25,38 @@ export async function withTokenRetry<T>(fn: () => Promise<T>): Promise<T> {
   }
 }
 
-// 409 naming the number as the user typed it (the DB reports it upper-cased).
+export type DuplicateNo = { rowIndex: number; propertyNo: string }
+
+const duplicateError = (duplicates: DuplicateNo[]) =>
+  new AppError('DUPLICATE_PROPERTY_NO', 409,
+    duplicates.length === 1 ? `Property number ${duplicates[0].propertyNo} already exists` : `${duplicates.length} property numbers already exist or repeat`,
+    { propertyNo: duplicates[0].propertyNo, duplicates })
+
+// Backstop for a race: 409 naming the number as the user typed it (the DB reports it upper-cased).
 function rethrowDuplicateProperty(e: unknown, submitted: PropertyInput[]): never {
   const pg = pgErrorOf(e)
   if (pg?.code === '23505' && pg.constraint === 'properties_property_no_uq') {
     const key = /=\((.*)\) already exists/.exec(pg.detail ?? '')?.[1]
-    const propertyNo = submitted.find((p) => p.propertyNo.toUpperCase() === key?.toUpperCase())?.propertyNo ?? key
-    throw new AppError('DUPLICATE_PROPERTY_NO', 409, `Property number ${propertyNo} already exists`, { propertyNo })
+    const propertyNo = submitted.find((p) => p.propertyNo.toUpperCase() === key?.toUpperCase())?.propertyNo ?? key ?? ''
+    throw duplicateError([{ rowIndex: 0, propertyNo }])
   }
   throw e
+}
+
+// BR-14: before anything is written, find every property number that repeats inside the submission
+// or already exists. `rows[i]` is the list of numbers of row i. Throws one 409 listing all of them.
+export async function assertNoDuplicateNumbers(tx: Tx, rows: PropertyInput[][]) {
+  const all = rows.flatMap((props, rowIndex) => props.map((p) => ({ rowIndex, propertyNo: p.propertyNo, key: p.propertyNo.toUpperCase() })))
+  const seen = new Map<string, number>()
+  for (const n of all) seen.set(n.key, (seen.get(n.key) ?? 0) + 1)
+  const dup = new Set([...seen].filter(([, c]) => c > 1).map(([k]) => k))
+  if (all.length) {
+    const rows = await tx.select({ no: properties.propertyNo }).from(properties)
+      .where(inArray(sql<string>`upper(${properties.propertyNo})`, [...new Set(all.map((n) => n.key))]))
+    for (const r of rows) dup.add(r.no.toUpperCase())
+  }
+  const duplicates = all.filter((n) => dup.has(n.key)).map(({ rowIndex, propertyNo }) => ({ rowIndex, propertyNo }))
+  if (duplicates.length) throw duplicateError(duplicates)
 }
 
 const warn = (code: string, message: string) => ({ code, message })
@@ -40,12 +64,12 @@ const warn = (code: string, message: string) => ({ code, message })
 // BR-01: ICS is for semi-expendable, PAR for PPE. A mismatch is a warning, never a block.
 function mismatchWarning(docType: Doc['type'], category: 'semi' | 'ppe', thresholdCentavos: number) {
   if ((docType === 'ICS') === (category === 'semi')) return undefined
-  return warn('CATEGORY_MISMATCH', docType === 'ICS'
+  return warn('DOC_TYPE_MISMATCH', docType === 'ICS'
     ? `This ICS line costs ${formatPeso(thresholdCentavos)} or more, so it is PPE (normally a PAR).`
     : `This PAR line costs less than ${formatPeso(thresholdCentavos)}, so it is semi-expendable (normally an ICS).`)
 }
 
-const lockLiveDocument = async (tx: Tx, id: string) => {
+export const lockLiveDocument = async (tx: Tx, id: string) => {
   const doc = (await tx.select().from(documents).where(and(eq(documents.id, id), isNull(documents.deletedAt))).for('update'))[0]
   if (!doc) throw new AppError('DOCUMENT_NOT_FOUND', 404, 'Document not found')
   return doc
@@ -61,27 +85,31 @@ const lockLiveLine = async (tx: Tx, id: string) => {
 export const regionOut = (r: typeof linePdfRegions.$inferSelect | undefined | null) =>
   r ? { page: r.page, x: Number(r.x), y: Number(r.y), w: Number(r.w), h: Number(r.h) } : null
 
+// A line carries its card's article, unit and model; they are not stored on the line (3NF).
 export async function getLine(lineId: string) {
-  const line = (await db.select().from(lines).where(and(eq(lines.id, lineId), isNull(lines.deletedAt))))[0]
-  if (!line) throw new AppError('LINE_NOT_FOUND', 404, 'Line not found')
-  const doc = (await db.select({ id: documents.id }).from(documents).where(and(eq(documents.id, line.documentId), isNull(documents.deletedAt))))[0]
+  const row = (await db.select({ line: lines, article: items.article, unit: items.unit, itemDescription: items.description, propertyTypeCode: propertyTypes.code })
+    .from(lines).innerJoin(items, eq(items.id, lines.itemId)).innerJoin(propertyTypes, eq(propertyTypes.id, items.propertyTypeId))
+    .where(and(eq(lines.id, lineId), isNull(lines.deletedAt))))[0]
+  if (!row) throw new AppError('LINE_NOT_FOUND', 404, 'Line not found')
+  const doc = (await db.select({ id: documents.id }).from(documents).where(and(eq(documents.id, row.line.documentId), isNull(documents.deletedAt))))[0]
   if (!doc) throw new AppError('DOCUMENT_NOT_FOUND', 404, 'Document not found')
   const region = (await db.select().from(linePdfRegions).where(eq(linePdfRegions.lineId, lineId)))[0]
   const props = await db.select().from(properties)
     .where(and(eq(properties.lineId, lineId), isNull(properties.voidedAt))).orderBy(asc(properties.propertyNo))
-  return { ...line, region: regionOut(region), properties: props }
+  const { line, ...card } = row
+  return { ...line, ...card, region: regionOut(region), properties: props }
 }
 
 const regionValues = (lineId: string, r: Region) =>
   ({ lineId, page: r.page, x: String(r.x), y: String(r.y), w: String(r.w), h: String(r.h) })
 
-// One token + RECEIPT and ISSUE movements per property (BR-04).
+// One token + RECEIPT (date acquired) and ISSUE (document date) movements per property (BR-04).
 async function insertProperties(tx: Tx, line: typeof lines.$inferSelect, doc: Doc, props: PropertyInput[]) {
   const rows = await tx.insert(properties).values(props.map((p) => ({
     propertyNo: p.propertyNo, lineId: line.id, serialNo: p.serialNo, oldPropertyNo: p.oldPropertyNo, componentLabel: p.componentLabel, condition: p.condition,
   }))).returning()
   await tx.insert(qrTokens).values(rows.map((p) => ({ token: newToken(), propertyId: p.id })))
-  const receiptDate = line.iarDate ?? line.dateAcquired ?? doc.issuedDate
+  const receiptDate = line.dateAcquired ?? doc.issuedDate // legacy lines may have no date acquired
   await tx.insert(movements).values(rows.flatMap((p) => [
     {
       propertyId: p.id, type: 'RECEIPT' as const, date: receiptDate,
@@ -95,21 +123,82 @@ async function insertProperties(tx: Tx, line: typeof lines.$inferSelect, doc: Do
   return rows
 }
 
+// Cards created inside one save are keyed so identical new cards are created once.
+export type ItemCache = Map<string, string>
+const itemKey = (category: string, v: { propertyTypeId: number; article: string; description: string }) =>
+  `${category}|${v.propertyTypeId}|${v.article.toLowerCase()}|${v.description.toLowerCase()}`
+
+async function resolveItem(tx: Tx, ref: LineInput['item'], category: 'semi' | 'ppe', cache: ItemCache) {
+  if ('itemId' in ref) {
+    const item = (await tx.select().from(items).where(eq(items.id, ref.itemId)))[0]
+    if (!item) throw new AppError('ITEM_NOT_FOUND', 404, 'Card not found')
+    if (!item.active) throw new AppError('ITEM_INACTIVE', 409, 'This card is inactive')
+    if (item.category !== category) {
+      throw new AppError('CATEGORY_MISMATCH', 409,
+        `This line is ${category.toUpperCase()} by cost, but the card is ${item.category.toUpperCase()}. Pick or create a ${category === 'ppe' ? 'PC' : 'SPC'} card.`,
+        { lineCategory: category, itemCategory: item.category, itemId: item.id })
+    }
+    return item.id
+  }
+  const key = itemKey(category, ref.new)
+  const hit = cache.get(key)
+  if (hit) return hit
+  const row = await insertItem(tx, { ...ref.new, category })
+  cache.set(key, row.id)
+  return row.id
+}
+
+// The shared core of createLine and createLinesBatch. The caller holds the document lock and the transaction.
+export async function insertLineTx(
+  tx: Tx, doc: Doc, input: LineInput, o: { lineNo: number; cache: ItemCache; thresholdCentavos: number; ctx: Ctx },
+) {
+  const category = categorize(input.line.unitCostCentavos, o.thresholdCentavos)
+  const itemId = await resolveItem(tx, input.item, category, o.cache)
+  const { lineNo: _ignored, ...fields } = input.line
+  const [line] = await tx.insert(lines).values({ ...fields, lineNo: o.lineNo, documentId: doc.id, itemId, category }).returning()
+  if (input.region) await tx.insert(linePdfRegions).values(regionValues(line.id, input.region))
+  await insertProperties(tx, line, doc, input.properties)
+  await audit(tx, o.ctx, 'line.create', 'lines', line.id, null, input)
+  return { lineId: line.id, category, itemId, warning: mismatchWarning(doc.type, category, o.thresholdCentavos) }
+}
+
+const nextLineNo = async (tx: Tx, docId: string) =>
+  ((await tx.select({ m: max(lines.lineNo) }).from(lines).where(eq(lines.documentId, docId)))[0].m ?? 0) + 1
+
 export async function createLine(docId: string, input: LineInput, ctx: Ctx) {
   try {
     return await withTokenRetry(() => db.transaction(async (tx) => {
       const doc = await lockLiveDocument(tx, docId) // also serialises line_no allocation
       const s = await getSettings(tx)
-      const category = categorize(input.line.unitCostCentavos, s.ppeThresholdCentavos)
-      const lineNo = input.line.lineNo
-        ?? ((await tx.select({ m: max(lines.lineNo) }).from(lines).where(eq(lines.documentId, docId)))[0].m ?? 0) + 1
-      const [line] = await tx.insert(lines).values({ ...input.line, lineNo, documentId: docId, category }).returning()
-      if (input.region) await tx.insert(linePdfRegions).values(regionValues(line.id, input.region))
-      await insertProperties(tx, line, doc, input.properties)
-      await audit(tx, ctx, 'line.create', 'lines', line.id, null, input)
-      return { lineId: line.id, category, warning: mismatchWarning(doc.type, category, s.ppeThresholdCentavos) }
+      await assertNoDuplicateNumbers(tx, [input.properties])
+      const lineNo = input.line.lineNo ?? await nextLineNo(tx, docId)
+      return insertLineTx(tx, doc, input, { lineNo, cache: new Map(), thresholdCentavos: s.ppeThresholdCentavos, ctx })
     }))
   } catch (e) { rethrowDuplicateProperty(e, input.properties) }
+}
+
+// Adds rows to a document in one transaction: any row's failure rolls back all of them.
+// Errors that belong to a row carry its index in details.rowIndex.
+export async function createLinesBatch(docId: string, rows: LineInput[], ctx: Ctx) {
+  try {
+    return await withTokenRetry(() => db.transaction(async (tx) => {
+      const doc = await lockLiveDocument(tx, docId)
+      const s = await getSettings(tx)
+      await assertNoDuplicateNumbers(tx, rows.map((r) => r.properties))
+      const cache: ItemCache = new Map()
+      let lineNo = await nextLineNo(tx, docId)
+      const out = []
+      for (const [rowIndex, row] of rows.entries()) {
+        try {
+          out.push(await insertLineTx(tx, doc, row, { lineNo: lineNo++, cache, thresholdCentavos: s.ppeThresholdCentavos, ctx }))
+        } catch (e) {
+          if (e instanceof AppError) throw new AppError(e.code, e.status, e.message, { ...(e.details as object | undefined), rowIndex })
+          throw e
+        }
+      }
+      return out
+    }))
+  } catch (e) { rethrowDuplicateProperty(e, rows.flatMap((r) => r.properties)) }
 }
 
 // Moves a line to position `target`, renumbering the document's lines (soft-deleted ones keep a slot).
@@ -156,7 +245,7 @@ export async function updateLine(lineId: string, patch: z.infer<typeof linePatch
         await tx.update(qrTokens).set({ revokedAt: new Date() }).where(and(eq(qrTokens.propertyId, p.id), isNull(qrTokens.revokedAt)))
       }
       if (added.length) {
-        const current = (await tx.select().from(lines).where(eq(lines.id, lineId)))[0] // receipt date uses the edited iar/date fields
+        const current = (await tx.select().from(lines).where(eq(lines.id, lineId)))[0] // receipt date uses the edited date acquired
         await insertProperties(tx, current, doc, added)
       }
 

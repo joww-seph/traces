@@ -51,3 +51,7 @@ export async function makeDocument(
   if (res.status !== 201) throw new Error(`makeDocument failed: ${res.status} ${JSON.stringify(res.body)}`)
   return { doc: res.body as { id: string }, issuer, receiver }
 }
+
+// Two default cards (one per category) that resetDb() creates, so a test body can say item: itemFor(cost).
+export const DEFAULT_ITEM = { semi: '00000000-0000-4000-8000-0000000000a1', ppe: '00000000-0000-4000-8000-0000000000a2' }
+export const itemFor = (costCentavos: number) => ({ itemId: costCentavos >= 5000000 ? DEFAULT_ITEM.ppe : DEFAULT_ITEM.semi })

@@ -6,7 +6,7 @@ import { and, count, desc, eq, gte, ilike, inArray, isNull, lte, asc } from 'dri
 import { PDFDocument } from 'pdf-lib'
 import type { z } from 'zod'
 import { db } from '../db/client.js'
-import { documents, linePdfRegions, lines, officers, properties } from '../db/schema.js'
+import { documents, items, linePdfRegions, lines, officers, properties, propertyTypes } from '../db/schema.js'
 import { AppError, pgErrorOf } from '../middleware/error.js'
 import { archivePdf, pdfDir } from '../middleware/upload.js'
 import { audit, type Ctx } from './audit.js'
@@ -95,10 +95,17 @@ export async function getDocument(id: string) {
   const props = ids.length
     ? await db.select().from(properties).where(and(inArray(properties.lineId, ids), isNull(properties.voidedAt))).orderBy(asc(properties.propertyNo))
     : []
+  const itemIds = [...new Set(lineRows.map((l) => l.itemId))]
+  const cards = itemIds.length
+    ? await db.select({ id: items.id, article: items.article, unit: items.unit, itemDescription: items.description, propertyTypeCode: propertyTypes.code })
+      .from(items).innerJoin(propertyTypes, eq(propertyTypes.id, items.propertyTypeId)).where(inArray(items.id, itemIds))
+    : []
   return {
     ...present(doc),
     lines: lineRows.map((l) => ({
       ...l,
+      ...cards.find((c) => c.id === l.itemId),
+      id: l.id,
       region: regionOut(regions.find((r) => r.lineId === l.id)),
       properties: props.filter((p) => p.lineId === l.id),
     })),

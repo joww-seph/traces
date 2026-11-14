@@ -25,9 +25,19 @@ export async function seedPropertyTypes() {
   )
 }
 
+// fixed ids, mirrored by DEFAULT_ITEM in helpers.ts
+export async function seedDefaultItems() {
+  await testPool.query(
+    `INSERT INTO items (id, property_type_id, category, article, description, unit) VALUES
+       ('00000000-0000-4000-8000-0000000000a1', 1, 'semi', 'Article', 'Default model', 'unit'),
+       ('00000000-0000-4000-8000-0000000000a2', 1, 'ppe', 'Article', 'Default model', 'unit')`,
+  )
+}
+
 export async function resetDb() {
   await testPool.query(`TRUNCATE ${TABLES.join(', ')} RESTART IDENTITY CASCADE`)
   await seedSettings()
   await seedPropertyTypes()
+  await seedDefaultItems()
   clearSettingsCache()
 }

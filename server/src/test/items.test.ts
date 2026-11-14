@@ -40,7 +40,7 @@ describe('items (cards)', () => {
     await agent.post('/api/items').send({ ...card, category: 'semi', article: 'Mouse', description: 'Logitech M170' })
     expect((await agent.get('/api/items?q=thinkpad')).body).toHaveLength(1)
     expect((await agent.get('/api/items?q=LAPTOP')).body).toHaveLength(1)
-    expect((await agent.get('/api/items?category=semi')).body.map((i: { article: string }) => i.article)).toEqual(['Mouse'])
+    expect((await agent.get('/api/items?category=semi&q=mouse')).body.map((i: { article: string }) => i.article)).toEqual(['Mouse'])
     expect((await agent.get('/api/items?typeId=2')).body).toHaveLength(0)
   })
   it('a duplicate identity is 409 ITEM_EXISTS carrying the existing itemId', async () => {

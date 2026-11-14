@@ -58,3 +58,7 @@ export const linePatch = z.object({
   addProperties: z.array(propertyFields).optional(),
   removePropertyNos: z.array(propertyNo).optional(),
 })
+
+// Many rows in one save (entry grid, issuance form)
+export const batchInput = z.strictObject({ rows: z.array(lineInput).min(1).max(300) })
+  .refine((b) => b.rows.reduce((n, r) => n + r.properties.length, 0) <= 1000, 'At most 1000 properties in one save')
