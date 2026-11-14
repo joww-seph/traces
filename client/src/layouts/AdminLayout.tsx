@@ -3,7 +3,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { NavLink, Outlet, useLocation, useNavigate } from 'react-router'
+import { NavLink, Outlet, ScrollRestoration, useLocation, useNavigate } from 'react-router'
 import { useAuth } from '@/auth/AuthProvider'
 import { cn } from '@/lib/utils'
 
@@ -126,6 +126,8 @@ export default function AdminLayout() {
       <main id="main" className="lg:pl-64 print:pl-0">
         <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-10 lg:py-8 print:max-w-none print:p-0">
           <Outlet />
+          {/* a new page opens at the top (and Back returns to where you were) */}
+          <ScrollRestoration />
         </div>
       </main>
     </div>

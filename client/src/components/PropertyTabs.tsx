@@ -39,8 +39,8 @@ const entityLine = (entity: string, fund: string) => `${entity} · Fund Cluster:
 
 function RegionHighlight({ region, ready }: { region: NonNullable<PropertyView['document']['pdfRegion']>; ready: boolean }) {
   const ref = useRef<HTMLDivElement>(null)
-  // scroll only once the page is drawn, when the box has its final position
-  useEffect(() => { if (ready) ref.current?.scrollIntoView({ block: 'center', behavior: 'smooth' }) }, [ready])
+  // scroll only once the page is drawn, when the box has its final position; on a phone the page is left where it opened so the item facts stay in view
+  useEffect(() => { if (ready && window.matchMedia('(min-width: 1024px)').matches) ref.current?.scrollIntoView({ block: 'center', behavior: 'smooth' }) }, [ready])
   return (
     <div ref={ref} data-testid="region-highlight" role="img" aria-label="Highlighted row on the form"
       className="pointer-events-none absolute rounded-sm border-2 border-yellow-500 bg-yellow-300/40"

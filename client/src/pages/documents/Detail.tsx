@@ -136,7 +136,7 @@ export default function DocumentDetail() {
   })
   const upload = useMutation({
     mutationFn: (file: File) => { const body = new FormData(); body.append('pdf', file); return api.put<{ regionsCopied: number }>(`/api/documents/${id}/pdf`, body) },
-    onSuccess: (r) => { refresh(); setShown(null); toast.success(r.regionsCopied ? `Signed copy attached. ${r.regionsCopied} highlight boxes were copied from the generated form; check them.` : 'PDF attached. Draw the highlight boxes next.') },
+    onSuccess: (r) => { refresh(); setShown(null); toast.success(r.regionsCopied ? `Signed copy attached. ${r.regionsCopied === 1 ? '1 highlight box was' : `${r.regionsCopied} highlight boxes were`} copied from the generated form; check ${r.regionsCopied === 1 ? 'it' : 'them'}.` : 'PDF attached. Draw the highlight boxes next.') },
     onError: (e) => toast.error(e instanceof ApiError ? e.message : 'Could not attach the PDF'),
   })
 

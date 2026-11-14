@@ -315,7 +315,7 @@ export default function IssueForm() {
                     </div>
                     <div className="grid content-start gap-1.5">
                       <Label htmlFor={`desc-${i}`}>Description as printed on the form</Label>
-                      <Textarea id={`desc-${i}`} rows={3} placeholder={'Laptop Unit\nSpecification:\n- Memory: 16GB'} value={e.description} onChange={(ev) => setEntry(i, { description: ev.target.value })} />
+                      <Textarea id={`desc-${i}`} rows={3} placeholder={'e.g. Laptop Unit\nSpecification:\n- Memory: 16GB'} value={e.description} onChange={(ev) => setEntry(i, { description: ev.target.value })} />
                     </div>
                   </div>
                   <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
@@ -324,7 +324,7 @@ export default function IssueForm() {
                     <div className="grid gap-1.5"><Label htmlFor={`unit-${i}`}>Unit</Label>
                       <Input id={`unit-${i}`} readOnly className="bg-muted" value={unitOf(e)} placeholder="from the card" /></div>
                     <div className="grid gap-1.5"><Label htmlFor={`cost-${i}`}>Unit cost (₱)</Label>
-                      <Input id={`cost-${i}`} inputMode="decimal" placeholder="37,092.00" value={e.cost} onChange={(ev) => setEntry(i, { cost: ev.target.value })} /></div>
+                      <Input id={`cost-${i}`} inputMode="decimal" placeholder="e.g. 37,092.00" value={e.cost} onChange={(ev) => setEntry(i, { cost: ev.target.value })} /></div>
                     <div className="grid gap-1.5"><Label htmlFor={`acq-${i}`}>Date acquired</Label>
                       <Input id={`acq-${i}`} type="date" value={e.dateAcquired} onChange={(ev) => setEntry(i, { dateAcquired: ev.target.value })} />
                       {isIsoDate(e.dateAcquired) && <p className="text-xs text-muted-foreground">{formatLongDate(e.dateAcquired)}</p>}</div>
@@ -393,7 +393,7 @@ export default function IssueForm() {
               <div className="grid content-start gap-1.5"><Label htmlFor="fund">Fund cluster</Label>
                 <Input id="fund" className="h-9" value={header.fundCluster} onChange={(ev) => setHeader({ ...header, fundCluster: ev.target.value })} /></div>
               <div className="grid content-start gap-1.5 sm:col-span-2"><Label htmlFor="purpose">Purpose (registry remarks)</Label>
-                <Textarea id="purpose" rows={2} placeholder="ICT equipment for SARAi staff operations" value={header.purpose} onChange={(ev) => setHeader({ ...header, purpose: ev.target.value })} /></div>
+                <Textarea id="purpose" rows={2} placeholder="e.g. ICT equipment for SARAi staff operations" value={header.purpose} onChange={(ev) => setHeader({ ...header, purpose: ev.target.value })} /></div>
             </>
           )}
         </FormSection>
@@ -439,12 +439,12 @@ export default function IssueForm() {
           </p>
           {!documentId && icsRows > 0 && (
             <div className="grid content-start gap-1.5"><Label htmlFor="icsNo">ICS No.</Label>
-              <Input id="icsNo" className="figures h-9" placeholder="2026-09IT-001" aria-invalid={!!headerError.ics} value={header.icsNo} onChange={(ev) => setHeader({ ...header, icsNo: ev.target.value })} />
+              <Input id="icsNo" className="figures h-9" placeholder="e.g. 2026-09IT-001" aria-invalid={!!headerError.ics} value={header.icsNo} onChange={(ev) => setHeader({ ...header, icsNo: ev.target.value })} />
               {headerError.ics && <p role="alert" className="text-sm text-destructive">{headerError.ics}</p>}</div>
           )}
           {!documentId && parRows > 0 && (
             <div className="grid content-start gap-1.5"><Label htmlFor="parNo">PAR No.</Label>
-              <Input id="parNo" className="figures h-9" placeholder="2026-RO-68" aria-invalid={!!headerError.parNo} value={header.parNo} onChange={(ev) => setHeader({ ...header, parNo: ev.target.value })} />
+              <Input id="parNo" className="figures h-9" placeholder="e.g. 2026-RO-68" aria-invalid={!!headerError.parNo} value={header.parNo} onChange={(ev) => setHeader({ ...header, parNo: ev.target.value })} />
               {headerError.parNo && <p role="alert" className="text-sm text-destructive">{headerError.parNo}</p>}</div>
           )}
           {!documentId && (
