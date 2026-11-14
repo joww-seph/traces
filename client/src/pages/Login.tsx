@@ -31,11 +31,13 @@ function BrandBlock({ large }: { large?: boolean }) {
   )
 }
 
-// Desktop only: the DOST Ilocos building fills the left half. Phones skip the illustration so the form is reachable at once.
+// Desktop only: the DOST Ilocos building fills the bottom quarter of the left half. Phones skip the illustration so the form is reachable at once.
 function BrandPanel() {
   return (
-    <section aria-label="TRACES" className="relative isolate hidden min-h-screen items-center justify-center overflow-hidden bg-sky px-10 pb-56 lg:flex">
-      <img src="/login-bg.webp" alt="" className="absolute inset-0 -z-10 size-full object-cover object-bottom duration-700 animate-in fade-in slide-in-from-bottom-4" />
+    <section aria-label="TRACES" className="relative isolate hidden min-h-screen items-center justify-center overflow-hidden bg-sky px-10 pb-[25vh] lg:flex">
+      {/* the art is cropped to a strip: the bottom quarter of the panel, sides to sides, with the top edge faded into the sky */}
+      <img src="/login-bg.webp" alt="" style={{ maskImage: 'linear-gradient(to bottom, transparent, #000 30%)' }}
+        className="absolute inset-x-0 bottom-0 -z-10 h-1/4 w-full object-cover object-bottom duration-700 animate-in fade-in slide-in-from-bottom-4" />
       <BrandBlock large />
     </section>
   )
