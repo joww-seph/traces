@@ -28,10 +28,12 @@ type Props<T> = {
   /** Fixed height in px for long grids; omit to size to the rows. */
   height?: number
   onRowClicked?: (row: T) => void
+  /** Called after a cell is edited; the grid keeps the typed value until the rows are replaced. */
+  onCellEdit?: (row: T, field: string, value: unknown) => void
 }
 
 // Spreadsheet-style view: sort + filter on every column, fixed header, one highlighted row.
-export function FormGrid<T extends object>({ columnDefs, rowData, idKey = 'id' as keyof T & string, highlightRowId, height, onRowClicked }: Props<T>) {
+export function FormGrid<T extends object>({ columnDefs, rowData, idKey = 'id' as keyof T & string, highlightRowId, height, onRowClicked, onCellEdit }: Props<T>) {
   const api = useRef<GridApi<T> | null>(null)
 
   const reveal = () => {
@@ -54,6 +56,7 @@ export function FormGrid<T extends object>({ columnDefs, rowData, idKey = 'id' a
         defaultColDef={{ sortable: true, filter: true, resizable: true, wrapText: true, autoHeight: true, wrapHeaderText: true, autoHeaderHeight: true }}
         getRowId={(p) => String(p.data[idKey])}
         rowClassRules={{ 'traces-highlight': (p) => highlightRowId != null && p.data != null && String(p.data[idKey]) === String(highlightRowId) }}
+        onCellValueChanged={onCellEdit ? (e) => e.data && e.colDef.field && onCellEdit(e.data, e.colDef.field, e.newValue) : undefined}
         onGridReady={(e) => { api.current = e.api; reveal() }}
         onRowClicked={onRowClicked ? (e: RowClickedEvent<T>) => e.data && onRowClicked(e.data) : undefined}
         overlayNoRowsTemplate="No rows"

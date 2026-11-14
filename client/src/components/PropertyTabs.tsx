@@ -91,7 +91,7 @@ function ReportPanel({ view }: { view: PropertyView }) {
         `Accountable officer: ${h.officerName}, ${h.officerPosition}${h.assumptionDate ? `, assumed ${formatLongDate(h.assumptionDate)}` : ''}`,
         h.status === 'closed' ? 'Count closed' : 'Count still open',
       ]} />
-      <FormGrid<CountRow> columnDefs={countColumns} rowData={t.rows} highlightRowId={t.highlightRowId} height={t.rows.length > 8 ? 420 : undefined} />
+      <FormGrid<CountRow> columnDefs={countColumns()} rowData={t.rows} highlightRowId={t.highlightRowId} height={t.rows.length > 8 ? 420 : undefined} />
     </section>
   )
 }

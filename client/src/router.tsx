@@ -10,6 +10,8 @@ import NewDocument from '@/pages/documents/New'
 import LineForm from '@/pages/lines/LineForm'
 import Officers from '@/pages/officers/List'
 import Card from '@/pages/cards/Card'
+import CountDetail from '@/pages/counts/Detail'
+import Counts from '@/pages/counts/List'
 import Placeholder from '@/pages/Placeholder'
 import PropertyDetail from '@/pages/properties/Detail'
 import QrView from '@/pages/public/QrView'
@@ -35,8 +37,8 @@ export const router = createBrowserRouter([
         { path: 'properties/:no', element: <PropertyDetail /> },
         { path: 'registry', element: <Registry /> },
         { path: 'cards/:no', element: <Card /> },
-        { path: 'counts', element: p('Physical counts') },
-        { path: 'counts/:id', element: p('Physical count') },
+        { path: 'counts', element: <Counts /> },
+        { path: 'counts/:id', element: <CountDetail /> },
         { path: 'officers', element: <Officers /> },
         { path: 'stickers', element: <StickerSheet /> },
         { path: 'account/password', element: <Password /> },

@@ -184,3 +184,9 @@
     html, body { background: #fff !important; }
     .sticker-sheet { background: none; }
 }
+
+/* Count grid: cells staff can type into */
+.ag-cell.traces-editable {
+    background-color: #f1f6fd;
+    cursor: text;
+}

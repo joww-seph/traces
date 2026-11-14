@@ -103,14 +103,23 @@ export const cardColumns = (category: 'semi' | 'ppe'): Cols<CardRow> => [
   { headerName: 'Remarks', field: 'remarks', minWidth: 160, flex: 1 },
 ] as Cols<CardRow>
 
-export const countColumns: Cols<CountRow> = [
+// `editable`: the open count grid lets staff type On Hand per Count and Remarks straight into the cells.
+export const countColumns = (editable = false): Cols<CountRow> => [
   { headerName: 'Article', field: 'article', width: 150 },
   { headerName: 'Description', field: 'description', flex: 2, minWidth: 220, cellClass: 'traces-pre' },
   { headerName: 'Property No.', field: 'propertyNo', width: 180 },
   { headerName: 'Unit of Measure', field: 'unit', width: 110 },
   moneyCol('unitValueCentavos', 'Unit Value', { width: 140 }) as ColDef<CountRow>,
   { headerName: 'Balance per Card', children: [num('Qty.', 'balancePerCard', { width: 90 })] },
-  { headerName: 'On Hand per Count', children: [num('Qty.', 'qtyOnHand', { width: 90, valueFormatter: (p) => dash(p.value) })] },
+  {
+    headerName: 'On Hand per Count',
+    children: [num('Qty.', 'qtyOnHand', {
+      width: 110, valueFormatter: (p) => dash(p.value), editable,
+      cellClass: editable ? 'traces-editable' : undefined,
+      // blank = not counted yet; anything else must be a whole number, 0 or more
+      valueParser: (p) => { const t = String(p.newValue ?? '').trim(); if (t === '') return null; const n = Number(t); return Number.isInteger(n) && n >= 0 ? n : p.oldValue },
+    })],
+  },
   {
     headerName: 'Shortage/Overage',
     children: [
@@ -118,5 +127,8 @@ export const countColumns: Cols<CountRow> = [
       moneyCol('shortageOverageValueCentavos', 'Value', { width: 140 }),
     ],
   },
-  { headerName: 'Remarks', field: 'remarks', minWidth: 180, flex: 1, cellClass: 'traces-pre' },
+  {
+    headerName: 'Remarks', field: 'ownRemarks', minWidth: 200, flex: 1, editable, cellClass: editable ? 'traces-pre traces-editable' : 'traces-pre',
+    valueFormatter: (p) => p.data?.remarks ?? '', // shows the typed remark plus the old P# line
+  },
 ] as Cols<CountRow>
