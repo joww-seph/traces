@@ -4,7 +4,7 @@ import { existsSync, mkdirSync, statSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 
 // npm run backup
-// Writes backups/<timestamp>/ with traces.dump (pg_dump custom format) and storage.tar.gz (signed PDFs, including pdfs/replaced).
+// Writes backups/<timestamp>/ with traces.dump (pg_dump custom format) and storage.tar.gz (generated and signed PDFs, including archive/).
 // pg_dump runs from PATH (or PG_DUMP=<path>); in development, where PostgreSQL lives in Docker, it runs inside the container.
 const url = process.env.DATABASE_URL
 if (!url) { console.error('DATABASE_URL is not set'); process.exit(1) }

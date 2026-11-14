@@ -10,7 +10,8 @@ docker compose up -d db
 npm install
 npm run db:migrate
 npm run seed:superadmin -- --email you@example.gov.ph --password '<10+ characters>'
-npm run seed:dev -- --reset          # optional sample officers, ICS and PAR (made-up names)
+npm run seed:dev -- --reset          # optional sample officers, cards, ICS and PAR with generated PDFs (made-up names)
+npm run seed:officers -- <officers.csv>   # the accountable officers list (kept out of git: real names)
 npm run lan                          # detect this laptop's address; sets public_base_url and APP_ORIGIN
 npm run dev                          # API :3000 + client :5173 (both listen on all interfaces)
 ```
@@ -70,14 +71,15 @@ different from development), `APP_ORIGIN` (the public https address, exactly as 
 - Create the first superadmin with `npm run seed:superadmin`; recover a lost password with `npm run reset:password -- --email <email> --generate`.
 
 ### Signed PDFs hold signatures and names
-- They live in `STORAGE_DIR/pdfs` and are never served as static files; only the API streams them (staff by session,
-  the public by QR token). Anyone with a QR token can open that document's PDF by design.
+- They live in `STORAGE_DIR/pdfs` (the form TRACES generated and the uploaded signed scan) and are never served as static
+  files; only the API streams them (staff by session, the public by QR token: the signed copy if there is one, else the
+  generated one). Anyone with a QR token can open that document's PDF by design.
 - Files are created owner-only (`0600`). Run the API as its own user and give nobody else access to `STORAGE_DIR`.
-- A PDF replaced in the app is moved to `STORAGE_DIR/pdfs/replaced/`, not deleted. Keep that folder in backups.
+- A signed copy that is replaced or removed in the app is moved to `STORAGE_DIR/archive/`, never deleted. Keep that folder in backups.
 - Backups contain personal data (Data Privacy Act): encrypt them and restrict who can read them.
 
 ### Backups
-`npm run backup` (pg_dump + a zip of `STORAGE_DIR`, including `replaced/`) into `backups/<timestamp>/`.
+`npm run backup` (pg_dump + a zip of `STORAGE_DIR`, including `archive/`) into `backups/<timestamp>/`.
 Schedule it nightly with cron and copy the result off the server.
 
 ## 4. Public repository checklist

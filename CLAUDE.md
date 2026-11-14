@@ -15,7 +15,7 @@
 - `npm run db:generate` / `db:migrate` / `db:studio`: drizzle-kit
 - `npm test`: shared + server tests against `traces_test` · `npm run test:e2e`: browser tests (Chrome, :3100/:5273, axe accessibility)
 - `npm run lan`: set the LAN address (public_base_url + APP_ORIGIN) so phones can open the dev app · `npm run reset:password -- --email … --generate`
-- `npm run seed:superadmin -- --email … --password …` · `npm run seed:dev -- --reset` · `npm run backup`
+- `npm run seed:superadmin -- --email … --password …` · `npm run seed:dev -- --reset` (`--more` for a larger set) · `npm run seed:officers -- <csv>` · `npm run backup`
 - `npm run build && npm start`: production (one Node process)
 
 ## Hard rules
