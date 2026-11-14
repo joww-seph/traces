@@ -15,3 +15,11 @@ docs/references/
 test-results/
 playwright-report/
 .playwright-mcp/
+.superpowers/
+
+# real staff names (public repo): stakeholder list, photographed samples, plan docs that cite them
+docs/plans/seed-officers.csv
+docs/plans/sample-*.pdf
+docs/plans/ics-par-generator.reference.mjs
+docs/plans/2026-11-14-update-0*-design.md
+docs/plans/2026-11-14-update-0*-implementation.md
