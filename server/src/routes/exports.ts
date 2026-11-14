@@ -12,7 +12,13 @@ const query = z.object({
   itemId: uuid.optional(), officerId: uuid.optional(), typeId: z.coerce.number().int().positive().optional(),
   asAt: isoDate.optional(), from: isoDate.optional(), to: isoDate.optional(),
   // the footer names typed on the report page, as JSON (they are not saved unless "Save as default" is used)
-  signatories: z.string().optional().transform((s) => (s ? signatoriesInput.parse(JSON.parse(s)) : undefined)),
+  signatories: z.string().optional().transform((s, ctx) => {
+    if (!s) return undefined
+    try { return signatoriesInput.parse(JSON.parse(s)) } catch {
+      ctx.addIssue({ code: 'custom', message: 'signatories must be a JSON list of { role, name } entries' })
+      return z.NEVER
+    }
+  }),
 })
 const XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
 

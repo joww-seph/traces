@@ -153,6 +153,12 @@ describe('request checks', () => {
     expect((await agentFor().get('/api/exports/regspi')).status).toBe(401)
   })
 
+  it('malformed signatories -> 400, not a server error', async () => {
+    const { agent, ics } = await seed()
+    expect((await agent.get(`/api/exports/rpcppe?officerId=${ics.receiver.id}&signatories=not-json`)).status).toBe(400)
+    expect((await agent.get(`/api/exports/rpcppe?officerId=${ics.receiver.id}&signatories=${encodeURIComponent('[{"role":"boss","name":"x"}]')}`)).status).toBe(400)
+  })
+
   it('every export writes an audit row', async () => {
     const { agent } = await seed()
     await agent.get('/api/exports/regspi')
