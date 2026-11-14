@@ -23,7 +23,7 @@ type Header = {
   receivedBy: string; receivedByPosition: string; issuedBy: string; issuedByPosition: string
   issuedDate: string; fundCluster: string; purpose: string; icsNo: string; parNo: string
 }
-type Result = { documents: { id: string; type: 'ICS' | 'PAR'; docNo: string; lineIds: string[] }[]; warnings: string[] }
+type Result = { documents: { id: string; type: 'ICS' | 'PAR'; docNo: string; lineIds: string[] }[]; warnings: string[]; generated?: boolean }
 type RowErrors = Record<number, string[]>
 
 const today = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' })
@@ -76,7 +76,11 @@ export default function IssueForm() {
 
   // the draft is kept on this computer so a closed tab or a power cut does not lose a long entry
   useEffect(() => {
-    const t = setTimeout(() => { try { localStorage.setItem(draftKey, JSON.stringify({ entries, header })) } catch { /* storage unavailable: no draft */ } }, 400)
+    // nothing typed yet = no draft, so an untouched form is never "restored"
+    const blank = entries.length === 1 && !entries[0].description && !entries[0].cost && !entries[0].itemId && !entries[0].newCard.article && !entries[0].newCard.model && !header.icsNo && !header.parNo && !header.purpose && !header.receivedBy
+    const t = setTimeout(() => {
+      try { if (blank) localStorage.removeItem(draftKey); else localStorage.setItem(draftKey, JSON.stringify({ entries, header })) } catch { /* storage unavailable: no draft */ }
+    }, 400)
     return () => clearTimeout(t)
   }, [entries, header, draftKey])
   const clearDraft = () => { try { localStorage.removeItem(draftKey) } catch { /* ignore */ } }
@@ -200,7 +204,7 @@ export default function IssueForm() {
       const body = { ...built.body, generate }
       const parsed = issuanceInput.safeParse(body)
       if (!parsed.success) { setHeaderError({ general: parsed.error.issues[0].message }); throw new Error('header') }
-      return api.post<Result>('/api/issuances', parsed.data)
+      return { ...(await api.post<Result>('/api/issuances', parsed.data)), generated: generate }
     },
     onSuccess: finish,
     onError: (e) => {
@@ -235,7 +239,7 @@ export default function IssueForm() {
               <span className="text-sm text-muted-foreground">{d.lineIds.length} {d.lineIds.length === 1 ? 'row' : 'rows'}</span>
               <span className="ml-auto flex flex-wrap gap-2">
                 {documentId && <Button variant="outline" size="sm" onClick={() => regenerate.mutate(d.id)} disabled={regenerate.isPending}>Regenerate form</Button>}
-                {!result.warnings.length && !documentId && <a href={pdfOf(d.id)} target="_blank" rel="noreferrer" className={buttonVariants({ size: 'sm' })}><Printer /> Print</a>}
+                {result.generated && !result.warnings.length && <a href={pdfOf(d.id)} target="_blank" rel="noreferrer" className={buttonVariants({ size: 'sm' })}><Printer /> Print</a>}
                 <Link to={`/documents/${d.id}`} className={buttonVariants({ variant: 'outline', size: 'sm' })}><ExternalLink /> Open</Link>
                 <Link to={`/stickers?documentId=${d.id}`} className={buttonVariants({ variant: 'outline', size: 'sm' })}>Stickers</Link>
               </span>

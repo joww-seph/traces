@@ -8,12 +8,14 @@ test.describe.configure({ mode: 'serial' })
 const person = { name: 'Pat Example', email: 'pat.example@traces.test' }
 let temp = ''
 
-test('exports: registry and property card download an .xlsx', async ({ page }) => {
+test('exports: registry and a model card download an .xlsx', async ({ page }) => {
   await login(page)
   await page.goto('/registry')
   const [registry] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: /^Export/ }).first().click()])
   expect(registry.suggestedFilename()).toMatch(/\.xlsx$/)
-  await page.goto('/cards/2026-09ICT-0402')
+  await page.goto('/cards')
+  await page.getByLabel('Search cards').fill('Chair')
+  await page.getByRole('link', { name: 'Office chair' }).first().click()
   const [card] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Export SPC' }).click()])
   expect(card.suggestedFilename()).toMatch(/\.xlsx$/)
 })
