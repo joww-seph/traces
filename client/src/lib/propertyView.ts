@@ -70,13 +70,14 @@ export const icsParColumns = (type: 'ICS' | 'PAR'): Cols<IcsParRow> =>
       ] as Cols<IcsParRow>
 
 // RegSPI (Annex A.4) and the PPE registry share one layout.
+// Date and reference stay pinned on the left so a row is still identifiable when the wide form is scrolled sideways.
 export const registryColumns: Cols<RegistryRow> = [
-  date('date') as ColDef<RegistryRow>,
-  { headerName: 'Reference (ICS/RRSP No.)', field: 'reference', width: 190 },
+  { ...date('date'), pinned: 'left' } as ColDef<RegistryRow>,
+  { headerName: 'Reference (ICS/RRSP No.)', field: 'reference', width: 190, pinned: 'left' },
   { headerName: 'Property No.', valueGetter: (p) => p.data?.propertyNos.join('\n'), cellClass: 'traces-pre', minWidth: 170 },
   { headerName: 'Item Description', field: 'description', flex: 2, minWidth: 220, cellClass: 'traces-pre' },
   { headerName: 'Estimated Useful Life', field: 'estUsefulLifeYears', width: 130, valueFormatter: (p) => dash(p.value) },
-  { headerName: 'Issued', children: [num('Qty.', 'issuedQty', { width: 80 }), { headerName: 'Office/Officer', field: 'issuedTo', width: 170 }] },
+  { headerName: 'Issued', children: [num('Qty.', 'issuedQty', { width: 80 }), { headerName: 'Office/Officer', field: 'issuedTo', width: 210 }] },
   { headerName: 'Returned', children: [num('Qty.', 'returnedQty', { width: 90 }), { headerName: 'Office/Officer', width: 170, valueGetter: () => '' }] },
   { headerName: 'Re-issued', children: [num('Qty.', 'reissuedQty', { width: 90 }), { headerName: 'Office/Officer', width: 170, valueGetter: () => '' }] },
   { headerName: 'Disposed', children: [num('Qty.', 'disposedQty', { width: 110 })] },
@@ -87,8 +88,8 @@ export const registryColumns: Cols<RegistryRow> = [
 
 // SPC (semi-expendable) has an Item No. column in Issue/Transfer/Disposal; the PC (Appendix 69) does not.
 export const cardColumns = (category: 'semi' | 'ppe'): Cols<CardRow> => [
-  date('date') as ColDef<CardRow>,
-  { headerName: category === 'semi' ? 'Reference' : 'Reference/PAR No.', field: 'reference', width: 190, cellClass: 'traces-pre' },
+  { ...date('date'), pinned: 'left' } as ColDef<CardRow>,
+  { headerName: category === 'semi' ? 'Reference' : 'Reference/PAR No.', field: 'reference', width: 190, cellClass: 'traces-pre', pinned: 'left' },
   {
     headerName: 'Receipt',
     children: category === 'semi'
@@ -99,7 +100,7 @@ export const cardColumns = (category: 'semi' | 'ppe'): Cols<CardRow> => [
     headerName: 'Issue/Transfer/Disposal',
     children: [
       ...(category === 'semi' ? [{ headerName: 'Item No.', field: 'issueItemNo', width: 170 } as ColDef] : []),
-      num('Qty.', 'issueQty', { width: 90 }), { headerName: 'Office/Officer', field: 'officer', width: 170 },
+      num('Qty.', 'issueQty', { width: 90 }), { headerName: 'Office/Officer', field: 'officer', width: 210 },
     ],
   },
   { headerName: 'Balance', children: [num('Qty.', 'balanceQty', { width: 110 })] },

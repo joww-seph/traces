@@ -103,18 +103,17 @@ export default function Officers() {
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/50 hover:bg-muted/50">
-              <TableHead className="pl-5">Full name</TableHead><TableHead>Short name</TableHead><TableHead>Position</TableHead>
+              <TableHead className="pl-5">Name</TableHead><TableHead>Position</TableHead>
               <TableHead>Office</TableHead><TableHead>Receives property</TableHead><TableHead>Status</TableHead><TableHead />
             </TableRow>
           </TableHeader>
           <TableBody>
-            {isLoading && <TableRow><TableCell colSpan={7} className="py-6 pl-5 text-muted-foreground">Loading officers</TableCell></TableRow>}
-            {!isLoading && !data.length && <TableRow><TableCell colSpan={7} className="py-8 pl-5 text-muted-foreground">No officers yet. Add the Supply Unit staff and the accountable officers who receive property.</TableCell></TableRow>}
+            {isLoading && <TableRow><TableCell colSpan={6} className="py-6 pl-5 text-muted-foreground">Loading officers</TableCell></TableRow>}
+            {!isLoading && !data.length && <TableRow><TableCell colSpan={6} className="py-8 pl-5 text-muted-foreground">No officers yet. Add the Supply Unit staff and the accountable officers who receive property.</TableCell></TableRow>}
             {data.map((o) => (
               <TableRow key={o.id}>
-                <TableCell className="pl-5 font-medium">{o.fullName}</TableCell>
-                <TableCell className="text-muted-foreground">{o.shortName}</TableCell>
-                <TableCell>{o.position}{o.designations.length > 0 && <span className="block text-xs text-muted-foreground">{o.designations.join('; ')}</span>}</TableCell>
+                <TableCell className="pl-5"><span className="font-medium">{o.fullName}</span><span className="block text-xs text-muted-foreground">{o.shortName}</span></TableCell>
+                <TableCell className="min-w-56 whitespace-normal">{o.position}{o.designations.some((d) => d !== o.position) && <span className="block text-xs text-muted-foreground">{o.designations.filter((d) => d !== o.position).join('; ')}</span>}</TableCell>
                 <TableCell>{o.office}</TableCell>
                 <TableCell>{o.canReceive ? 'Yes' : 'No'}</TableCell>
                 <TableCell><Badge variant={o.active ? 'default' : 'secondary'}>{o.active ? 'Active' : 'Inactive'}</Badge></TableCell>

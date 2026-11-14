@@ -64,12 +64,11 @@ test.describe('records flow', () => {
   test('officers: the short name is made from the name, a clash gets a number', async ({ page }) => {
     await login(page)
     await addOfficer(page, 'JUAN DELA CRUZ', 'Administrative Officer V')
-    await expect(page.getByRole('cell', { name: 'Juan Dela Cruz' })).toBeVisible()
-    await expect(page.getByRole('cell', { name: 'JDelaCruz', exact: true })).toBeVisible()
+    await expect(page.getByRole('row', { name: /Juan Dela Cruz/ })).toContainText('JDelaCruz')
     await addOfficer(page, 'Maria Santos', 'ARD for Field Operations')
-    await expect(page.getByRole('cell', { name: 'MSantos', exact: true })).toBeVisible()
+    await expect(page.getByRole('row', { name: /Maria Santos/ })).toContainText('MSantos')
     await addOfficer(page, 'Mario Santos', 'Clerk')
-    await expect(page.getByRole('cell', { name: 'MSantos2', exact: true })).toBeVisible()
+    await expect(page.getByRole('row', { name: /Mario Santos/ })).toContainText('MSantos2')
   })
 
   test('the old "new document" address opens the issuance form', async ({ page }) => {
