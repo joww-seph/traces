@@ -58,7 +58,7 @@ function OfficerDialog({ officer, onClose }: { officer: Officer | 'new' | null; 
         <DialogHeader><DialogTitle>{editing ? 'Edit officer' : 'Add officer'}</DialogTitle></DialogHeader>
         <form onSubmit={form.handleSubmit((v) => save.mutate(v))} className="grid gap-3" noValidate>
           {field('fullName', 'Full name')}
-          <p id="o-shortName" className="-mt-1 text-xs text-muted-foreground">Short name: <span className="font-medium text-foreground">{fullName.trim() ? shortNameOf(fullName) : '—'}</span> (made from the name: initials, middle initial and surname)</p>
+          <p id="o-shortName" className="-mt-1 text-xs text-muted-foreground">Short name: <span className="font-medium text-foreground">{fullName.trim() ? shortNameOf(fullName) : '—'}</span> (made from the name: first letter of the first name, middle initial and surname)</p>
           {field('position', 'Position / designation')}
           {field('office', 'Office')}
           <div className="grid gap-1.5">

@@ -33,13 +33,13 @@ describe('officers', () => {
   it('the short name is made from the full name, never typed; names in capitals are written with capital initials only', async () => {
     const { agent } = await loginAs('supply_admin')
     const a = await agent.post('/api/officers').send({ ...officer, fullName: 'ANA MARIE B. DELA CRUZ', shortName: 'Typed' })
-    expect(a.body).toMatchObject({ fullName: 'Ana Marie B. Dela Cruz', shortName: 'AMBDelaCruz' })
+    expect(a.body).toMatchObject({ fullName: 'Ana Marie B. Dela Cruz', shortName: 'ABDelaCruz' })
     // the same initials and surname get a number instead of being refused
     expect((await agent.post('/api/officers').send(officer)).body.shortName).toBe('MSantos')
     expect((await agent.post('/api/officers').send({ ...officer, fullName: 'Mario Santos' })).body.shortName).toBe('MSantos2')
     // a corrected name corrects the short name
     const p = await agent.patch(`/api/officers/${a.body.id}`).send({ fullName: 'Ana Maria B. Dela Cruz-Reyes' })
-    expect(p.body).toMatchObject({ fullName: 'Ana Maria B. Dela Cruz-Reyes', shortName: 'AMBDelaCruz-Reyes' })
+    expect(p.body).toMatchObject({ fullName: 'Ana Maria B. Dela Cruz-Reyes', shortName: 'ABDelaCruz-Reyes' })
   })
 
   it('invalid body -> 400; unknown id -> 404; anonymous -> 401', async () => {

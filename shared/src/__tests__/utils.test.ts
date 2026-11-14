@@ -169,15 +169,15 @@ describe('names (made-up people)', () => {
     expect(titleCaseName('JOSE-MARI O. SANTOS-REYES')).toBe('Jose-Mari O. Santos-Reyes')
     expect(titleCaseName('Juan McKay')).toBe('Juan McKay') // already mixed case: kept
   })
-  it('short name = initials of the given names + middle initial + surname', async () => {
+  it('short name = first letter of the first given name + middle initial + surname', async () => {
     const { shortNameOf } = await import('../index.js')
     expect(shortNameOf('Rosa M. Lim')).toBe('RMLim')
-    expect(shortNameOf('Ana Marie B. Dela Cruz')).toBe('AMBDelaCruz')
+    expect(shortNameOf('Ana Marie B. Dela Cruz')).toBe('ABDelaCruz') // only the first given name counts
     expect(shortNameOf('MARIA SANTOS')).toBe('MSantos')
     expect(shortNameOf('Juan Dela Cruz')).toBe('JDelaCruz') // a surname particle stays with the surname
     expect(shortNameOf('ENGR. CARLO B. RAMOS JR.')).toBe('CBRamos') // title and suffix are dropped
     expect(shortNameOf('Lea G. Santos-Reyes Abad')).toBe('LGSantos-ReyesAbad')
-    expect(shortNameOf('Kent Jerome Ramil')).toBe('KJRamil')
+    expect(shortNameOf('Kent Jerome Ramil')).toBe('KRamil')
     expect(shortNameOf('Cy "CJ" Diaz')).toBe('CDiaz') // a nickname in quotes or brackets is not a given name
     expect(shortNameOf('Liza (Beth) M. Tan')).toBe('LMTan')
   })

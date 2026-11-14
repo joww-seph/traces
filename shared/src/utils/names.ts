@@ -22,7 +22,7 @@ export function titleCaseName(name: string): string {
   return name.trim().split(/\s+/).filter(Boolean).map((w) => (NICKNAME.test(w) ? w : capWord(w))).join(' ')
 }
 
-// Initials of the given names + the middle initial + the surname: "Mark Jan R. Ramos" -> "MJRRamos".
+// First letter of the first given name + the middle initial + the surname: "Ana Marie B. Dela Cruz" -> "ABDelaCruz".
 export function shortNameOf(fullName: string): string {
   let t = titleCaseName(fullName).split(' ').filter((x) => !NICKNAME.test(x))
   while (t.length > 1 && TITLES.has(bare(t[0]))) t = t.slice(1)
@@ -38,7 +38,7 @@ export function shortNameOf(fullName: string): string {
     given = t.slice(0, start); surname = t.slice(start)
     if (!given.length) { given = []; surname = t }
   }
-  const initials = given.map((g) => (g.match(/[A-Za-z0-9]/)?.[0] ?? '').toUpperCase()).join('')
+  const initials = (given[0]?.match(/[A-Za-z0-9]/)?.[0] ?? '').toUpperCase() // a second or third given name does not count
   return initials + middle + surname.join('').replace(/[^A-Za-z0-9-]/g, '')
 }
 
