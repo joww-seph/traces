@@ -8,6 +8,8 @@ export const itemInput = z.strictObject({
   description: nonEmpty.max(300),
   unit: nonEmpty.max(30),
 })
+// standalone create (POST /api/items); inside a line the category is computed from the cost instead
+export const itemCreate = itemInput.extend({ category })
 export const itemPatch = itemInput.omit({ propertyTypeId: true }).partial().extend({ active: z.boolean().optional() })
 
 export const itemQuery = z.object({
