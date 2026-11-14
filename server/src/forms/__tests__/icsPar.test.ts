@@ -24,7 +24,7 @@ const doc = (n: number, over: Partial<FormDoc> = {}): FormDoc => ({
 // text items of a rendered PDF with their top-left page fractions (pdf.js)
 async function textItems(bytes: Uint8Array) {
   const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs')
-  const pdf = await pdfjs.getDocument({ data: new Uint8Array(bytes), useSystemFonts: false, isEvalSupported: false }).promise
+  const pdf = await pdfjs.getDocument({ data: new Uint8Array(bytes), useSystemFonts: false }).promise
   const out: { page: number; text: string; x: number; y: number }[] = []
   for (let p = 1; p <= pdf.numPages; p++) {
     const page = await pdf.getPage(p)

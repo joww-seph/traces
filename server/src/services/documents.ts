@@ -23,7 +23,7 @@ async function positionOf(tx: Tx, officerId: string) {
 }
 
 // The unique index also covers soft-deleted rows, so a deleted number stays reserved.
-function duplicateNo(e: unknown, type: string, docNo: string): never {
+export function duplicateNo(e: unknown, type: string, docNo: string): never {
   if (pgErrorOf(e)?.constraint === 'documents_type_doc_no_uq') {
     throw new AppError('DUPLICATE_DOCUMENT_NO', 409, `${type} ${docNo} already exists (numbers of deleted documents stay reserved)`, { type, docNo })
   }
