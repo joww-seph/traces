@@ -2,7 +2,7 @@
 // Views live in a hand-written migration (see drizzle/*_views.sql) and are typed in views.ts.
 import { sql } from 'drizzle-orm'
 import {
-  bigint, boolean, char, check, date, index, inet, integer, json, jsonb, numeric, pgEnum, pgTable,
+  bigint, boolean, char, check, date, foreignKey, index, inet, integer, json, jsonb, numeric, pgEnum, pgTable,
   primaryKey, smallint, text, timestamp, unique, uniqueIndex, uuid, varchar,
 } from 'drizzle-orm/pg-core'
 
@@ -12,7 +12,6 @@ export const docType = pgEnum('doc_type', ['ICS', 'PAR'])
 export const itemCategory = pgEnum('item_category', ['semi', 'ppe'])
 export const movementType = pgEnum('movement_type', ['RECEIPT', 'ISSUE', 'RETURN', 'REISSUE', 'DISPOSE'])
 export const itemCondition = pgEnum('item_condition', ['serviceable', 'unserviceable'])
-export const countStatus = pgEnum('count_status', ['open', 'closed'])
 export const cardRowMode = pgEnum('card_row_mode', ['merged', 'split'])
 export const signatoryRole = pgEnum('signatory_role', ['committee', 'head_of_agency', 'coa_representative'])
 
@@ -68,8 +67,44 @@ export const officers = pgTable('officers', {
   shortName: text('short_name').notNull(),
   position: text('position').notNull(),
   office: text('office').notNull().default(''),
+  canReceive: boolean('can_receive').notNull().default(false), // may appear as "Received by" / on the officer report
   active: boolean('active').notNull().default(true),
 }, (t) => [uniqueIndex('officers_short_name_uq').on(sql`lower(${t.shortName})`)])
+
+// programs / projects the officer is focal person of ("SARAi CENTRO, Focal Person"); searched by the officer dropdown
+export const officerDesignations = pgTable('officer_designations', {
+  officerId: uuid('officer_id').notNull().references(() => officers.id, { onDelete: 'cascade' }),
+  sortOrder: smallint('sort_order').notNull(),
+  designation: text('designation').notNull(),
+}, (t) => [primaryKey({ columns: [t.officerId, t.sortOrder] })])
+
+// ───────────── Property types and items (cards) ─────────────
+export const propertyTypes = pgTable('property_types', {
+  id: smallint('id').primaryKey().generatedAlwaysAsIdentity(),
+  code: text('code').notNull(), // letters inside property numbers, e.g. ICT
+  name: text('name').notNull(),
+  active: boolean('active').notNull().default(true),
+}, (t) => [
+  check('property_types_code_check', sql`${t.code} ~ '^[A-Z]{2,8}$'`),
+  uniqueIndex('property_types_code_uq').on(t.code),
+  uniqueIndex('property_types_name_uq').on(sql`lower(${t.name})`),
+])
+
+// One card per model: SPC (semi) or PC (ppe)
+export const items = pgTable('items', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  propertyTypeId: smallint('property_type_id').notNull().references(() => propertyTypes.id),
+  category: itemCategory('category').notNull(),
+  article: text('article').notNull(), // general term: "Laptop"
+  description: text('description').notNull(), // the model: "Lenovo ThinkPad E14 Gen 5"
+  unit: text('unit').notNull(),
+  active: boolean('active').notNull().default(true),
+  createdAt: tstz('created_at').notNull().defaultNow(),
+}, (t) => [
+  unique('items_id_category_uq').on(t.id, t.category), // target of lines_item_category_fk
+  uniqueIndex('items_identity_uq').on(t.category, t.propertyTypeId, sql`lower(${t.article})`, sql`lower(${t.description})`),
+  index('items_type_idx').on(t.propertyTypeId, t.category).where(sql`active`),
+])
 
 // ───────────── ICS / PAR ─────────────
 export const documents = pgTable('documents', {
@@ -106,11 +141,10 @@ export const lines = pgTable('lines', {
   id: uuid('id').primaryKey().defaultRandom(),
   documentId: uuid('document_id').notNull().references(() => documents.id),
   lineNo: integer('line_no').notNull(),
+  itemId: uuid('item_id').notNull(),
   qty: integer('qty').notNull(),
-  unit: text('unit').notNull(),
   unitCostCentavos: money('unit_cost_centavos').notNull(),
-  article: text('article').notNull(),
-  description: text('description').notNull(),
+  description: text('description').notNull(), // as printed on the ICS/PAR row (specs, serials)
   estUsefulLifeYears: smallint('est_useful_life_years'),
   dateAcquired: day('date_acquired'),
   iarNo: text('iar_no'),
@@ -119,6 +153,9 @@ export const lines = pgTable('lines', {
   deletedAt: tstz('deleted_at'),
 }, (t) => [
   unique('lines_document_line_no_uq').on(t.documentId, t.lineNo),
+  // a line's frozen category must equal its card's category (BR-01)
+  foreignKey({ name: 'lines_item_category_fk', columns: [t.itemId, t.category], foreignColumns: [items.id, items.category] }),
+  index('lines_item_idx').on(t.itemId),
   check('lines_line_no_positive', sql`${t.lineNo} > 0`),
   check('lines_qty_positive', sql`${t.qty} > 0`),
   check('lines_unit_cost_nonneg', sql`${t.unitCostCentavos} >= 0`),
@@ -188,40 +225,14 @@ export const movements = pgTable('movements', {
   index('movements_officer_idx').on(t.officerId, t.type),
 ])
 
-// ───────────── Physical count (RPCSP / RPCPPE) ─────────────
-export const physicalCounts = pgTable('physical_counts', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  category: itemCategory('category').notNull(),
-  typeLabel: text('type_label').notNull(),
-  asAt: day('as_at').notNull(),
-  fundCluster: text('fund_cluster').notNull(),
-  officerId: uuid('officer_id').notNull().references(() => officers.id),
-  officerPosition: text('officer_position').notNull(), // as printed on the report
-  assumptionDate: day('assumption_date'),
-  status: countStatus('status').notNull().default('open'),
-  createdBy: uuid('created_by').notNull().references(() => users.id),
-  createdAt: tstz('created_at').notNull().defaultNow(),
-  closedAt: tstz('closed_at'),
-}, (t) => [unique('physical_counts_unique_session').on(t.category, t.officerId, t.asAt)])
-
-export const countSignatories = pgTable('count_signatories', {
-  countId: uuid('count_id').notNull().references(() => physicalCounts.id, { onDelete: 'cascade' }),
+// ───────────── Report footers (RPCSP / RPCPPE) ─────────────
+// default names printed under the report; editable on the page before printing
+export const reportSignatories = pgTable('report_signatories', {
   role: signatoryRole('role').notNull(),
   sortOrder: smallint('sort_order').notNull().default(1),
   name: text('name').notNull(),
   position: text('position'),
-}, (t) => [primaryKey({ columns: [t.countId, t.role, t.sortOrder] })])
-
-export const countItems = pgTable('count_items', {
-  countId: uuid('count_id').notNull().references(() => physicalCounts.id, { onDelete: 'cascade' }),
-  propertyId: uuid('property_id').notNull().references(() => properties.id),
-  qtyOnHand: integer('qty_on_hand'), // NULL until counted
-  remarks: text('remarks'),
-}, (t) => [
-  primaryKey({ columns: [t.countId, t.propertyId] }),
-  check('count_items_qty_nonneg', sql`${t.qtyOnHand} >= 0`),
-  index('count_items_property_idx').on(t.propertyId),
-])
+}, (t) => [primaryKey({ columns: [t.role, t.sortOrder] })])
 
 // ───────────── Audit ─────────────
 export const auditLogs = pgTable('audit_logs', {

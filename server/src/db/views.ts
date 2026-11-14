@@ -1,6 +1,8 @@
-// Read-only typings for the SQL views created in drizzle/0001_views.sql. Never migrated by drizzle-kit (.existing()).
+// Read-only typings for the SQL views created in drizzle/0005_update01_views.sql. Never migrated by drizzle-kit (.existing()).
 // bigint(mode:number) columns are converted to JS numbers by drizzle.
+import { sql } from 'drizzle-orm'
 import { bigint, date, integer, pgView, smallint, text, uuid } from 'drizzle-orm/pg-core'
+import { db } from './client.js'
 import { docType, itemCategory, itemCondition, movementType } from './schema.js'
 
 const day = (n: string) => date(n, { mode: 'string' })
@@ -14,10 +16,15 @@ export const vActiveProperties = pgView('v_active_properties', {
   condition: itemCondition('condition'),
   lineId: uuid('line_id'),
   category: itemCategory('category'),
-  unit: text('unit'),
   unitCostCentavos: money('unit_cost_centavos'),
+  lineDescription: text('line_description'),
+  itemId: uuid('item_id'),
   article: text('article'),
-  description: text('description'),
+  itemDescription: text('item_description'),
+  unit: text('unit'),
+  propertyTypeId: smallint('property_type_id'),
+  propertyTypeCode: text('property_type_code'),
+  propertyTypeName: text('property_type_name'),
   documentId: uuid('document_id'),
   docType: docType('doc_type'),
   docNo: text('doc_no'),
@@ -25,24 +32,26 @@ export const vActiveProperties = pgView('v_active_properties', {
   issuedDate: day('issued_date'),
 }).existing()
 
-export const vCardMovements = pgView('v_card_movements', {
-  movementId: bigint('movement_id', { mode: 'number' }),
-  propertyId: uuid('property_id'),
+// one row per event per line (a set is one row); balance = stock held by the Supply Unit
+export const vItemCard = pgView('v_item_card', {
+  itemId: uuid('item_id'),
+  lineId: uuid('line_id'),
   type: movementType('type'),
-  qty: integer('qty'),
   date: day('date'),
   officerId: uuid('officer_id'),
-  officerName: text('officer_name'),
-  officerShort: text('officer_short'),
   referenceDocumentId: uuid('reference_document_id'),
-  referenceDocType: docType('reference_doc_type'),
-  referenceDocNo: text('reference_doc_no'),
   referenceText: text('reference_text'),
   remarks: text('remarks'),
   unitCostCentavos: money('unit_cost_centavos'),
-  propertyNo: text('property_no'),
-  category: itemCategory('category'),
+  qty: integer('qty'),
+  itemNos: text('item_nos'),
+  firstMovementId: bigint('first_movement_id', { mode: 'number' }),
+  officerName: text('officer_name'),
+  officerShort: text('officer_short'),
+  referenceDocType: docType('reference_doc_type'),
+  referenceDocNo: text('reference_doc_no'),
   balanceQty: bigint('balance_qty', { mode: 'number' }),
+  balanceAmountCentavos: money('balance_amount_centavos'),
 }).existing()
 
 export const vCustody = pgView('v_custody', {
@@ -51,23 +60,12 @@ export const vCustody = pgView('v_custody', {
   since: day('since'),
 }).existing()
 
-export const vHoldings = pgView('v_holdings', {
-  propertyId: uuid('property_id'),
-  propertyNo: text('property_no'),
-  lineId: uuid('line_id'),
-  category: itemCategory('category'),
-  unit: text('unit'),
-  unitCostCentavos: money('unit_cost_centavos'),
-  article: text('article'),
-  description: text('description'),
-  documentId: uuid('document_id'),
-  holderOfficerId: uuid('holder_officer_id'),
-  since: day('since'),
-}).existing()
-
 export const vRegistry = pgView('v_registry', {
   lineId: uuid('line_id'),
   category: itemCategory('category'),
+  propertyTypeId: smallint('property_type_id'),
+  propertyTypeCode: text('property_type_code'),
+  itemId: uuid('item_id'),
   date: day('date'),
   docType: docType('doc_type'),
   docNo: text('doc_no'),
@@ -86,17 +84,21 @@ export const vRegistry = pgView('v_registry', {
   fundCluster: text('fund_cluster'),
 }).existing()
 
-export const vCountRows = pgView('v_count_rows', {
-  countId: uuid('count_id'),
-  propertyId: uuid('property_id'),
-  article: text('article'),
-  description: text('description'),
-  propertyNo: text('property_no'),
-  unit: text('unit'),
-  unitValueCentavos: money('unit_value_centavos'),
-  balancePerCard: integer('balance_per_card'),
-  qtyOnHand: integer('qty_on_hand'),
-  shortageOverageQty: integer('shortage_overage_qty'),
-  shortageOverageValueCentavos: money('shortage_overage_value_centavos'),
-  remarks: text('remarks'),
-}).existing()
+export type OfficerReportRow = {
+  officerId: string; lineId: string; itemId: string; category: 'semi' | 'ppe'; propertyTypeId: number
+  article: string; description: string; propertyNos: string; unit: string; unitValueCentavos: number
+  balancePerCard: number; docType: 'ICS' | 'PAR'; docNo: string; issuedDate: string
+}
+
+// RPCSP / RPCPPE rows as at a date. A function, not a view, so it goes through raw SQL.
+export async function officerReport(asAt: string, d: Pick<typeof db, 'execute'> = db): Promise<OfficerReportRow[]> {
+  const r = await d.execute(sql`SELECT officer_id, line_id, item_id, category, property_type_id, article, description,
+    property_nos, unit, unit_value_centavos, balance_per_card, doc_type, doc_no, issued_date::text AS issued_date
+    FROM fn_officer_report(${asAt}::date)`)
+  return r.rows.map((x) => ({
+    officerId: String(x.officer_id), lineId: String(x.line_id), itemId: String(x.item_id), category: x.category as 'semi' | 'ppe',
+    propertyTypeId: Number(x.property_type_id), article: String(x.article), description: String(x.description),
+    propertyNos: String(x.property_nos), unit: String(x.unit), unitValueCentavos: Number(x.unit_value_centavos),
+    balancePerCard: Number(x.balance_per_card), docType: x.doc_type as 'ICS' | 'PAR', docNo: String(x.doc_no), issuedDate: String(x.issued_date),
+  }))
+}
