@@ -31,14 +31,13 @@ function BrandBlock({ large }: { large?: boolean }) {
   )
 }
 
-// Desktop only: the DOST Ilocos building sits, scaled down, at the bottom of the left half. Phones skip the illustration so the form is reachable at once.
+// Desktop only: the DOST Ilocos building sits, scaled down, at the bottom left. Phones skip the illustration so the form is reachable at once.
 function BrandPanel() {
   return (
-    <section aria-label="TRACES" className="relative isolate hidden min-h-screen items-center justify-center overflow-hidden bg-sky px-10 pb-[25vh] lg:flex">
-      {/* the whole art, scaled down so the building itself is about a quarter of the panel height (the top 64% of the file is plain sky); edges fade into the panel */}
-      <img src="/login-bg.webp" alt=""
-        style={{ maskImage: 'linear-gradient(to bottom, transparent, #000 25%), linear-gradient(to right, transparent, #000 15%, #000 85%, transparent)', maskComposite: 'intersect', WebkitMaskComposite: 'source-in' }}
-        className="absolute bottom-0 left-1/2 -z-10 h-[70%] w-auto max-w-none -translate-x-1/2 duration-700 animate-in fade-in" />
+    <section aria-label="TRACES" className="relative isolate hidden min-h-screen items-center justify-center overflow-hidden bg-[#baccd8] px-10 pb-[25vh] lg:flex">
+      {/* the whole art at 25% of the screen width, proportions kept, flush with the panel's left edge; only the top (plain sky) fades */}
+      <img src="/login-bg.webp" alt="" style={{ maskImage: 'linear-gradient(to bottom, transparent, #000 25%)', clipPath: 'inset(0 2px 0 0)' }}
+        className="absolute bottom-0 left-0 -z-10 h-auto w-[25vw] max-w-none duration-700 animate-in fade-in" />
       <BrandBlock large />
     </section>
   )
