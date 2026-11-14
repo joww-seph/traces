@@ -4,6 +4,9 @@ import AdminLayout from '@/layouts/AdminLayout'
 import Dashboard from '@/pages/Dashboard'
 import Login from '@/pages/Login'
 import Password from '@/pages/account/Password'
+import Audit from '@/pages/admin/Audit'
+import SettingsPage from '@/pages/admin/Settings'
+import Users from '@/pages/admin/Users'
 import DocumentDetail from '@/pages/documents/Detail'
 import Documents from '@/pages/documents/List'
 import NewDocument from '@/pages/documents/New'
@@ -12,13 +15,10 @@ import Officers from '@/pages/officers/List'
 import Card from '@/pages/cards/Card'
 import CountDetail from '@/pages/counts/Detail'
 import Counts from '@/pages/counts/List'
-import Placeholder from '@/pages/Placeholder'
 import PropertyDetail from '@/pages/properties/Detail'
 import QrView from '@/pages/public/QrView'
 import Registry from '@/pages/registry/Registry'
 import StickerSheet from '@/pages/stickers/StickerSheet'
-
-const p = (title: string) => <Placeholder title={title} />
 
 export const router = createBrowserRouter([
   { path: '/q/:token', element: <QrView /> }, // public, no login
@@ -45,9 +45,9 @@ export const router = createBrowserRouter([
         {
           element: <RequireRole roles={['superadmin']} />,
           children: [
-            { path: 'admin/users', element: p('Users') },
-            { path: 'admin/settings', element: p('Settings') },
-            { path: 'admin/audit', element: p('Audit log') },
+            { path: 'admin/users', element: <Users /> },
+            { path: 'admin/settings', element: <SettingsPage /> },
+            { path: 'admin/audit', element: <Audit /> },
           ],
         },
       ],
