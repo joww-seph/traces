@@ -4,8 +4,9 @@ import { z } from 'zod'
 import { requireRole } from '../middleware/auth.js'
 import { AppError } from '../middleware/error.js'
 import { cleanupOnError, uploadPdf } from '../middleware/upload.js'
-import { createDocument, getDocument, getPdfFile, listDocuments, patchDocument, readPdfMeta, softDeleteDocument } from '../services/documents.js'
+import { createDocument, getDocument, listDocuments, patchDocument, readPdfMeta, softDeleteDocument } from '../services/documents.js'
 import { ctx } from './ctx.js'
+import { sendPdf } from './pdf.js'
 
 const listQuery = z.object({
   type: z.enum(['ICS', 'PAR']).optional(),
@@ -50,11 +51,7 @@ export function documentsRouter() {
   })
 
   r.get('/documents/:id/pdf', async (req, res) => {
-    const { file, originalName } = await getPdfFile(uuid.parse(req.params.id))
-    res.type('application/pdf')
-    res.setHeader('Content-Disposition', `inline; filename*=UTF-8''${encodeURIComponent(originalName)}`)
-    // dotfiles: the path is server-controlled, and STORAGE_DIR may sit under a dot-directory
-    await new Promise<void>((ok, fail) => res.sendFile(file, { dotfiles: 'allow' }, (err) => (err ? fail(err) : ok())))
+    await sendPdf(res, uuid.parse(req.params.id))
   })
 
   return r
