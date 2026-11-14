@@ -114,7 +114,7 @@ export default function Login() {
           </form>
 
           <p className="mt-6 text-sm text-muted-foreground">
-            Forgot your password? Ask the IT superadmin to reset it; there is no self-service reset.
+            Forgot your password? Ask the ITSM Unit for assistance.
           </p>
         </div>
 
