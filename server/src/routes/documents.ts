@@ -6,6 +6,7 @@ import { AppError } from '../middleware/error.js'
 import { cleanupOnError, uploadPdf } from '../middleware/upload.js'
 import { createDocument, getDocument, listDocuments, patchDocument, softDeleteDocument } from '../services/documents.js'
 import { attachUploaded, readPdfMeta, removeUploaded } from '../services/documentFiles.js'
+import { generateDocument } from '../services/generate.js'
 import { ctx } from './ctx.js'
 import { sendPdf } from './pdf.js'
 
@@ -41,6 +42,9 @@ export function documentsRouter() {
   r.get('/documents/:id', async (req, res) => res.json(await getDocument(uuid.parse(req.params.id))))
 
   r.patch('/documents/:id', async (req, res) => res.json(await patchDocument(uuid.parse(req.params.id), documentPatch.parse(req.body ?? {}), ctx(req))))
+
+  // (re)generate the official form as a PDF with computed highlight boxes; refused once a signed copy exists
+  r.post('/documents/:id/generate', async (req, res) => res.json(await generateDocument(uuid.parse(req.params.id), ctx(req))))
 
   // attach or replace the uploaded copy (signed scan or an existing PDF)
   r.put('/documents/:id/pdf', uploadPdf, cleanupOnError(async (req, res) => {
