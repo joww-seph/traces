@@ -1,3 +1,4 @@
+import { accountEmailOf, titleCaseName } from '@traces/shared'
 import { randomInt } from 'node:crypto'
 import { hash, verify } from '@node-rs/argon2'
 import type { userPatch } from '@traces/shared'
@@ -80,10 +81,20 @@ const columns = {
 
 export const listUsers = () => db.select(columns).from(users).orderBy(asc(users.displayName))
 
-export async function adminCreateUser(input: { email: string; displayName: string; role: 'supply_admin' | 'superadmin' }, ctx: Ctx) {
+// shortname@region1.dost.gov.ph, or shortname2@… when that address is already used
+async function accountEmail(displayName: string) {
+  const [local, domain] = accountEmailOf(displayName).split('@')
+  for (let n = 1; ; n++) {
+    const email = `${local}${n === 1 ? '' : n}@${domain}`
+    if (!(await db.select({ id: users.id }).from(users).where(sql`lower(${users.email}) = ${email}`)).length) return email
+  }
+}
+
+export async function adminCreateUser(input: { displayName: string; role: 'supply_admin' | 'superadmin' }, ctx: Ctx) {
   const temporaryPassword = generatePassword()
+  const displayName = titleCaseName(input.displayName)
   try {
-    const u = await createUser({ ...input, password: temporaryPassword, mustChangePassword: true }, ctx)
+    const u = await createUser({ displayName, role: input.role, email: await accountEmail(displayName), password: temporaryPassword, mustChangePassword: true }, ctx)
     return { user: { id: u.id, email: u.email, displayName: u.displayName, role: u.role, active: u.active, mustChangePassword: u.mustChangePassword }, temporaryPassword }
   } catch (e) {
     if (pgErrorOf(e)?.constraint === 'users_email_lower_uq') throw new AppError('EMAIL_TAKEN', 409, 'Someone already uses that email address')
@@ -105,7 +116,7 @@ export async function adminUpdateUser(id: string, patch: z.infer<typeof userPatc
     }
 
     const set: Partial<typeof users.$inferInsert> = {}
-    if (patch.displayName !== undefined) set.displayName = patch.displayName
+    if (patch.displayName !== undefined) set.displayName = titleCaseName(patch.displayName)
     if (patch.role !== undefined) set.role = patch.role
     if (patch.active !== undefined) set.active = patch.active
     if (patch.resetPassword) {

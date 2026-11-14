@@ -280,7 +280,7 @@ export default function IssueForm() {
         description={documentId
           ? 'These rows are added to the form that already exists. The receiver and the date stay as they are.'
           : 'Fill in the four sections in order. One save writes the cards, the registry, the report and the ICS or PAR together.'}
-        actions={draft && !documentId ? <Button variant="ghost" size="sm" onClick={() => { clearDraft(); setEntries([blankEntry()]); toast.success('Draft discarded') }}>Discard draft</Button> : undefined}
+        actions={draft && !documentId ? <Button variant="destructive" size="sm" onClick={() => { clearDraft(); setEntries([blankEntry()]); toast.success('Draft discarded') }}>Discard draft</Button> : undefined}
       />
       {draft && <p role="status" className="mb-4 rounded-md border bg-muted/40 px-4 py-2.5 text-sm text-muted-foreground">Your unsaved entry was restored from this computer.</p>}
 
@@ -305,7 +305,7 @@ export default function IssueForm() {
                       <Input aria-label={`Row ${i + 1}, number of copies`} className="h-7 w-14 text-right" inputMode="numeric" value={copyCount[e.key] ?? '5'}
                         onChange={(ev) => setCopyCount({ ...copyCount, [e.key]: ev.target.value })} />
                       <Button type="button" variant="ghost" size="xs" onClick={() => copies(i, Math.min(Math.max(Number.parseInt(copyCount[e.key] ?? '5', 10) || 1, 1), 100))}>Make copies</Button>
-                      <Button type="button" variant="ghost" size="xs" disabled={entries.length === 1} onClick={() => setEntries((es) => es.filter((_, k) => k !== i))}><Trash2 /> Remove</Button>
+                      <Button type="button" variant="destructive" size="xs" disabled={entries.length === 1} onClick={() => setEntries((es) => es.filter((_, k) => k !== i))}><Trash2 /> Remove</Button>
                     </span>
                   </div>
                   <div className="grid gap-4 lg:grid-cols-2">
@@ -352,7 +352,7 @@ export default function IssueForm() {
                               onChange={(ev) => setEntries((es) => es.map((x, q) => (q === i ? { ...x, comps: x.comps.map((y, z) => (z === k ? { ...y, label: ev.target.value } : y)) } : x)))} />
                             <Input aria-label={`Row ${i + 1}, component ${k + 1}, property number`} className="figures h-8" value={c.no} placeholder={numbers.comps[i]?.[k] ?? ''}
                               onChange={(ev) => setEntries((es) => es.map((x, q) => (q === i ? { ...x, comps: x.comps.map((y, z) => (z === k ? { ...y, no: ev.target.value } : y)) } : x)))} />
-                            <Button type="button" variant="ghost" size="xs" onClick={() => setEntries((es) => es.map((x, q) => (q === i ? { ...x, comps: x.comps.filter((_, z) => z !== k) } : x)))}>Remove component</Button>
+                            <Button type="button" variant="destructive" size="xs" onClick={() => setEntries((es) => es.map((x, q) => (q === i ? { ...x, comps: x.comps.filter((_, z) => z !== k) } : x)))}>Remove component</Button>
                           </div>
                         ))}
                       </div>
@@ -402,7 +402,7 @@ export default function IssueForm() {
         <section aria-labelledby="s3" className="grid gap-3 border-b py-6">
           <div>
             <h2 id="s3" className="text-base font-semibold">3. Report</h2>
-            <p className="mt-1 text-sm text-muted-foreground">How these rows will appear on {receiver ? `${receiver.shortName}'s` : "the receiver's"} RPCSP or RPCPPE. On Hand per Count and Shortage/Overage stay blank; they are counted by hand.</p>
+            <p className="mt-1 text-sm text-muted-foreground">How these rows will appear on {receiver ? `${receiver.fullName}'s` : "the receiver's"} RPCSP or RPCPPE. On Hand per Count and Shortage/Overage stay blank; they are counted by hand.</p>
           </div>
           <div className="overflow-x-auto rounded-lg border">
             <table className="w-full min-w-[44rem] text-sm">
@@ -465,7 +465,7 @@ export default function IssueForm() {
         </FormSection>
 
         <div className="flex flex-wrap justify-end gap-2 pt-6">
-          <Button type="button" variant="outline" onClick={() => navigate('/documents')}>Cancel</Button>
+          <Button type="button" variant="ghost" onClick={() => navigate('/documents')}>Cancel</Button>
           {documentId
             ? <Button type="submit" disabled={save.isPending || !e0}>{save.isPending ? 'Saving' : 'Save rows'}</Button>
             : <>

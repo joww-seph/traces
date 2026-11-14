@@ -88,7 +88,7 @@ export const regionOut = (r: typeof linePdfRegions.$inferSelect | undefined | nu
 
 // A line carries its card's article, unit and model; they are not stored on the line (3NF).
 export async function getLine(lineId: string) {
-  const row = (await db.select({ line: lines, article: items.article, unit: items.unit, itemDescription: items.description, propertyTypeCode: propertyTypes.code })
+  const row = (await db.select({ line: lines, category: items.category, article: items.article, unit: items.unit, itemDescription: items.description, propertyTypeCode: propertyTypes.code })
     .from(lines).innerJoin(items, eq(items.id, lines.itemId)).innerJoin(propertyTypes, eq(propertyTypes.id, items.propertyTypeId))
     .where(and(eq(lines.id, lineId), isNull(lines.deletedAt))))[0]
   if (!row) throw new AppError('LINE_NOT_FOUND', 404, 'Line not found')
@@ -160,7 +160,7 @@ export async function insertLineTx(
   const category = categorize(input.line.unitCostCentavos, o.thresholdCentavos)
   const itemId = await resolveItem(tx, input.item, category, o.cache)
   const { lineNo: _ignored, ...fields } = input.line
-  const [line] = await tx.insert(lines).values({ ...fields, lineNo: o.lineNo, documentId: doc.id, itemId, category }).returning()
+  const [line] = await tx.insert(lines).values({ ...fields, lineNo: o.lineNo, documentId: doc.id, itemId }).returning()
   if (input.region) await tx.insert(linePdfRegions).values(regionValues(line.id, input.region, 'uploaded'))
   await insertProperties(tx, line, doc, input.properties)
   await audit(tx, o.ctx, 'line.create', 'lines', line.id, null, input)
@@ -227,16 +227,17 @@ export async function updateLine(lineId: string, patch: z.infer<typeof linePatch
       if (patch.line || patch.item || patch.addProperties?.length || patch.removePropertyNos?.length) await assertNotSigned(tx, doc.id) // boxes stay editable
       const s = await getSettings(tx)
       const { lineNo, ...fields } = patch.line ?? {}
+      const category = (await tx.select({ c: items.category }).from(items).where(eq(items.id, before.itemId)))[0].c // the card decides it (3NF)
 
       // category is frozen at creation (BR-01); a cost edit across the threshold only warns
       let warning
-      if (fields.unitCostCentavos !== undefined && categorize(fields.unitCostCentavos, s.ppeThresholdCentavos) !== before.category) {
+      if (fields.unitCostCentavos !== undefined && categorize(fields.unitCostCentavos, s.ppeThresholdCentavos) !== category) {
         warning = warn('CATEGORY_UNCHANGED',
-          `The new cost is on the other side of the ${formatPeso(s.ppeThresholdCentavos)} threshold, but the category stays ${before.category.toUpperCase()}.`)
+          `The new cost is on the other side of the ${formatPeso(s.ppeThresholdCentavos)} threshold, but the category stays ${category.toUpperCase()}.`)
       }
       if (Object.keys(fields).length) await tx.update(lines).set(fields).where(eq(lines.id, lineId))
       // the card can be corrected, but only to one of the line's (frozen) category
-      if (patch.item) await tx.update(lines).set({ itemId: await resolveItem(tx, patch.item, before.category, new Map()) }).where(eq(lines.id, lineId))
+      if (patch.item) await tx.update(lines).set({ itemId: await resolveItem(tx, patch.item, category, new Map()) }).where(eq(lines.id, lineId))
       // the RECEIPT movements carry the date acquired and the IAR number: keep them in step with the line
       if ('dateAcquired' in fields || 'iarNo' in fields) {
         const cur = (await tx.select().from(lines).where(eq(lines.id, lineId)))[0]
@@ -264,7 +265,7 @@ export async function updateLine(lineId: string, patch: z.infer<typeof linePatch
       }
 
       await audit(tx, ctx, 'line.update', 'lines', lineId, before, patch)
-      return { lineId, category: before.category, warning }
+      return { lineId, category, warning }
     }))
   } catch (e) { rethrowDuplicateProperty(e, added) }
 }

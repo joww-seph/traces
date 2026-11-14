@@ -8,7 +8,7 @@ const VIEWS = ['v_active_properties', 'v_item_card', 'v_custody', 'v_registry']
 const GONE_VIEWS = ['v_card_movements', 'v_holdings', 'v_count_rows']
 const ENUMS = ['user_role', 'doc_type', 'item_category', 'movement_type', 'item_condition', 'card_row_mode', 'signatory_role', 'pdf_kind']
 const INDEXES = ['users_email_lower_uq', 'session_expire_idx', 'officers_short_name_uq', 'documents_issued_date_idx',
-  'documents_received_by_idx', 'lines_category_idx', 'lines_item_idx', 'properties_property_no_uq', 'properties_line_idx',
+  'documents_received_by_idx', 'lines_item_idx', 'properties_property_no_uq', 'properties_line_idx',
   'qr_tokens_one_active_uq', 'movements_property_date_idx', 'movements_officer_idx', 'items_identity_uq',
   'property_types_code_uq', 'audit_logs_entity_idx', 'audit_logs_at_idx']
 const COLUMNS: Record<string, string[]> = {
@@ -19,7 +19,7 @@ const COLUMNS: Record<string, string[]> = {
   line_pdf_regions: ['kind'],
 }
 const CONSTRAINTS = ['documents_type_doc_no_uq', 'document_files_name_rule', 'lines_document_line_no_uq',
-  'movements_custody_needs_officer', 'lines_item_category_fk', 'items_id_category_uq']
+  'movements_custody_needs_officer']
 
 const names = async (sql: string) => (await pool.query(sql)).rows.map((r) => Object.values(r)[0] as string)
 
@@ -53,6 +53,7 @@ describe('structure', () => {
     const lineCols = await names(`SELECT column_name FROM information_schema.columns WHERE table_name='lines'`)
     expect(lineCols).not.toContain('article')
     expect(lineCols).not.toContain('unit')
+    expect(lineCols).not.toContain('category') // 3NF: the card (item) decides it
     const docCols = await names(`SELECT column_name FROM information_schema.columns WHERE table_name='documents'`)
     expect(docCols.filter((c) => c.startsWith('pdf_'))).toEqual([]) // the PDFs live in document_files
   })
@@ -88,8 +89,8 @@ async function seed() {
      VALUES ('ICS',$1,'RAF',$2,$3,'Chief',$3,'Chief',$4) RETURNING id`, [no, date, o, u])).rows[0].id as string
   const d = await mkDoc('2026-03-005', '2026-03-01')
   const l = (await pool.query(
-    `INSERT INTO lines (document_id, line_no, item_id, qty, unit_cost_centavos, description, category)
-     VALUES ($1,1,$2,1,9645000,'Laptop set','ppe') RETURNING id`, [d, item])).rows[0].id as string
+    `INSERT INTO lines (document_id, line_no, item_id, qty, unit_cost_centavos, description)
+     VALUES ($1,1,$2,1,9645000,'Laptop set') RETURNING id`, [d, item])).rows[0].id as string
   const p = (await pool.query(
     `INSERT INTO properties (property_no, line_id) VALUES ('2026-09ICT-0199',$1) RETURNING id`, [l])).rows[0].id as string
   return { u, o, d, l, p, item, mkDoc }
@@ -146,12 +147,16 @@ describe('constraints', () => {
       `INSERT INTO settings (id, entity_name, default_fund_cluster, ppe_threshold_centavos, public_base_url)
        VALUES (2,'x','x',1,'x')`))).toBe('23514')
   })
-  it('rejects a ppe line on a semi card (23503, lines_item_category_fk)', async () => {
+  it('a line has no category of its own: the registry takes it from the card (3NF)', async () => {
     const { d } = await seed()
     const semi = await newItem('semi', 'Mouse', 'Logitech M170')
-    expect(await code(pool.query(
-      `INSERT INTO lines (document_id, line_no, item_id, qty, unit_cost_centavos, description, category)
-       VALUES ($1,2,$2,1,100,'x','ppe')`, [d, semi]))).toBe('23503')
+    await pool.query(`INSERT INTO lines (document_id, line_no, item_id, qty, unit_cost_centavos, description) VALUES ($1,2,$2,1,100,'x')`, [d, semi])
+    const cats = (await pool.query(`SELECT category::text FROM v_registry`)).rows.map((r) => r.category).sort()
+    expect(cats).toEqual(['ppe', 'semi']) // the seeded laptop card is PPE, the mouse card semi
+  })
+  it('a line must point to an existing card (23503)', async () => {
+    const { d } = await seed()
+    expect(await code(pool.query(`INSERT INTO lines (document_id, line_no, item_id, qty, unit_cost_centavos, description) VALUES ($1,3,'00000000-0000-4000-8000-0000000000ff',1,100,'x')`, [d]))).toBe('23503')
   })
   it('rejects a second card with the same identity in another letter case (23505)', async () => {
     await newItem('semi')
@@ -191,8 +196,8 @@ describe('views', () => {
     const addLine = async (docNo: string, date: string, acquired: string, qty: number, base: number, lineNo: number) => {
       const d = await mkDoc(docNo, date)
       const l = (await pool.query(
-        `INSERT INTO lines (document_id, line_no, item_id, qty, unit_cost_centavos, description, category)
-         VALUES ($1,$2,$3,$4,3709200,'x','semi') RETURNING id`, [d, lineNo, semi, qty])).rows[0].id
+        `INSERT INTO lines (document_id, line_no, item_id, qty, unit_cost_centavos, description)
+         VALUES ($1,$2,$3,$4,3709200,'x') RETURNING id`, [d, lineNo, semi, qty])).rows[0].id
       for (let i = 0; i < qty; i++) {
         const pid = (await pool.query(`INSERT INTO properties (property_no, line_id) VALUES ($1,$2) RETURNING id`,
           [`2026-0${base + i}ICT-${String(base * 10 + i).padStart(4, '0')}`, l])).rows[0].id

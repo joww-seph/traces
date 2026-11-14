@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { userCreate } from '@traces/shared'
+import { accountEmailOf, userCreate } from '@traces/shared'
 import { Copy, UserPlus } from 'lucide-react'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
@@ -49,8 +49,9 @@ function PasswordDialog({ shown, onClose }: { shown: Shown | null; onClose: () =
 
 function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: () => void; onCreated: (s: Shown) => void }) {
   const qc = useQueryClient()
-  const form = useForm<Form>({ resolver: zodResolver(userCreate), defaultValues: { email: '', displayName: '', role: 'supply_admin' } })
+  const form = useForm<Form>({ resolver: zodResolver(userCreate), defaultValues: { displayName: '', role: 'supply_admin' } })
   const { errors } = form.formState
+  const name = form.watch('displayName') ?? ''
   const create = useMutation({
     mutationFn: (v: Form) => api.post<{ user: User; temporaryPassword: string }>('/api/admin/users', v),
     onSuccess: (r) => {
@@ -59,10 +60,7 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
       onClose()
       onCreated({ who: r.user.displayName, email: r.user.email, password: r.temporaryPassword })
     },
-    onError: (e) => {
-      if (e instanceof ApiError && e.code === 'EMAIL_TAKEN') form.setError('email', { message: 'Someone already uses that email address' })
-      else toast.error(e instanceof ApiError ? e.message : 'Could not create the account')
-    },
+    onError: (e) => toast.error(e instanceof ApiError ? e.message : 'Could not create the account'),
   })
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
@@ -75,9 +73,9 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
             {errors.displayName && <p className="text-xs text-destructive">{errors.displayName.message}</p>}
           </div>
           <div className="grid gap-1.5">
-            <Label htmlFor="u-email">Email</Label>
-            <Input id="u-email" type="email" aria-invalid={!!errors.email} {...form.register('email')} />
-            {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
+            <Label htmlFor="u-email">Email (made from the name)</Label>
+            <Input id="u-email" readOnly className="bg-muted" value={name.trim() ? accountEmailOf(name) : ''} placeholder="initials and surname@region1.dost.gov.ph" />
+            <p className="text-xs text-muted-foreground">If someone already has this address, a number is added to it.</p>
           </div>
           <div className="grid gap-1.5">
             <Label htmlFor="u-role">Role</Label>
@@ -86,7 +84,7 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
             </NativeSelect>
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+            <Button type="button" variant="ghost" onClick={onClose}>Cancel</Button>
             <Button type="submit" disabled={create.isPending}>Add user</Button>
           </DialogFooter>
         </form>
@@ -141,11 +139,11 @@ export default function Users() {
                   {u.mustChangePassword && <span className="ml-2 text-xs text-muted-foreground">must change password</span>}
                 </TableCell>
                 <TableCell className="space-x-1 pr-5 text-right whitespace-nowrap">
-                  <Button variant="outline" size="sm" aria-label={`Reset password of ${u.displayName}`}
+                  <Button variant="warning" size="sm" aria-label={`Reset password of ${u.displayName}`}
                     onClick={() => confirm(`Reset the password of ${u.displayName}? They are signed out and get a new temporary password.`) && patch.mutate({ u, body: { resetPassword: true } })}>
                     Reset password
                   </Button>
-                  <Button variant="ghost" size="sm" aria-label={`${u.active ? 'Deactivate' : 'Reactivate'} ${u.displayName}`}
+                  <Button variant={u.active ? 'destructive' : 'success'} size="sm" aria-label={`${u.active ? 'Deactivate' : 'Reactivate'} ${u.displayName}`}
                     onClick={() => patch.mutate({ u, body: { active: !u.active } })}>
                     {u.active ? 'Deactivate' : 'Reactivate'}
                   </Button>

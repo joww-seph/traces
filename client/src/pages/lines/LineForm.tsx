@@ -235,7 +235,7 @@ export default function LineForm() {
                       <Input aria-label={`Component label ${i + 1}`} placeholder="Label (e.g. Mouse)" disabled={signed} aria-invalid={!!rowErr?.componentLabel}
                         {...register(`properties.${i}.componentLabel`)} />
                     )}
-                    <Button type="button" variant="ghost" size="sm" aria-label={`Remove property ${i + 1}`} disabled={rows.fields.length === 1 || signed}
+                    <Button type="button" variant="destructive" size="sm" aria-label={`Remove property ${i + 1}`} disabled={rows.fields.length === 1 || signed}
                       onClick={() => { if (row?.existing) setRemoved([...removed, row.propertyNo]); rows.remove(i) }}>Remove</Button>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
@@ -269,7 +269,7 @@ export default function LineForm() {
               onClick={() => { if (confirm('Delete this line? Its property numbers stay reserved.')) remove.mutate() }}>Delete line</Button>
           </div>
           <div className="flex gap-2">
-            <Button type="button" variant="outline" onClick={() => navigate(docId ? `/documents/${docId}` : '/documents')}>Cancel</Button>
+            <Button type="button" variant="ghost" onClick={() => navigate(docId ? `/documents/${docId}` : '/documents')}>Cancel</Button>
             <Button type="submit" disabled={save.isPending || !doc || signed}>{save.isPending ? 'Saving' : 'Save line'}</Button>
           </div>
         </div>

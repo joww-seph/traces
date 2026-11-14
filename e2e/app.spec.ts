@@ -4,11 +4,10 @@ import { a11y, login, noHorizontalScroll } from './helpers'
 
 test.describe.configure({ mode: 'serial' })
 
-async function addOfficer(page: Page, fullName: string, shortName: string, position: string) {
+async function addOfficer(page: Page, fullName: string, position: string) {
   await page.goto('/officers')
   await page.getByRole('button', { name: 'Add officer' }).click()
   await page.locator('#o-fullName').fill(fullName)
-  await page.locator('#o-shortName').fill(shortName)
   await page.locator('#o-position').fill(position)
   await page.getByRole('dialog').getByRole('button', { name: 'Add officer' }).click()
 }
@@ -62,14 +61,15 @@ test.describe('sign in', () => {
 })
 
 test.describe('records flow', () => {
-  test('officers: add two, a duplicate short name is refused', async ({ page }) => {
+  test('officers: the short name is made from the name, a clash gets a number', async ({ page }) => {
     await login(page)
-    await addOfficer(page, 'Juan Dela Cruz', 'JDelaCruz', 'Administrative Officer V')
-    await expect(page.getByRole('cell', { name: 'JDelaCruz' })).toBeVisible()
-    await addOfficer(page, 'Maria Santos', 'MSantos', 'ARD for Field Operations')
-    await expect(page.getByRole('cell', { name: 'MSantos' })).toBeVisible()
-    await addOfficer(page, 'Someone Else', 'msantos', 'Clerk')
-    await expect(page.getByText('That short name is already used')).toBeVisible()
+    await addOfficer(page, 'JUAN DELA CRUZ', 'Administrative Officer V')
+    await expect(page.getByRole('cell', { name: 'Juan Dela Cruz' })).toBeVisible()
+    await expect(page.getByRole('cell', { name: 'JDelaCruz', exact: true })).toBeVisible()
+    await addOfficer(page, 'Maria Santos', 'ARD for Field Operations')
+    await expect(page.getByRole('cell', { name: 'MSantos', exact: true })).toBeVisible()
+    await addOfficer(page, 'Mario Santos', 'Clerk')
+    await expect(page.getByRole('cell', { name: 'MSantos2', exact: true })).toBeVisible()
   })
 
   test('the old "new document" address opens the issuance form', async ({ page }) => {

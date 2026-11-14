@@ -5,6 +5,9 @@ import { pool } from '../db/client.js'
 import { resetDb, testPool } from './db.js'
 import { loginAs, ORIGIN } from './helpers.js'
 
+// the made-up people of these tests; their short names are made from these names (MSantos, JDelaCruz, ...)
+const FULL_NAME: Record<string, string> = { JDelaCruz: 'Juan Dela Cruz', MSantos: 'Maria Santos', Staffer: 'Sam Staffer', Iss: 'Ivan Issuer', Rcv: 'Rita Receiver' }
+
 beforeEach(resetDb)
 afterAll(async () => { await pool.end(); await testPool.end() })
 
@@ -53,7 +56,7 @@ describe('the old count routes are gone', () => {
 describe('the public view never carries staff data', () => {
   it('no uuid, no user, no stored file name anywhere in a public response', async () => {
     const { agent } = await loginAs('supply_admin')
-    const mk = async (shortName: string, canReceive: boolean) => (await agent.post('/api/officers').send({ fullName: `${shortName} Full`, shortName, position: 'Clerk', canReceive })).body
+    const mk = async (shortName: string, canReceive: boolean) => (await agent.post('/api/officers').send({ fullName: FULL_NAME[shortName] ?? shortName, position: 'Clerk', canReceive })).body
     const issuer = await mk('Iss', false)
     const receiver = await mk('Rcv', true)
     const out = await agent.post('/api/issuances').send({

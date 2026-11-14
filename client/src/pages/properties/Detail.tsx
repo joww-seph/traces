@@ -90,7 +90,7 @@ export default function PropertyDetail() {
           {l.itemId && <ExportButton path={`/api/exports/${p.category === 'semi' ? 'spc' : 'pc'}?itemId=${l.itemId}`} label={p.category === 'semi' ? 'Export SPC' : 'Export PC'} />}
           {l.itemId && <Link to={`/cards/${l.itemId}`} className={buttonVariants({ variant: 'outline' })}>Open the card</Link>}
           <Link to={`/stickers?nos=${encodeURIComponent(p.propertyNo)}`} className={buttonVariants({ variant: 'outline' })}><QrCode /> Print sticker</Link>
-          <Button variant="outline" onClick={() => setConfirm(true)}><RefreshCw /> Replace QR code</Button>
+          <Button variant="warning" onClick={() => setConfirm(true)}><RefreshCw /> Replace QR code</Button>
         </>}
         meta={publicUrl && (
           <p className="text-sm text-muted-foreground">
@@ -114,8 +114,8 @@ export default function PropertyDetail() {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setConfirm(false)}>Keep the current code</Button>
-            <Button onClick={() => rotate.mutate()} disabled={rotate.isPending}>Replace the code</Button>
+            <Button variant="ghost" onClick={() => setConfirm(false)}>Keep the current code</Button>
+            <Button variant="warning" onClick={() => rotate.mutate()} disabled={rotate.isPending}>Replace the code</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

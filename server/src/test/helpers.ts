@@ -3,6 +3,9 @@ import request from 'supertest'
 import { createApp } from '../app.js'
 import { createUser } from '../services/users.js'
 
+// the made-up people of these tests; their short names are made from these names (MSantos, JDelaCruz, ...)
+const FULL_NAME: Record<string, string> = { JDelaCruz: 'Juan Dela Cruz', MSantos: 'Maria Santos', Staffer: 'Sam Staffer', Iss: 'Ivan Issuer', Rcv: 'Rita Receiver' }
+
 export const ORIGIN = process.env.APP_ORIGIN!.split(',')[0]
 export const PASSWORD = 'Correct-Horse-9'
 
@@ -39,7 +42,7 @@ export async function makeDocument(
   over: { type?: 'ICS' | 'PAR'; docNo?: string; issuedDate?: string } = {},
 ) {
   const mk = async (shortName: string, position: string) =>
-    (await agent.post('/api/officers').send({ fullName: `${shortName} Full`, shortName, position, canReceive: true })).body
+    (await agent.post('/api/officers').send({ fullName: FULL_NAME[shortName] ?? shortName, position, canReceive: true })).body
   const existing = (await agent.get('/api/officers')).body as { id: string; shortName: string }[]
   const issuer = existing.find((o) => o.shortName === 'JDelaCruz') ?? (await mk('JDelaCruz', 'Supply Officer IV'))
   const receiver = existing.find((o) => o.shortName === 'MSantos') ?? (await mk('MSantos', 'Engineer II'))

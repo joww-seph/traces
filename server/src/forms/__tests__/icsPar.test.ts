@@ -96,7 +96,7 @@ describe('renderIcsPar layout', () => {
     }
     const last = items.filter((t) => t.page === r.pageCount).map((t) => t.text).join(' ')
     expect(last).toContain('Received from:')
-    expect(last).toContain('MARIA S. SANTOS')
+    expect(last).toContain('Maria S. Santos') // printed as written, not in capitals
     expect(items.filter((t) => t.page < r.pageCount).map((t) => t.text).join(' ')).not.toContain('Received from:')
   })
 

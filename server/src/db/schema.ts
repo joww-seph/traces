@@ -2,7 +2,7 @@
 // Views live in a hand-written migration (see drizzle/*_views.sql) and are typed in views.ts.
 import { sql } from 'drizzle-orm'
 import {
-  type AnyPgColumn, bigint, boolean, char, check, date, foreignKey, index, inet, integer, json, jsonb, numeric, pgEnum, pgTable,
+  type AnyPgColumn, bigint, boolean, char, check, date, index, inet, integer, json, jsonb, numeric, pgEnum, pgTable,
   primaryKey, smallint, text, timestamp, unique, uniqueIndex, uuid, varchar,
 } from 'drizzle-orm/pg-core'
 
@@ -104,7 +104,6 @@ export const items = pgTable('items', {
   active: boolean('active').notNull().default(true),
   createdAt: tstz('created_at').notNull().defaultNow(),
 }, (t) => [
-  unique('items_id_category_uq').on(t.id, t.category), // target of lines_item_category_fk
   uniqueIndex('items_identity_uq').on(t.category, t.propertyTypeId, sql`lower(${t.article})`, sql`lower(${t.description})`),
   index('items_type_idx').on(t.propertyTypeId, t.category).where(sql`active`),
 ])
@@ -151,7 +150,7 @@ export const lines = pgTable('lines', {
   id: uuid('id').primaryKey().defaultRandom(),
   documentId: uuid('document_id').notNull().references(() => documents.id),
   lineNo: integer('line_no').notNull(),
-  itemId: uuid('item_id').notNull(),
+  itemId: uuid('item_id').notNull().references(() => items.id), // the card; its category is the line's category (3NF)
   qty: integer('qty').notNull(),
   unitCostCentavos: money('unit_cost_centavos').notNull(),
   description: text('description').notNull(), // as printed on the ICS/PAR row (specs, serials)
@@ -159,18 +158,14 @@ export const lines = pgTable('lines', {
   dateAcquired: day('date_acquired'),
   iarNo: text('iar_no'),
   iarDate: day('iar_date'),
-  category: itemCategory('category').notNull(), // frozen at create (BR-01)
   deletedAt: tstz('deleted_at'),
 }, (t) => [
   unique('lines_document_line_no_uq').on(t.documentId, t.lineNo),
-  // a line's frozen category must equal its card's category (BR-01)
-  foreignKey({ name: 'lines_item_category_fk', columns: [t.itemId, t.category], foreignColumns: [items.id, items.category] }),
   index('lines_item_idx').on(t.itemId),
   check('lines_line_no_positive', sql`${t.lineNo} > 0`),
   check('lines_qty_positive', sql`${t.qty} > 0`),
   check('lines_unit_cost_nonneg', sql`${t.unitCostCentavos} >= 0`),
   check('lines_useful_life_positive', sql`${t.estUsefulLifeYears} > 0`),
-  index('lines_category_idx').on(t.category).where(sql`deleted_at IS NULL`),
 ])
 
 // x/y/w/h are fractions (0-1) of the page. One box per line on each kind of PDF.

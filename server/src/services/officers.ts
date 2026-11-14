@@ -1,5 +1,5 @@
-import type { officerInput, officerPatch } from '@traces/shared'
-import { and, asc, eq, ilike, inArray, or, sql } from 'drizzle-orm'
+import { shortNameOf, titleCaseName, type officerInput, type officerPatch } from '@traces/shared'
+import { and, asc, eq, ilike, inArray, ne, or, sql } from 'drizzle-orm'
 import type { z } from 'zod'
 import { db } from '../db/client.js'
 import { officerDesignations, officers } from '../db/schema.js'
@@ -35,9 +35,22 @@ const saveDesignations = async (tx: Tx, officerId: string, list: string[]) => {
   if (list.length) await tx.insert(officerDesignations).values(list.map((designation, i) => ({ officerId, sortOrder: i + 1, designation })))
 }
 
+// "MSantos", or "MSantos2" when another officer already has it (the unique index is case-insensitive)
+export async function uniqueShortName(tx: Pick<typeof db, 'select'>, fullName: string, exceptId?: string) {
+  const base = shortNameOf(fullName)
+  for (let n = 1; ; n++) {
+    const candidate = n === 1 ? base : `${base}${n}`
+    const taken = await tx.select({ id: officers.id }).from(officers)
+      .where(and(sql`lower(${officers.shortName}) = lower(${candidate})`, exceptId ? ne(officers.id, exceptId) : undefined))
+    if (!taken.length) return candidate
+  }
+}
+
 export async function createOfficer(input: z.infer<typeof officerInput>, ctx: Ctx) {
   return db.transaction(async (tx) => {
-    const { designations, ...fields } = input
+    const { designations, ...rest } = input
+    const fullName = titleCaseName(rest.fullName)
+    const fields = { ...rest, fullName, shortName: await uniqueShortName(tx, fullName) }
     const [o] = await tx.insert(officers).values(fields).returning()
     await saveDesignations(tx, o.id, designations)
     const [full] = await withDesignations([o], tx)
@@ -51,7 +64,11 @@ async function change(id: string, set: z.infer<typeof officerPatch>, action: str
     const before = (await tx.select().from(officers).where(eq(officers.id, id)).for('update'))[0]
     if (!before) throw new AppError('OFFICER_NOT_FOUND', 404, 'Officer not found')
     const [beforeFull] = await withDesignations([before], tx)
-    const { designations, ...fields } = set
+    const { designations, ...fields } = set as typeof set & { shortName?: string }
+    if (fields.fullName) { // a corrected name corrects the short name too
+      fields.fullName = titleCaseName(fields.fullName)
+      fields.shortName = await uniqueShortName(tx, fields.fullName, id)
+    }
     const [after] = Object.keys(fields).length ? await tx.update(officers).set(fields).where(eq(officers.id, id)).returning() : [before]
     if (designations) await saveDesignations(tx, id, designations)
     const [afterFull] = await withDesignations([after], tx)

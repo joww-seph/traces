@@ -77,12 +77,12 @@ export async function listDocuments(f: ListFilter) {
     f.status ? status[f.status] : undefined,
   )
   const [{ total }] = await db.select({ total: count() }).from(documents).where(where)
-  const rows = await db.select({ doc: documents, receivedByShort: officers.shortName })
+  const rows = await db.select({ doc: documents, receivedByShort: officers.shortName, receivedByName: officers.fullName })
     .from(documents).innerJoin(officers, eq(officers.id, documents.receivedByOfficerId))
     .where(where).orderBy(desc(documents.issuedDate), desc(documents.createdAt))
     .limit(PAGE_SIZE).offset((f.page - 1) * PAGE_SIZE)
   const files = await filesOf(rows.map((r) => r.doc.id))
-  return { rows: rows.map((r) => ({ ...present(r.doc, files.get(r.doc.id)), receivedByShort: r.receivedByShort })), total, page: f.page, pageSize: PAGE_SIZE }
+  return { rows: rows.map((r) => ({ ...present(r.doc, files.get(r.doc.id)), receivedByShort: r.receivedByShort, receivedByName: r.receivedByName })), total, page: f.page, pageSize: PAGE_SIZE }
 }
 
 async function findLive(tx: Pick<typeof db, 'select'>, id: string) {
@@ -101,7 +101,7 @@ export async function getDocument(id: string) {
     : []
   const itemIds = [...new Set(lineRows.map((l) => l.itemId))]
   const cards = itemIds.length
-    ? await db.select({ id: items.id, article: items.article, unit: items.unit, itemDescription: items.description, propertyTypeCode: propertyTypes.code })
+    ? await db.select({ id: items.id, category: items.category, article: items.article, unit: items.unit, itemDescription: items.description, propertyTypeCode: propertyTypes.code })
       .from(items).innerJoin(propertyTypes, eq(propertyTypes.id, items.propertyTypeId)).where(inArray(items.id, itemIds))
     : []
   const region = (lineId: string, kind: 'generated' | 'uploaded') => regionOut(regions.find((r) => r.lineId === lineId && r.kind === kind))

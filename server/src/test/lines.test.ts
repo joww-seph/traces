@@ -274,7 +274,7 @@ describe('update line (BR-05)', () => {
     expect(res.status).toBe(200)
     expect(res.body.category).toBe('semi')
     expect(res.body.warning.code).toBe('CATEGORY_UNCHANGED')
-    expect((await testPool.query('SELECT category, unit_cost_centavos FROM lines')).rows[0]).toMatchObject({ category: 'semi', unit_cost_centavos: '6000000' })
+    expect((await testPool.query('SELECT i.category, l.unit_cost_centavos FROM lines l JOIN items i ON i.id = l.item_id')).rows[0]).toMatchObject({ category: 'semi', unit_cost_centavos: '6000000' })
   })
 
   it('text edits, region replace and region clear', async () => {
@@ -346,7 +346,7 @@ describe('corrections reach the ledger (card, registry, report)', () => {
     const { post, agent, doc, receiver } = await setup()
     await post(laptop())
     expect(await holder('2026-09ICT-0199')).toBe(receiver.id)
-    const other = (await agent.post('/api/officers').send({ fullName: 'Other Person', shortName: 'OPerson', position: 'Clerk', canReceive: true })).body
+    const other = (await agent.post('/api/officers').send({ fullName: 'Otto Person', position: 'Clerk', canReceive: true })).body
     expect((await agent.patch(`/api/documents/${doc.id}`).send({ receivedByOfficerId: other.id, issuedDate: '2026-03-05' })).status).toBe(200)
     expect(await holder('2026-09ICT-0199')).toBe(other.id)
     expect(await holder('2026-09ICT-0199a')).toBe(other.id)

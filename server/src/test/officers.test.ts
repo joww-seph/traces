@@ -6,7 +6,7 @@ import { agentFor, loginAs, samplePdf } from './helpers.js'
 beforeEach(resetDb)
 afterAll(async () => { await pool.end(); await testPool.end() })
 
-const officer = { fullName: 'Maria Santos', shortName: 'MSantos', position: 'Supply Officer III', office: 'Supply Unit' }
+const officer = { fullName: 'Maria Santos', position: 'Supply Officer III', office: 'Supply Unit' }
 
 describe('officers', () => {
   it('create, list, patch and deactivate', async () => {
@@ -30,11 +30,16 @@ describe('officers', () => {
     expect(actions.map((r) => r.action)).toEqual(['officer.create', 'officer.update', 'officer.deactivate'])
   })
 
-  it('duplicate short_name in a different case -> 409', async () => {
+  it('the short name is made from the full name, never typed; names in capitals are written with capital initials only', async () => {
     const { agent } = await loginAs('supply_admin')
-    await agent.post('/api/officers').send(officer)
-    const dup = await agent.post('/api/officers').send({ ...officer, fullName: 'Someone Else', shortName: 'msantos' })
-    expect(dup.status).toBe(409)
+    const a = await agent.post('/api/officers').send({ ...officer, fullName: 'ANA MARIE B. DELA CRUZ', shortName: 'Typed' })
+    expect(a.body).toMatchObject({ fullName: 'Ana Marie B. Dela Cruz', shortName: 'AMBDelaCruz' })
+    // the same initials and surname get a number instead of being refused
+    expect((await agent.post('/api/officers').send(officer)).body.shortName).toBe('MSantos')
+    expect((await agent.post('/api/officers').send({ ...officer, fullName: 'Mario Santos' })).body.shortName).toBe('MSantos2')
+    // a corrected name corrects the short name
+    const p = await agent.patch(`/api/officers/${a.body.id}`).send({ fullName: 'Ana Maria B. Dela Cruz-Reyes' })
+    expect(p.body).toMatchObject({ fullName: 'Ana Maria B. Dela Cruz-Reyes', shortName: 'AMBDelaCruz-Reyes' })
   })
 
   it('invalid body -> 400; unknown id -> 404; anonymous -> 401', async () => {
@@ -77,8 +82,8 @@ describe('accountable officers (update 01 U-06)', () => {
 
   it('canReceive defaults to false; the list filters by it', async () => {
     const { agent } = await loginAs('supply_admin')
-    const a = await mk(agent, { shortName: 'AReceiver', fullName: 'Ana Receiver', canReceive: true })
-    const b = await mk(agent, { shortName: 'BStaff', fullName: 'Ben Staff' })
+    const a = await mk(agent, { fullName: 'Ana Receiver', canReceive: true })
+    const b = await mk(agent, { fullName: 'Ben Staff' })
     expect(a.body.canReceive).toBe(true)
     expect(b.body.canReceive).toBe(false)
     expect((await agent.get('/api/officers?canReceive=true')).body.map((o: { shortName: string }) => o.shortName)).toEqual(['AReceiver'])
@@ -87,9 +92,9 @@ describe('accountable officers (update 01 U-06)', () => {
 
   it('designations are stored in order, replaced on patch, and searched by q together with the names', async () => {
     const { agent } = await loginAs('supply_admin')
-    const a = await mk(agent, { shortName: 'AOne', fullName: 'Ana One', designations: ['SARAi CENTRO, Focal Person', 'Records, Custodian'] })
-    await mk(agent, { shortName: 'BTwo', fullName: 'Ben Two', designations: ['SARAi, Coordinator'] })
-    await mk(agent, { shortName: 'CThree', fullName: 'Cy Three' })
+    const a = await mk(agent, { fullName: 'Ana One', designations: ['SARAi CENTRO, Focal Person', 'Records, Custodian'] })
+    await mk(agent, { fullName: 'Ben Two', designations: ['SARAi, Coordinator'] })
+    await mk(agent, { fullName: 'Cy Three' })
     expect(a.body.designations).toEqual(['SARAi CENTRO, Focal Person', 'Records, Custodian'])
     const found = (await agent.get('/api/officers?q=sarai')).body.map((o: { shortName: string }) => o.shortName)
     expect(found).toEqual(['AOne', 'BTwo'])
@@ -103,8 +108,8 @@ describe('accountable officers (update 01 U-06)', () => {
 
   it('a document cannot be received by an officer who may not receive (400 OFFICER_CANNOT_RECEIVE)', async () => {
     const { agent } = await loginAs('supply_admin')
-    const issuer = await mk(agent, { shortName: 'Issuer', fullName: 'Issuer One', canReceive: true })
-    const staff = await mk(agent, { shortName: 'Staff', fullName: 'Staff One' })
+    const issuer = await mk(agent, { fullName: 'Issuer One', canReceive: true })
+    const staff = await mk(agent, { fullName: 'Staff One' })
     const res = await agent.post('/api/documents')
       .field('meta', JSON.stringify({ type: 'ICS', docNo: 'X-1', fundCluster: 'RAF', issuedDate: '2026-03-01', issuedByOfficerId: issuer.body.id, receivedByOfficerId: staff.body.id }))
       .attach('pdf', await samplePdf(), { filename: 'a.pdf', contentType: 'application/pdf' })

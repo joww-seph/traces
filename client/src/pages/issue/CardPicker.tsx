@@ -56,11 +56,14 @@ export function CardPicker({ n, entry, category, onChange }: {
   }
 
   return (
-    <div className="relative grid gap-1.5">
+    <div className="relative grid gap-1.5"
+      onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setOpen(false) }}
+      onKeyDown={(e) => { if (e.key === 'Escape' && open) { e.stopPropagation(); setOpen(false) } }}>
       <Input aria-label={`Row ${n}, search cards`} className="h-8" placeholder="Search article or model" value={q} role="combobox" aria-expanded={open}
         onFocus={() => setOpen(true)} onChange={(e) => { setQ(e.target.value); setOpen(true) }} />
       {open && (
-        <ul className="max-h-56 overflow-auto rounded-lg border bg-popover p-1 text-sm shadow-sm" aria-label="Matching cards">
+        // floats over the page below the search box instead of pushing the form down
+        <ul className="absolute inset-x-0 top-9 z-50 max-h-64 overflow-auto rounded-lg border bg-popover p-1 text-sm text-popover-foreground shadow-lg ring-1 ring-foreground/5" aria-label="Matching cards">
           {results.isLoading && <li className="px-2 py-1.5 text-muted-foreground">Searching</li>}
           {results.data?.map((c) => (
             <li key={c.id}>

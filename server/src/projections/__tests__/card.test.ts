@@ -19,7 +19,7 @@ describe('mergeCardRows', () => {
     expect(rows).toHaveLength(1)
     expect(rows[0]).toMatchObject({
       id: '2', lineId: 'l1', date: '2026-03-01', receiptQty: 1, unitCostCentavos: 3709200, totalCostCentavos: 3709200,
-      issueQty: 1, issueItemNo: '2026-03ICT-0001', officer: 'MSantos', officerFullName: 'Maria Santos',
+      issueQty: 1, issueItemNo: '2026-03ICT-0001', officer: 'Maria Santos', officerFullName: 'Maria Santos',
       balanceQty: 1, amountCentavos: 3709200, reference: 'ICS 2026-03SARAi-005',
     })
   })
@@ -28,7 +28,7 @@ describe('mergeCardRows', () => {
     const rows = mergeCardRows([receipt(), issue()], 'split')
     expect(rows.map((r) => r.id)).toEqual(['1', '2'])
     expect(rows[0]).toMatchObject({ receiptQty: 1, issueQty: null, officer: null, balanceQty: 2 })
-    expect(rows[1]).toMatchObject({ receiptQty: null, issueQty: 1, officer: 'MSantos', balanceQty: 1 })
+    expect(rows[1]).toMatchObject({ receiptQty: null, issueQty: 1, officer: 'Maria Santos', balanceQty: 1 })
   })
 
   it('different dates stay two rows', () => {

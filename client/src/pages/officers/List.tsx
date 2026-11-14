@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { officerInput } from '@traces/shared'
+import { officerInput, shortNameOf } from '@traces/shared'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { toast } from 'sonner'
@@ -26,10 +26,11 @@ function OfficerDialog({ officer, onClose }: { officer: Officer | 'new' | null; 
   const form = useForm<Form>({
     resolver: zodResolver(officerInput.extend({ designations: z.string() }) as never),
     values: editing
-      ? { fullName: editing.fullName, shortName: editing.shortName, position: editing.position, office: editing.office, canReceive: editing.canReceive, designations: editing.designations.join('\n') }
-      : { fullName: '', shortName: '', position: '', office: '', canReceive: true, designations: '' },
+      ? { fullName: editing.fullName, position: editing.position, office: editing.office, canReceive: editing.canReceive, designations: editing.designations.join('\n') }
+      : { fullName: '', position: '', office: '', canReceive: true, designations: '' },
   })
   const { errors } = form.formState
+  const fullName = form.watch('fullName') ?? ''
 
   const save = useMutation({
     mutationFn: (v: Form) => {
@@ -38,12 +39,11 @@ function OfficerDialog({ officer, onClose }: { officer: Officer | 'new' | null; 
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['officers'] }); toast.success(editing ? 'Officer updated' : 'Officer added'); onClose() },
     onError: (e) => {
-      if (e instanceof ApiError && e.status === 409) form.setError('shortName', { message: 'That short name is already used' })
-      else toast.error(e instanceof ApiError ? e.message : 'Could not save')
+      toast.error(e instanceof ApiError ? e.message : 'Could not save')
     },
   })
 
-  const field = (name: 'fullName' | 'shortName' | 'position' | 'office', label: string, hint?: string) => (
+  const field = (name: 'fullName' | 'position' | 'office', label: string, hint?: string) => (
     <div className="grid gap-1.5">
       <Label htmlFor={`o-${name}`}>{label}</Label>
       <Input id={`o-${name}`} aria-invalid={!!errors[name]} {...form.register(name)} />
@@ -58,7 +58,7 @@ function OfficerDialog({ officer, onClose }: { officer: Officer | 'new' | null; 
         <DialogHeader><DialogTitle>{editing ? 'Edit officer' : 'Add officer'}</DialogTitle></DialogHeader>
         <form onSubmit={form.handleSubmit((v) => save.mutate(v))} className="grid gap-3" noValidate>
           {field('fullName', 'Full name')}
-          {field('shortName', 'Short name', 'Unique label used in the registry, e.g. MSantos')}
+          <p id="o-shortName" className="-mt-1 text-xs text-muted-foreground">Short name: <span className="font-medium text-foreground">{fullName.trim() ? shortNameOf(fullName) : '—'}</span> (made from the name: initials, middle initial and surname)</p>
           {field('position', 'Position / designation')}
           {field('office', 'Office')}
           <div className="grid gap-1.5">
@@ -70,7 +70,7 @@ function OfficerDialog({ officer, onClose }: { officer: Officer | 'new' | null; 
             <input type="checkbox" className="size-4" {...form.register('canReceive')} /> Can receive property (appears under “Received by” and in reports)
           </label>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+            <Button type="button" variant="ghost" onClick={onClose}>Cancel</Button>
             <Button type="submit" disabled={save.isPending}>{editing ? 'Save changes' : 'Add officer'}</Button>
           </DialogFooter>
         </form>
@@ -93,7 +93,7 @@ export default function Officers() {
   return (
     <>
       <PageHeader title="Officers"
-        description="People who issue or receive property. Their position fills in on new documents, and their short name appears in the registry."
+        description="People who issue or receive property. Their position fills in on new documents. The short name is made from the full name."
         actions={<Button onClick={() => setDialog('new')}><UserPlus /> Add officer</Button>} />
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <Input aria-label="Search officers" placeholder="Search by name or program, e.g. SARAi" className="h-9 w-full bg-card sm:w-80" value={q} onChange={(e) => setQ(e.target.value)} />
@@ -103,7 +103,7 @@ export default function Officers() {
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/50 hover:bg-muted/50">
-              <TableHead className="pl-5">Short name</TableHead><TableHead>Full name</TableHead><TableHead>Position</TableHead>
+              <TableHead className="pl-5">Full name</TableHead><TableHead>Short name</TableHead><TableHead>Position</TableHead>
               <TableHead>Office</TableHead><TableHead>Receives property</TableHead><TableHead>Status</TableHead><TableHead />
             </TableRow>
           </TableHeader>
@@ -112,15 +112,15 @@ export default function Officers() {
             {!isLoading && !data.length && <TableRow><TableCell colSpan={7} className="py-8 pl-5 text-muted-foreground">No officers yet. Add the Supply Unit staff and the accountable officers who receive property.</TableCell></TableRow>}
             {data.map((o) => (
               <TableRow key={o.id}>
-                <TableCell className="pl-5 font-medium">{o.shortName}</TableCell>
-                <TableCell>{o.fullName}</TableCell>
+                <TableCell className="pl-5 font-medium">{o.fullName}</TableCell>
+                <TableCell className="text-muted-foreground">{o.shortName}</TableCell>
                 <TableCell>{o.position}{o.designations.length > 0 && <span className="block text-xs text-muted-foreground">{o.designations.join('; ')}</span>}</TableCell>
                 <TableCell>{o.office}</TableCell>
                 <TableCell>{o.canReceive ? 'Yes' : 'No'}</TableCell>
                 <TableCell><Badge variant={o.active ? 'default' : 'secondary'}>{o.active ? 'Active' : 'Inactive'}</Badge></TableCell>
                 <TableCell className="space-x-1 pr-5 text-right whitespace-nowrap">
                   <Button variant="outline" size="sm" onClick={() => setDialog(o)}>Edit</Button>
-                  <Button variant="ghost" size="sm" onClick={() => toggle.mutate(o)}>{o.active ? 'Deactivate' : 'Reactivate'}</Button>
+                  <Button variant={o.active ? 'destructive' : 'success'} size="sm" onClick={() => toggle.mutate(o)}>{o.active ? 'Deactivate' : 'Reactivate'}</Button>
                 </TableCell>
               </TableRow>
             ))}

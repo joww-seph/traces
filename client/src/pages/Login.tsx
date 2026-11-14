@@ -80,10 +80,10 @@ export default function Login() {
             <div className="grid gap-2">
               <Label htmlFor="email">Email address</Label>
               <Input id="email" type="email" inputMode="email" autoComplete="username" autoCapitalize="none" spellCheck={false}
-                autoFocus={typeof window !== 'undefined' && window.matchMedia('(min-width: 1024px)').matches} placeholder="name@dost1.gov.ph"
+                autoFocus={typeof window !== 'undefined' && window.matchMedia('(min-width: 1024px)').matches} placeholder="jdelacruz@region1.dost.gov.ph"
                 className="h-12 px-3.5 text-base" aria-invalid={!!errors.email} aria-describedby={errors.email ? 'email-error' : undefined}
                 {...form.register('email')} />
-              {errors.email && <p id="email-error" className="text-sm text-destructive">Enter your email address, like name@dost1.gov.ph.</p>}
+              {errors.email && <p id="email-error" className="text-sm text-destructive">Enter your email address, like jdelacruz@region1.dost.gov.ph.</p>}
             </div>
 
             <div className="grid gap-2">

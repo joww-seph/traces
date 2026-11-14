@@ -1,6 +1,7 @@
 import { eq, sql } from 'drizzle-orm'
 import { db } from '../db/client.js'
 import { officerDesignations, officers } from '../db/schema.js'
+import { shortNameOf, titleCaseName } from '@traces/shared'
 import { audit } from './audit.js'
 
 // Columns: full_name, short_name, position, office, designations (" | " separated), note.
@@ -42,8 +43,10 @@ export async function seedOfficers(csv: string) {
 
   await db.transaction(async (tx) => {
     for (const r of data) {
-      const shortName = r[iShort].trim()
-      const values = { fullName: r[iFull].trim(), shortName, position: r[iPos].trim(), office: (r[iOffice] ?? '').trim(), canReceive: true, active: true }
+      // names typed in capitals are written with capital initials; the short name is made from the name, like in the app
+      const fullName = titleCaseName(r[iFull])
+      const shortName = shortNameOf(fullName) || r[iShort].trim()
+      const values = { fullName, shortName, position: r[iPos].trim(), office: (r[iOffice] ?? '').trim(), canReceive: true, active: true }
       const existing = (await tx.select({ id: officers.id }).from(officers).where(sql`lower(${officers.shortName}) = lower(${shortName})`))[0]
       const id = existing
         ? (await tx.update(officers).set(values).where(eq(officers.id, existing.id)).returning({ id: officers.id }))[0].id

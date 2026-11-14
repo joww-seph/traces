@@ -198,7 +198,7 @@ export async function renderIcsPar(doc: FormDoc, fonts: FormFonts): Promise<{ by
   sides.forEach((side, i) => {
     const x = M.l + i * half
     page.drawText(side.label, { x: x + PAD, y: fy - 11, size: 8, font })
-    cell(page, side.name.toUpperCase(), x, half, fy - 38, 'center', bold, 9)
+    cell(page, side.name, x, half, fy - 38, 'center', bold, 9) // names as written in the officer list (capital initials, not all capitals)
     cell(page, 'Signature Over Printed Name', x, half, fy - 48, 'center', font, 7.5)
     cell(page, side.position, x, half, fy - 60, 'center', bold, 8.5)
     cell(page, 'Position/Office', x, half, fy - 70, 'center', font, 7.5)

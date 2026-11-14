@@ -21,7 +21,7 @@
 ## Hard rules
 - The database enforces integrity (FK, UNIQUE, CHECK, partial unique index). Never weaken a constraint to make a test pass.
 - **Normalized (3NF).** Card = `v_item_card` (one card per **item/model**), Registry = `v_registry` (per category + property type), RPCSP/RPCPPE = `fn_officer_report(as_at)`. Never store their rows or any calculated column (totals, amounts, balances, shortages). There are no count tables; count columns are printed blank.
-- A **line** belongs to one **item** (card). Its category must equal the item's category (composite FK). Quantities count **main units only**; components (`component_label` set) share their line's row everywhere but get their own QR.
+- A **line** belongs to one **item** (card) and takes its category from that card (not stored on the line). Quantities count **main units only**; components (`component_label` set) share their line's row everywhere but get their own QR.
 - Property numbers are **suggested** (`YYYY-MM{TYPE}-NNNN`, counter per year + type), never forced; the unique index is the guard.
 - A document has up to two PDFs (`document_files`: `generated` by TRACES, `uploaded` signed copy). An uploaded copy locks the entries (409 `DOCUMENT_SIGNED`).
 - Money is `bigint` centavos (`mode:'number'`). Date-only values are `date` (`mode:'string'`, "YYYY-MM-DD"). Never floats, never JS `Date` for these.

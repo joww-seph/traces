@@ -5,7 +5,7 @@ import { a11y, login, noHorizontalScroll } from './helpers'
 // Files run in name order, so this runs after day3.spec.ts in the same database (the semi chair 2026-09ICT-0402 exists).
 test.describe.configure({ mode: 'serial' })
 
-const person = { name: 'Pat Example', email: 'pat.example@traces.test' }
+const person = { name: 'Pat Example', email: 'pexample@region1.dost.gov.ph' }
 let temp = ''
 
 test('exports: registry and a model card download an .xlsx', async ({ page }) => {
@@ -33,10 +33,8 @@ test('users: add shows a one-time temporary password, which works once', async (
   await page.getByRole('button', { name: 'Add user' }).first().click()
   const dialog = page.getByRole('dialog')
   await dialog.getByLabel('Full name').fill(person.name)
-  await dialog.getByLabel('Email').fill('not-an-email')
-  await dialog.getByRole('button', { name: 'Add user' }).click()
-  await expect(dialog.getByText(/valid email|Invalid email/i)).toBeVisible()
-  await dialog.getByLabel('Email').fill(person.email)
+  // the email is made from the name
+  await expect(dialog.getByLabel(/^Email/)).toHaveValue(person.email)
   await dialog.getByRole('button', { name: 'Add user' }).click()
 
   const pw = page.getByRole('dialog')
@@ -57,12 +55,12 @@ test('users: add shows a one-time temporary password, which works once', async (
   await expect(other).toHaveURL(/account\/password/)
   await ctx.close()
 
-  // adding the same email again is refused
+  // a second person with the same short name gets a numbered address
   await page.getByRole('button', { name: 'Add user' }).first().click()
-  await dialog.getByLabel('Full name').fill('Someone Else')
-  await dialog.getByLabel('Email').fill(person.email.toUpperCase())
+  await dialog.getByLabel('Full name').fill('Pia Example')
   await dialog.getByRole('button', { name: 'Add user' }).click()
-  await expect(dialog.getByText('Someone already uses that email address')).toBeVisible()
+  await pw.getByRole('button', { name: 'Done' }).click()
+  await expect(page.getByRole('row', { name: /pexample2@region1\.dost\.gov\.ph/ })).toBeVisible()
 })
 
 test('users: reset, deactivate, and the last superadmin is protected', async ({ page }) => {

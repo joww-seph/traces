@@ -197,7 +197,6 @@ await shot(page, {
 await page.getByRole('button', { name: 'Add officer' }).click()
 const dlg = page.getByRole('dialog')
 await dlg.locator('#o-fullName').fill('Rosa M. Lim')
-await dlg.locator('#o-shortName').fill('RMLim')
 await dlg.locator('#o-position').fill('Science Research Specialist II')
 await dlg.locator('#o-office').fill('Provincial S&T Center')
 await dlg.locator('#o-designations').fill('SETUP, Project Assistant')
@@ -205,7 +204,7 @@ await shot(page, {
   section: S.officers, title: 'Adding an officer',
   steps: [
     'Full name, as it should be printed on forms.',
-    'Short name: a short label that must be unique, like RMLim. It appears in the registry.',
+    'The short name is made for you from the name (Rosa M. Lim becomes RMLim).',
     'Position: printed under the name on the ICS and PAR (you can still change it on each form).',
     'Programs and projects, one per line. Searching for a program finds this person.',
     'Leave "Can receive property" ticked for anyone who will sign as "Received by".',
@@ -590,10 +589,9 @@ await shot(page, {
 })
 await page.getByRole('button', { name: 'Add user' }).first().click()
 await page.getByRole('dialog').getByLabel('Full name').fill('Carlo B. Ramos')
-await page.getByRole('dialog').getByLabel('Email').fill('carlo.ramos@dost1.example')
 await shot(page, {
   section: S.admin, title: 'Adding a user',
-  steps: ['Name and work email.', 'Role: Supply admin for Supply Unit staff; Superadmin only for IT.', 'Add user.'],
+  steps: ['Full name. The work email is made from it (Carlo B. Ramos gets cbramos@region1.dost.gov.ph).', 'Role: Supply admin for Supply Unit staff; Superadmin only for IT.', 'Add user.'],
   marks: [page.getByRole('dialog').getByLabel('Email'), page.getByRole('dialog').getByLabel('Role'), page.getByRole('dialog').getByRole('button', { name: 'Add user' })],
 })
 await page.getByRole('dialog').getByRole('button', { name: 'Add user' }).click()

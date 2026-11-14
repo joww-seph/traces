@@ -7,7 +7,7 @@ import { EmptyState, PageHeader } from '@/components/PageHeader'
 import { TypeBadge } from '@/components/TypeBadge'
 import { buttonVariants } from '@/components/ui/button'
 
-type DocRow = { id: string; type: 'ICS' | 'PAR'; docNo: string; issuedDate: string; receivedByShort: string }
+type DocRow = { id: string; type: 'ICS' | 'PAR'; docNo: string; issuedDate: string; receivedByName: string }
 type Stat = { properties: number; mainUnits: number; valueCentavos: number }
 type Summary = { documents: { ICS: number; PAR: number }; categories: { semi: Stat; ppe: Stat }; cards: number; unsignedDocuments: number }
 
@@ -97,7 +97,7 @@ export default function Dashboard() {
                   <Link to={`/documents/${d.id}`} className="grid grid-cols-[auto_1fr_auto] items-center gap-x-4 gap-y-1 px-5 py-3.5 hover:bg-accent/60 focus-visible:bg-accent/60 focus-visible:outline-none sm:grid-cols-[auto_1fr_10rem_9rem]">
                     <TypeBadge type={d.type} />
                     <span className="figures truncate font-medium">{d.docNo}</span>
-                    <span className="truncate text-sm text-muted-foreground max-sm:col-start-2 max-sm:row-start-2">{d.receivedByShort}</span>
+                    <span className="truncate text-sm text-muted-foreground max-sm:col-start-2 max-sm:row-start-2">{d.receivedByName}</span>
                     <span className="text-right text-sm text-muted-foreground max-sm:col-start-3 max-sm:row-start-1">{formatLongDate(d.issuedDate)}</span>
                   </Link>
                 </li>

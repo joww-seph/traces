@@ -55,7 +55,7 @@ function toRow(m: CardEvent): CardRow {
     totalCostCentavos: isReceipt ? m.qty * m.unitCostCentavos : null,
     issueItemNo: isReceipt ? null : m.itemNos,
     issueQty: isReceipt ? null : m.qty,
-    officer: m.officerShort,
+    officer: m.officerName, // the Office/Officer column shows the full name
     officerFullName: m.officerName,
     balanceQty: m.balanceQty,
     amountCentavos: m.balanceAmountCentavos,

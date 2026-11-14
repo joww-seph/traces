@@ -21,7 +21,7 @@ export function StatusBadge({ status }: { status: DocStatus }) {
 
 export type DocRow = {
   id: string; type: 'ICS' | 'PAR'; docNo: string; fundCluster: string; issuedDate: string
-  receivedByShort: string; status: DocStatus
+  receivedByName: string; status: DocStatus
 }
 type Page = { rows: DocRow[]; total: number; page: number; pageSize: number }
 
@@ -83,7 +83,7 @@ export default function Documents() {
                   <TableCell className="pl-5"><TypeBadge type={d.type} /></TableCell>
                   <TableCell className="figures font-medium"><Link to={`/documents/${d.id}`} className="hover:underline">{d.docNo}</Link></TableCell>
                   <TableCell>{formatLongDate(d.issuedDate)}</TableCell>
-                  <TableCell>{d.receivedByShort}</TableCell>
+                  <TableCell>{d.receivedByName}</TableCell>
                   <TableCell>{d.fundCluster}</TableCell>
                   <TableCell className="pr-5"><StatusBadge status={d.status} /></TableCell>
                 </TableRow>

@@ -33,7 +33,7 @@ describe('registry', () => {
     expect(rows).toHaveLength(1)
     expect(rows[0]).toMatchObject({
       issuedQty: 3, returnedQty: 0, reissuedQty: 0, disposedQty: 0, balanceQty: 3, amountCentavos: 3 * 4870000,
-      propertyNos: ['S-1', 'S-2', 'S-3'], reference: 'ICS 2026-03SARAi-005', issuedTo: 'MSantos', article: 'Article',
+      propertyNos: ['S-1', 'S-2', 'S-3'], reference: 'ICS 2026-03SARAi-005', issuedTo: 'Maria Santos', article: 'Article',
       propertyTypeCode: 'ICT',
     })
     expect(rows[0].id).toMatch(/^[0-9a-f-]{36}$/) // the line id: the row a QR scan highlights
@@ -90,7 +90,7 @@ describe('card (one per model)', () => {
     await add(lineBody(1, 9645000, [{ propertyNo: 'L-1' }], { dateAcquired: '2026-03-01' }))
     const c = await card((await testPool.query('SELECT item_id FROM lines')).rows[0].item_id)
     expect(c.rows).toHaveLength(1)
-    expect(c.rows[0]).toMatchObject({ receiptQty: 1, issueQty: 1, officer: 'MSantos', balanceQty: 0, amountCentavos: 0 })
+    expect(c.rows[0]).toMatchObject({ receiptQty: 1, issueQty: 1, officer: 'Maria Santos', balanceQty: 0, amountCentavos: 0 })
   })
 
   it('a set is one row listing every number; a component-only DISPOSE has quantity 0', async () => {

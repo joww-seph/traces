@@ -100,11 +100,12 @@ describe('auth + user schemas', () => {
     expect(loginInput.safeParse({ email: 'a@b.co', password: 'x' }).success).toBe(true)
     expect(loginInput.safeParse({ email: 'nope', password: 'x' }).success).toBe(false)
   })
-  it('userCreate takes email, name and role only (the server makes the temporary password)', () => {
-    const base = { email: 'a@b.co', displayName: 'A', role: 'supply_admin' as const }
+  it('userCreate takes name and role only (the server makes the email and the temporary password)', () => {
+    const base = { displayName: 'A', role: 'supply_admin' as const }
     expect(userCreate.safeParse(base).success).toBe(true)
     expect(userCreate.safeParse({ ...base, role: 'root' }).success).toBe(false)
-    expect(userCreate.safeParse({ ...base, email: 'nope' }).success).toBe(false)
+    expect(userCreate.safeParse({ role: 'supply_admin' }).success).toBe(false)
+    expect(userCreate.parse({ ...base, email: 'x@y.co' })).not.toHaveProperty('email') // a sent email is ignored
   })
 })
 
@@ -157,5 +158,31 @@ describe('suggestNumbers (the entry form fills the empty property numbers)', () 
   })
   it('does not collide case-insensitively and starts at 1 without a base', () => {
     expect(suggestNumbers([slot({ typed: '2026-10ict-0001' }), slot()], {})).toEqual(['2026-10ict-0001', '2026-10ICT-0002'])
+  })
+})
+
+describe('names (made-up people)', () => {
+  it('title-cases names typed in capitals, keeps initials and roman numerals', async () => {
+    const { titleCaseName } = await import('../index.js')
+    expect(titleCaseName('ANA MARIE B. DELA CRUZ')).toBe('Ana Marie B. Dela Cruz')
+    expect(titleCaseName('pedro  reyes  III')).toBe('Pedro Reyes III')
+    expect(titleCaseName('JOSE-MARI O. SANTOS-REYES')).toBe('Jose-Mari O. Santos-Reyes')
+    expect(titleCaseName('Juan McKay')).toBe('Juan McKay') // already mixed case: kept
+  })
+  it('short name = initials of the given names + middle initial + surname', async () => {
+    const { shortNameOf } = await import('../index.js')
+    expect(shortNameOf('Rosa M. Lim')).toBe('RMLim')
+    expect(shortNameOf('Ana Marie B. Dela Cruz')).toBe('AMBDelaCruz')
+    expect(shortNameOf('MARIA SANTOS')).toBe('MSantos')
+    expect(shortNameOf('Juan Dela Cruz')).toBe('JDelaCruz') // a surname particle stays with the surname
+    expect(shortNameOf('ENGR. CARLO B. RAMOS JR.')).toBe('CBRamos') // title and suffix are dropped
+    expect(shortNameOf('Lea G. Santos-Reyes Abad')).toBe('LGSantos-ReyesAbad')
+    expect(shortNameOf('Kent Jerome Ramil')).toBe('KJRamil')
+    expect(shortNameOf('Cy "CJ" Diaz')).toBe('CDiaz') // a nickname in quotes or brackets is not a given name
+    expect(shortNameOf('Liza (Beth) M. Tan')).toBe('LMTan')
+  })
+  it('the account email is the short name at region1.dost.gov.ph', async () => {
+    const { accountEmailOf } = await import('../index.js')
+    expect(accountEmailOf('Rosa M. Lim')).toBe('rmlim@region1.dost.gov.ph')
   })
 })

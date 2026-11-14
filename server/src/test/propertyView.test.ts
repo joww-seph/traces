@@ -54,7 +54,7 @@ describe('GET /api/properties/:no/view (admin)', () => {
     expect(v.property).toMatchObject({ propertyNo: 'L-1a', componentLabel: 'Mouse', partOfSetNo: 'L-1', category: 'ppe' })
     expect(v.document).toMatchObject({
       type: 'ICS', docNo: '2026-03SARAi-005', pdfUrl: `/api/documents/${ics.doc.id}/pdf`,
-      pdfRegion: { page: 1, x: 0.1, y: 0.2, w: 0.8, h: 0.05 }, receivedBy: { name: 'MSantos Full', position: 'Engineer II' },
+      pdfRegion: { page: 1, x: 0.1, y: 0.2, w: 0.8, h: 0.05 }, receivedBy: { name: 'Maria Santos', position: 'Engineer II' },
     })
     // the main unit has no "part of set"
     expect((await agent.get('/api/properties/L-1/view')).body.property.partOfSetNo).toBeNull()
@@ -84,7 +84,7 @@ describe('GET /api/properties/:no/view (admin)', () => {
     const { agent, receiver } = await seed()
     await testPool.query(`UPDATE properties SET old_property_no='10605140-00-7' WHERE property_no='L-1'`)
     const report = (await agent.get('/api/properties/L-1/view')).body.tabs.report
-    expect(report.header).toMatchObject({ officerName: 'MSantos Full', typeLabel: 'Information and Communications Technology Equipment' })
+    expect(report.header).toMatchObject({ officerName: 'Maria Santos', typeLabel: 'Information and Communications Technology Equipment' })
     expect(report.rows.map((r: { propertyNos: string[] }) => r.propertyNos[0]).sort()).toEqual(['L-1', 'P-1'])
     expect(report.highlightRowId).toBeTruthy()
     const mine = report.rows.find((r: { id: string }) => r.id === report.highlightRowId)
@@ -109,7 +109,7 @@ describe('public view of a shared model card (SEC-10)', () => {
   it('never shows another line’s officer on the card, registry or report tab', async () => {
     const { agent, ics } = await seed()
     const second = await makeDocument(agent, { docNo: '2026-04TEST-001', issuedDate: '2026-04-01' })
-    const other = (await agent.post('/api/officers').send({ fullName: 'Zed Other Person', shortName: 'ZOther', position: 'Clerk' })).body
+    const other = (await agent.post('/api/officers').send({ fullName: 'Zed O. Other', position: 'Clerk' })).body
     await testPool.query(`UPDATE documents SET received_by_officer_id = $1 WHERE id = $2`, [other.id, second.doc.id])
     const itemId = (await testPool.query(`SELECT item_id FROM lines WHERE description='Described' ORDER BY line_no LIMIT 1`)).rows[0].item_id
     await agent.post(`/api/documents/${second.doc.id}/lines`).send(body(9645000, [{ propertyNo: 'L-2' }], undefined, { itemId }))
@@ -118,12 +118,12 @@ describe('public view of a shared model card (SEC-10)', () => {
 
     const pub = (await request(createApp()).get(`/api/public/q/${token}`)).body
     const text = JSON.stringify(pub)
-    expect(text).not.toContain('ZOther')
-    expect(text).not.toContain('Zed Other')
+    expect(text).not.toContain('ZOOther')
+    expect(text).not.toContain('Zed O. Other')
     expect(text).not.toContain('L-2')
     expect(pub.tabs.card.rows.length).toBe(2) // this line's receipt + issue only
     // while staff see both issuances on the card
-    expect(JSON.stringify((await agent.get('/api/properties/L-1/view')).body.tabs.card)).toContain('ZOther')
+    expect(JSON.stringify((await agent.get('/api/properties/L-1/view')).body.tabs.card)).toContain('Zed O. Other')
     expect(ics.doc.id).toBeTruthy()
   })
 })

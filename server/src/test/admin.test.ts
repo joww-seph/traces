@@ -6,7 +6,8 @@ import { agentFor, loginAs, makeUser, PASSWORD } from './helpers.js'
 beforeEach(resetDb)
 afterAll(async () => { await pool.end(); await testPool.end() })
 
-const newUser = { email: 'new.person@traces.test', displayName: 'New Person', role: 'supply_admin' }
+const newUser = { displayName: 'NINA E. PERSON', role: 'supply_admin' }
+const NEW_EMAIL = 'neperson@region1.dost.gov.ph' // shortname@region1.dost.gov.ph, made from the name
 const login = (agent: ReturnType<typeof agentFor>, email: string, password: string) => agent.post('/api/auth/login').send({ email, password })
 
 describe('access', () => {
@@ -25,13 +26,13 @@ describe('create user', () => {
     const { agent } = await loginAs('superadmin')
     const res = await agent.post('/api/admin/users').send(newUser)
     expect(res.status).toBe(201)
-    expect(res.body.user).toMatchObject({ email: newUser.email, role: 'supply_admin', active: true, mustChangePassword: true })
+    expect(res.body.user).toMatchObject({ email: NEW_EMAIL, displayName: 'Nina E. Person', role: 'supply_admin', active: true, mustChangePassword: true })
     expect(res.body.user).not.toHaveProperty('passwordHash')
     const temp: string = res.body.temporaryPassword
     expect(temp.length).toBeGreaterThanOrEqual(16)
 
     const fresh = agentFor()
-    expect((await login(fresh, newUser.email, temp)).status).toBe(200)
+    expect((await login(fresh, NEW_EMAIL, temp)).status).toBe(200)
     const blocked = await fresh.get('/api/officers')
     expect(blocked.status).toBe(403)
     expect(blocked.body.error.code).toBe('PASSWORD_CHANGE_REQUIRED')
@@ -40,13 +41,13 @@ describe('create user', () => {
     expect((await testPool.query(`SELECT 1 FROM audit_logs WHERE action='user.create' AND entity_id=$1`, [res.body.user.id])).rowCount).toBe(1)
   })
 
-  it('a duplicate email in another letter case -> 409; invalid body -> 400', async () => {
+  it('the email is always made from the name (a typed one is ignored); the same short name gets a number; invalid body -> 400', async () => {
     const { agent } = await loginAs('superadmin')
     await agent.post('/api/admin/users').send(newUser)
-    const dup = await agent.post('/api/admin/users').send({ ...newUser, email: 'NEW.Person@traces.test' })
-    expect(dup.status).toBe(409)
-    expect(dup.body.error.code).toBe('EMAIL_TAKEN')
-    expect((await agent.post('/api/admin/users').send({ ...newUser, email: 'nope' })).status).toBe(400)
+    const second = await agent.post('/api/admin/users').send({ ...newUser, displayName: 'Noel E. Person', email: 'someone@gmail.com' })
+    expect(second.status).toBe(201)
+    expect(second.body.user.email).toBe('neperson2@region1.dost.gov.ph')
+    expect((await agent.post('/api/admin/users').send({ ...newUser, displayName: '' })).status).toBe(400)
     expect((await agent.post('/api/admin/users').send({ ...newUser, role: 'root' })).status).toBe(400)
   })
 
@@ -129,7 +130,7 @@ describe('audit log', () => {
   it('newest first with the actor; filters by entity, actor and dates; keyset pagination', async () => {
     const { agent, user } = await loginAs('superadmin')
     await agent.post('/api/admin/users').send(newUser)
-    await agent.post('/api/officers').send({ fullName: 'A B', shortName: 'AB', position: 'Clerk' })
+    await agent.post('/api/officers').send({ fullName: 'Ann Bell', position: 'Clerk' })
     const all = (await agent.get('/api/admin/audit-logs')).body
     expect(all.rows[0].action).toBe('officer.create')
     expect(all.rows[0].actor).toMatchObject({ email: 'superadmin@traces.test' })
@@ -143,7 +144,7 @@ describe('audit log', () => {
     const today = new Date().toISOString().slice(0, 10)
     expect((await agent.get(`/api/admin/audit-logs?from=${today}&to=${today}`)).body.rows.length).toBe(all.rows.length)
 
-    for (let i = 0; i < 55; i++) await agent.post('/api/officers').send({ fullName: `P ${i}`, shortName: `P${i}`, position: 'Clerk' })
+    for (let i = 0; i < 55; i++) await agent.post('/api/officers').send({ fullName: `Pat Person${i}`, position: 'Clerk' })
     const p1 = (await agent.get('/api/admin/audit-logs')).body
     expect(p1.rows).toHaveLength(50)
     expect(p1.nextBefore).toBe(p1.rows[49].id)
@@ -166,7 +167,7 @@ describe('audit log', () => {
 
   it('the default issuer of generated ICS/PAR can be set, cleared and must be a real officer', async () => {
     const { agent } = await loginAs('superadmin')
-    const officer = (await agent.post('/api/officers').send({ fullName: 'Supply Officer', shortName: 'SOfficer', position: 'Supply Officer IV' })).body
+    const officer = (await agent.post('/api/officers').send({ fullName: 'Sara Officer', position: 'Supply Officer IV' })).body
     const set = await agent.patch('/api/admin/settings').send({ defaultIssuedByOfficerId: officer.id })
     expect(set.status).toBe(200)
     expect((await agent.get('/api/settings')).body.defaultIssuedByOfficerId).toBe(officer.id)

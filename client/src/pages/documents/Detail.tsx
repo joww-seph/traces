@@ -80,7 +80,7 @@ function RemoveSignedDialog({ doc, open, onClose }: { doc: DocDetail; open: bool
           <Textarea id="reason" rows={3} maxLength={300} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Wrong receiver typed on the form" />
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Keep the signed copy</Button>
+          <Button variant="ghost" onClick={onClose}>Keep the signed copy</Button>
           <Button variant="destructive" disabled={!reason.trim() || remove.isPending} onClick={() => remove.mutate()}>Remove signed copy</Button>
         </DialogFooter>
       </DialogContent>
@@ -174,7 +174,7 @@ export default function DocumentDetail() {
             <FileUp /> {signed ? 'Replace signed copy' : doc.files.generated ? 'Upload signed copy' : 'Upload existing PDF'}
           </Button>
           {doc.hasPdf && doc.lines.length > 0 && <Button variant="outline" onClick={() => setHighlighting((h) => !h)}><Highlighter /> {highlighting ? 'Hide highlights' : 'Adjust highlights'}</Button>}
-          {signed && <Button variant="outline" onClick={() => setRemoving(true)}><ShieldOff /> Remove signed copy</Button>}
+          {signed && <Button variant="destructive" onClick={() => setRemoving(true)}><ShieldOff /> Remove signed copy</Button>}
           <Link to={`/stickers?documentId=${doc.id}`} className={buttonVariants({ variant: 'outline' })}><QrCode /> Print stickers</Link>
           {!signed && <Link to={`/issue?documentId=${doc.id}`} className={buttonVariants()}><Plus /> Add lines</Link>}
         </>}

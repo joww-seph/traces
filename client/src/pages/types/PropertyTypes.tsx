@@ -47,7 +47,7 @@ function TypeDialog({ type, onClose }: { type: PropertyType | 'new' | null; onCl
           <div className="grid gap-1.5"><Label htmlFor="t-name">Name</Label><Input id="t-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Information and Communications Technology Equipment" /></div>
           {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+            <Button type="button" variant="ghost" onClick={onClose}>Cancel</Button>
             <Button type="submit" disabled={save.isPending}>{editing ? 'Save changes' : 'Add type'}</Button>
           </DialogFooter>
         </form>
@@ -83,7 +83,7 @@ export default function PropertyTypes() {
                 <TableCell><Badge variant={t.active ? 'default' : 'secondary'}>{t.active ? 'Active' : 'Inactive'}</Badge></TableCell>
                 <TableCell className="space-x-1 pr-5 text-right whitespace-nowrap">
                   <Button variant="outline" size="sm" onClick={() => setDialog(t)}>Edit</Button>
-                  <Button variant="ghost" size="sm" onClick={() => toggle.mutate(t)}>{t.active ? 'Deactivate' : 'Reactivate'}</Button>
+                  <Button variant={t.active ? 'destructive' : 'success'} size="sm" onClick={() => toggle.mutate(t)}>{t.active ? 'Deactivate' : 'Reactivate'}</Button>
                 </TableCell>
               </TableRow>
             ))}

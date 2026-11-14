@@ -6,6 +6,9 @@ import { pool } from '../db/client.js'
 import { testPool, resetDb } from './db.js'
 import { agentFor, itemFor, loginAs } from './helpers.js'
 
+// the made-up people of these tests; their short names are made from these names (MSantos, JDelaCruz, ...)
+const FULL_NAME: Record<string, string> = { JDelaCruz: 'Juan Dela Cruz', MSantos: 'Maria Santos', Staffer: 'Sam Staffer', Iss: 'Ivan Issuer', Rcv: 'Rita Receiver' }
+
 const PDF_DIR = path.resolve(process.env.STORAGE_DIR!, 'pdfs')
 const files = () => (existsSync(PDF_DIR) ? readdirSync(PDF_DIR).filter((f) => f.endsWith('.pdf')) : [])
 const ARCHIVE_DIR = path.resolve(process.env.STORAGE_DIR!, 'archive')
@@ -31,7 +34,7 @@ type Agent = Awaited<ReturnType<typeof loginAs>>['agent']
 async function setup() {
   const { agent } = await loginAs('supply_admin')
   const mk = async (shortName: string, position: string) =>
-    (await agent.post('/api/officers').send({ fullName: `${shortName} Full`, shortName, position, canReceive: true })).body
+    (await agent.post('/api/officers').send({ fullName: FULL_NAME[shortName] ?? shortName, position, canReceive: true })).body
   const issuer = await mk('JDelaCruz', 'Supply Officer IV')
   const receiver = await mk('MSantos', 'Engineer II')
   const meta = (over: object = {}) => ({

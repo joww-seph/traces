@@ -6,6 +6,9 @@ import { createIssuance } from '../services/issuances.js'
 import { testPool, resetDb } from './db.js'
 import { agentFor, itemFor, loginAs } from './helpers.js'
 
+// the made-up people of these tests; their short names are made from these names (MSantos, JDelaCruz, ...)
+const FULL_NAME: Record<string, string> = { JDelaCruz: 'Juan Dela Cruz', MSantos: 'Maria Santos', Staffer: 'Sam Staffer', Iss: 'Ivan Issuer', Rcv: 'Rita Receiver' }
+
 const STORAGE = path.resolve(process.env.STORAGE_DIR!)
 const PDF_DIR = path.join(STORAGE, 'pdfs')
 const files = () => (existsSync(PDF_DIR) ? readdirSync(PDF_DIR).filter((f) => f.endsWith('.pdf')) : [])
@@ -17,7 +20,7 @@ type Agent = Awaited<ReturnType<typeof loginAs>>['agent']
 async function setup() {
   const { agent, user } = await loginAs('supply_admin')
   const mk = async (shortName: string, canReceive: boolean) =>
-    (await agent.post('/api/officers').send({ fullName: `${shortName} Full`, shortName, position: `${shortName} Position`, canReceive })).body
+    (await agent.post('/api/officers').send({ fullName: FULL_NAME[shortName] ?? shortName, position: `${shortName} Position`, canReceive })).body
   return { agent, user, issuer: await mk('JDelaCruz', false), receiver: await mk('MSantos', true), staff: await mk('Staffer', false) }
 }
 

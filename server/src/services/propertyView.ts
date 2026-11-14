@@ -17,7 +17,7 @@ async function load(p: Prop, token: string | null): Promise<PropertyViewData> {
   const line = (await db.select().from(lines).where(and(eq(lines.id, p.lineId), isNull(lines.deletedAt))))[0]
   const doc = line && (await db.select().from(documents).where(and(eq(documents.id, line.documentId), isNull(documents.deletedAt))))[0]
   if (!line || !doc) throw new AppError('ITEM_REMOVED', 410, 'This item was removed')
-  const item = (await db.select({ article: items.article, description: items.description, unit: items.unit, typeId: items.propertyTypeId, typeName: propertyTypes.name })
+  const item = (await db.select({ category: items.category, article: items.article, description: items.description, unit: items.unit, typeId: items.propertyTypeId, typeName: propertyTypes.name })
     .from(items).innerJoin(propertyTypes, eq(propertyTypes.id, items.propertyTypeId)).where(eq(items.id, line.itemId)))[0]
 
   const [issuer, receiver] = await Promise.all([
@@ -34,8 +34,8 @@ async function load(p: Prop, token: string | null): Promise<PropertyViewData> {
     : null
 
   const [full, header, rows, registryRows, settings, report] = await Promise.all([
-    getDocument(doc.id), cardHeader(line.itemId), cardRows(line.itemId), registry(line.category, { typeId: item.typeId }), getSettings(),
-    holder ? officerReportRows({ officerId: holder, category: line.category, typeId: item.typeId }) : null,
+    getDocument(doc.id), cardHeader(line.itemId), cardRows(line.itemId), registry(item.category, { typeId: item.typeId }), getSettings(),
+    holder ? officerReportRows({ officerId: holder, category: item.category, typeId: item.typeId }) : null,
   ])
 
   return {
@@ -45,7 +45,7 @@ async function load(p: Prop, token: string | null): Promise<PropertyViewData> {
       condition: p.condition, partOfSetNo: mainNo,
     },
     line: {
-      id: line.id, itemId: line.itemId, category: line.category, article: item.article, description: line.description, itemDescription: item.description,
+      id: line.id, itemId: line.itemId, category: item.category, article: item.article, description: line.description, itemDescription: item.description,
       qty: line.qty, unit: item.unit, unitCostCentavos: line.unitCostCentavos, estUsefulLifeYears: line.estUsefulLifeYears,
       dateAcquired: line.dateAcquired, propertyTypeName: item.typeName,
     },

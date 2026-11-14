@@ -51,7 +51,7 @@ describe('cards (PC / SPC), one per model', () => {
     expect(x.ws.getCell('B13').value).toEqual(new Date(Date.UTC(2026, 2, 19)))
     expect(x.text('C13')).toBe('ICS 2026-03SARAi-005')
     // receipt and issue on the same day merge; the Supply Unit holds nothing after the issue
-    expect([x.ws.getCell('D13').value, x.ws.getCell('E13').value, x.text('F13'), x.ws.getCell('H13').value, x.ws.getCell('I13').value]).toEqual([1, 1, 'MSantos', 0, 0])
+    expect([x.ws.getCell('D13').value, x.ws.getCell('E13').value, x.text('F13'), x.ws.getCell('H13').value, x.ws.getCell('I13').value]).toEqual([1, 1, 'Maria Santos', 0, 0])
     expect(x.ws.model.merges).toContain('F13:G13')
   })
 
@@ -61,7 +61,7 @@ describe('cards (PC / SPC), one per model', () => {
     expect(x.text('A1')).toBe('SEMI-EXPENDABLE PROPERTY CARD')
     expect(x.text('H4')).toBe('Semi-expendable Property Number: S-1')
     expect([x.ws.getCell('C8').value, x.ws.getCell('D8').value, x.ws.getCell('E8').value, x.text('F8'), x.ws.getCell('G8').value, x.text('H8'), x.ws.getCell('I8').value, x.ws.getCell('J8').value])
-      .toEqual([1, 4500, 4500, 'S-1', 1, 'MSantos', 0, 0])
+      .toEqual([1, 4500, 4500, 'S-1', 1, 'Maria Santos', 0, 0])
   })
 
   it('the wrong form for the category -> 400 WRONG_FORM', async () => {
@@ -81,7 +81,7 @@ describe('registries (per category and type)', () => {
     expect(semi.text('A7')).toBe('Semi-expendable Property: Furniture and Fixtures')
     expect(semi.text('L6')).toBe('Fund Cluster: RAF')
     expect([semi.text('B11'), semi.text('C11'), semi.text('D11'), semi.ws.getCell('F11').value, semi.text('G11'), semi.ws.getCell('M11').value, semi.ws.getCell('N11').value, semi.text('O11')])
-      .toEqual(['ICS 2026-03SARAi-005', 'S-1', 'Described', 1, 'MSantos', 1, 4500, ''])
+      .toEqual(['ICS 2026-03SARAi-005', 'S-1', 'Described', 1, 'Maria Santos', 1, 4500, ''])
     expect(semi.ws.getCell('A11').value).toEqual(new Date(Date.UTC(2026, 2, 19)))
     const ppe = await sheet(agent, '/api/exports/regppe?typeId=1')
     expect(ppe.text('C4')).toBe('REGISTRY OF PROPERTY, PLANT AND EQUIPMENT ISSUED')
@@ -101,11 +101,11 @@ describe('officer reports (RPCPPE / RPCSP): count columns are printed blank', ()
     await testPool.query(`UPDATE properties SET old_property_no='10605140-00-7' WHERE property_no='L-1'`)
     const sigs = encodeURIComponent(JSON.stringify([{ role: 'committee', name: 'Chair A' }, { role: 'committee', sortOrder: 2, name: 'Member B' }, { role: 'head_of_agency', name: 'The Director' }, { role: 'coa_representative', name: 'COA Rep' }]))
     const x = await sheet(agent, `/api/exports/rpcppe?officerId=${ics.receiver.id}&typeId=1&asAt=2026-12-31&signatories=${sigs}`)
-    expect(x.res.headers['content-disposition']).toContain('RPCPPE_MSantos_Full_2026-12-31.xlsx')
+    expect(x.res.headers['content-disposition']).toContain('RPCPPE_Maria_Santos_2026-12-31.xlsx')
     expect(x.text('C4')).toBe(ICT)
     expect(x.text('C6')).toBe('As at December 31, 2026')
     expect(x.text('C9')).toBe('Fund Cluster : RAF')
-    expect(x.text('C10')).toBe('For which MSantos Full, Engineer II, DEPARTMENT OF SCIENCE AND TECHNOLOGY - REGION 1 is accountable, having assumed such accountability on ________')
+    expect(x.text('C10')).toBe('For which Maria Santos, Engineer II, DEPARTMENT OF SCIENCE AND TECHNOLOGY - REGION 1 is accountable, having assumed such accountability on ________')
     expect([x.text('C15'), x.text('E15'), x.text('F15'), x.ws.getCell('G15').value, x.ws.getCell('H15').value]).toEqual(['Laptop', 'L-1\nL-1a', 'unit', 96450, 1])
     expect([x.text('I15'), x.text('J15'), x.text('K15')]).toEqual(['', '', '']) // On Hand, Shortage/Overage: blank
     expect(x.text('L15')).toBe('Old P#: 10605140-00-7')

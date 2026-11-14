@@ -2,11 +2,12 @@ import { z } from 'zod'
 import { nonEmpty } from './common.js'
 
 const role = z.enum(['supply_admin', 'superadmin'])
+// The email is not typed: the server makes it from the name (shortname@region1.dost.gov.ph) and generates the
+// temporary password, shown once.
 export const userCreate = z.object({
-  email: z.string().trim().email(),
   displayName: nonEmpty,
   role,
-}) // the server generates the temporary password and shows it once
+})
 export const userPatch = z.object({
   displayName: nonEmpty.optional(),
   role: role.optional(),

@@ -49,7 +49,7 @@ function EditCard({ card, open, onClose }: { card: CardView['header']; open: boo
             <input type="checkbox" className="size-4" checked={v.active} onChange={(e) => setV({ ...v, active: e.target.checked })} /> Offer this card on new entries
           </label>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+            <Button type="button" variant="ghost" onClick={onClose}>Cancel</Button>
             <Button type="submit" disabled={save.isPending}>Save card</Button>
           </DialogFooter>
         </form>
