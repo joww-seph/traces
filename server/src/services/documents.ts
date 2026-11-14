@@ -8,7 +8,7 @@ import type { z } from 'zod'
 import { db } from '../db/client.js'
 import { documents, linePdfRegions, lines, officers, properties } from '../db/schema.js'
 import { AppError, pgErrorOf } from '../middleware/error.js'
-import { pdfDir, removePdf } from '../middleware/upload.js'
+import { archivePdf, pdfDir } from '../middleware/upload.js'
 import { audit, type Ctx } from './audit.js'
 import { regionOut } from './lines.js'
 
@@ -117,10 +117,11 @@ export async function patchDocument(id: string, patch: z.infer<typeof documentPa
       const after = Object.keys(set).length
         ? (await tx.update(documents).set(set).where(eq(documents.id, id)).returning())[0]
         : before
-      await audit(tx, ctx, 'document.update', 'documents', id, present(before), present(after))
+      await audit(tx, ctx, 'document.update', 'documents', id, present(before),
+        file ? { ...present(after), replacedPdf: before.pdfStoredName } : present(after))
       return { after, replaced: file ? before.pdfStoredName : null }
     })
-    if (replaced) await removePdf(replaced) // only after commit
+    if (replaced) await archivePdf(replaced) // only after commit
     return present(after)
   } catch (e) {
     if (patch.type || patch.docNo) {

@@ -51,7 +51,7 @@ function OfficerDialog({ officer, onClose }: { officer: Officer | 'new' | null; 
         <DialogHeader><DialogTitle>{editing ? 'Edit officer' : 'Add officer'}</DialogTitle></DialogHeader>
         <form onSubmit={form.handleSubmit((v) => save.mutate(v))} className="grid gap-3" noValidate>
           {field('fullName', 'Full name')}
-          {field('shortName', 'Short name', 'Unique label used in the registry, e.g. DPLibunao')}
+          {field('shortName', 'Short name', 'Unique label used in the registry, e.g. MSantos')}
           {field('position', 'Position / designation')}
           {field('office', 'Office')}
           <DialogFooter>

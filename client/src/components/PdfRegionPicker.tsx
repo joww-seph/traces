@@ -43,7 +43,7 @@ export function PdfRegionPicker({ url, value, onChange }: { url: string; value: 
   return (
     <div className="grid gap-2">
       <PdfViewer url={url} page={page} onPageChange={setPage}>
-        <div ref={surface} className="h-full w-full cursor-crosshair touch-none" aria-label="Draw a box around this line on the PDF"
+        <div ref={surface} role="group" className="h-full w-full cursor-crosshair touch-none" aria-label="Draw a box around this line on the PDF"
           onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={() => setDrag(null)}>
           {shown && (
             <div data-testid="region-box" className="pointer-events-none absolute border-2 border-yellow-500 bg-yellow-300/40"

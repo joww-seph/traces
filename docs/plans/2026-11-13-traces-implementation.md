@@ -231,7 +231,7 @@ return db.transaction(async (tx) => {
 The browser's `Origin` header must be listed in `APP_ORIGIN`. Add both `http://localhost:5173` and `http://<LAN-IP>:5173`.
 
 **Verify**
-- Run `npm run seed:superadmin -- --email it@traces.local --password 'ChangeMe!12345'`.
+- Run `npm run seed:superadmin -- --email it@traces.local --password '<at least 10 characters>'`.
 - Log in → dashboard. Refreshing the page keeps you logged in. Logging out works.
 
 **Commit:** `feat(client): session auth, routing, api client, admin layout`

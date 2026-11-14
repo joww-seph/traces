@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { mkdirSync } from 'node:fs'
-import { open, unlink } from 'node:fs/promises'
+import { chmod, mkdir, open, rename, unlink } from 'node:fs/promises'
 import path from 'node:path'
 import type { Request, RequestHandler, Response } from 'express'
 import multer from 'multer'
@@ -9,6 +9,14 @@ import { AppError } from './error.js'
 // PDFs live outside any static folder and are only served through routes that check access.
 export const pdfDir = () => path.resolve(process.env.STORAGE_DIR ?? './storage', 'pdfs')
 export const removePdf = (storedName: string) => unlink(path.join(pdfDir(), storedName)).catch(() => {})
+
+// A replaced PDF is kept (signed originals are records), moved out of the live folder.
+export async function archivePdf(storedName: string) {
+  try {
+    await mkdir(path.join(pdfDir(), 'replaced'), { recursive: true })
+    await rename(path.join(pdfDir(), storedName), path.join(pdfDir(), 'replaced', storedName))
+  } catch { /* already gone: nothing to keep */ }
+}
 
 const upload = multer({
   storage: multer.diskStorage({
@@ -30,6 +38,7 @@ const checkMagicBytes: RequestHandler = async (req, _res, next) => {
     await unlink(req.file.path)
     throw new AppError('INVALID_PDF', 400, 'File is not a PDF')
   }
+  await chmod(req.file.path, 0o600) // signed forms: owner-only on POSIX hosts (no effect on Windows)
   next()
 }
 

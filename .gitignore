@@ -10,3 +10,8 @@ backups
 .playwright-mcp
 docs/ACCOUNTS.md
 docs/references/
+
+# browser tests
+test-results/
+playwright-report/
+.playwright-mcp/

@@ -1,0 +1,7 @@
+# Keep LF in the repository on every platform (Windows checkouts otherwise warn on every commit).
+* text=auto eol=lf
+*.png binary
+*.webp binary
+*.xlsx binary
+*.pdf binary
+*.woff2 binary

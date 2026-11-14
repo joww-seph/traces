@@ -7,7 +7,8 @@ import { testPool, resetDb } from './db.js'
 import { agentFor, loginAs } from './helpers.js'
 
 const PDF_DIR = path.resolve(process.env.STORAGE_DIR!, 'pdfs')
-const files = () => (existsSync(PDF_DIR) ? readdirSync(PDF_DIR) : [])
+const files = () => (existsSync(PDF_DIR) ? readdirSync(PDF_DIR).filter((f) => f.endsWith('.pdf')) : [])
+const archived = () => (existsSync(path.join(PDF_DIR, 'replaced')) ? readdirSync(path.join(PDF_DIR, 'replaced')) : [])
 
 let samplePdf: Buffer
 beforeAll(async () => {
@@ -30,8 +31,8 @@ async function setup() {
   const { agent } = await loginAs('supply_admin')
   const mk = async (shortName: string, position: string) =>
     (await agent.post('/api/officers').send({ fullName: `${shortName} Full`, shortName, position })).body
-  const issuer = await mk('MJRamos', 'Supply Officer IV')
-  const receiver = await mk('DPLibunao', 'Engineer II')
+  const issuer = await mk('JDelaCruz', 'Supply Officer IV')
+  const receiver = await mk('MSantos', 'Engineer II')
   const meta = (over: object = {}) => ({
     type: 'ICS', docNo: '2026-03SARAi-005', fundCluster: 'RAF', issuedDate: '2026-03-01',
     issuedByOfficerId: issuer.id, receivedByOfficerId: receiver.id, purpose: 'Office use', ...over,
@@ -158,7 +159,7 @@ describe('read, patch, delete', () => {
     expect((await agentFor().get(`/api/documents/${doc.id}/pdf`)).status).toBe(401)
   })
 
-  it('PATCH edits header fields; replacing the pdf deletes the old file only after commit', async () => {
+  it('PATCH edits header fields; replacing the pdf archives the old file only after commit', async () => {
     const { agent, meta } = await setup()
     const doc = (await upload(agent, meta())).body
     const [oldFile] = files()
@@ -173,6 +174,9 @@ describe('read, patch, delete', () => {
     expect(rep.body.pdfOriginalName).toBe('new.pdf')
     expect(files()).toHaveLength(1)
     expect(files()[0]).not.toBe(oldFile)
+    expect(archived()).toEqual([oldFile]) // the signed original is kept, not deleted
+    const log = (await testPool.query(`SELECT after FROM audit_logs WHERE action='document.update' ORDER BY id DESC LIMIT 1`)).rows[0].after
+    expect(log.replacedPdf).toBe(oldFile)
 
     // a failed patch (duplicate number) must keep the old pdf and drop the new upload
     const other = (await upload(agent, meta({ docNo: 'OTHER-1' }))).body

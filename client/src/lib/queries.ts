@@ -5,6 +5,7 @@ export type Officer = { id: string; fullName: string; shortName: string; positio
 export type Settings = {
   entityName: string; defaultFundCluster: string; ppeThresholdCentavos: number
   cardRowMode: 'merged' | 'split'; publicBaseUrl: string; ppeRegistryTitle: string
+  icsFormCode: string; icsFormRevision: string; parFormCode: string; parFormRevision: string
 }
 
 export const useOfficers = (activeOnly = false) =>

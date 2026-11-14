@@ -9,7 +9,7 @@ import { EmptyState, PageHeader } from '@/components/PageHeader'
 import { TypeBadge } from '@/components/TypeBadge'
 import { FormGrid, moneyCol } from '@/components/FormGrid'
 import { PdfViewer } from '@/components/PdfViewer'
-import { Button } from '@/components/ui/button'
+import { buttonVariants } from '@/components/ui/button'
 import { useOfficers } from '@/lib/queries'
 
 export type DocProperty = { id: string; propertyNo: string; componentLabel: string | null }
@@ -57,7 +57,7 @@ export default function DocumentDetail() {
 
   if (isLoading) return <p className="text-sm text-muted-foreground">Loading document</p>
   if (error || !doc) {
-    return <EmptyState title="Document not found" action={<Button render={<Link to="/documents" />} nativeButton={false}>Back to ICS and PAR</Button>}>
+    return <EmptyState title="Document not found" action={<Link to="/documents" className={buttonVariants()}>Back to ICS and PAR</Link>}>
       It may have been deleted, or the link is wrong.
     </EmptyState>
   }
@@ -77,8 +77,8 @@ export default function DocumentDetail() {
         crumbs={[{ label: 'ICS and PAR', to: '/documents' }, { label: doc.docNo }]}
         title={<span className="flex flex-wrap items-center gap-3"><TypeBadge type={doc.type} className="h-7 w-12 text-sm" /><span className="figures">{doc.docNo}</span></span>}
         actions={<>
-          <Button variant="outline" render={<Link to={`/stickers?documentId=${doc.id}`} />} nativeButton={false}><QrCode /> Print stickers</Button>
-          <Button render={<Link to={`/documents/${doc.id}/lines/new`} />} nativeButton={false}><Plus /> Add line</Button>
+          <Link to={`/stickers?documentId=${doc.id}`} className={buttonVariants({ variant: "outline" })}><QrCode /> Print stickers</Link>
+          <Link to={`/documents/${doc.id}/lines/new`} className={buttonVariants()}><Plus /> Add line</Link>
         </>}
         meta={
           <dl className="grid grid-cols-2 gap-x-6 gap-y-4 rounded-xl border bg-card p-4 sm:grid-cols-3 lg:grid-cols-5">
@@ -108,7 +108,7 @@ export default function DocumentDetail() {
               <p className="text-xs text-muted-foreground">Select a line to edit it, change its property numbers or redraw its box on the PDF.</p>
             </>
           ) : (
-            <EmptyState title="No lines yet" action={<Button render={<Link to={`/documents/${doc.id}/lines/new`} />} nativeButton={false}><Plus /> Add the first line</Button>}>
+            <EmptyState title="No lines yet" action={<Link to={`/documents/${doc.id}/lines/new`} className={buttonVariants()}><Plus /> Add the first line</Link>}>
               Enter each row of the form once; the property card, registry entry and QR sticker come from it.
             </EmptyState>
           )}

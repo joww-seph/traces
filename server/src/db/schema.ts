@@ -48,7 +48,12 @@ export const settings = pgTable('settings', {
   ppeThresholdCentavos: money('ppe_threshold_centavos').notNull(),
   cardRowMode: cardRowMode('card_row_mode').notNull().default('merged'),
   publicBaseUrl: text('public_base_url').notNull(),
-  ppeRegistryTitle: text('ppe_registry_title').notNull().default('REGISTRY OF PPE ISSUED'),
+  ppeRegistryTitle: text('ppe_registry_title').notNull().default('REGISTRY OF PROPERTY, PLANT AND EQUIPMENT ISSUED'),
+  // document-control box printed in the corner of the ICS / PAR exports; edit when the quality office issues a new revision
+  icsFormCode: text('ics_form_code').notNull().default('FM-FAS-SUPPLY-07-10'),
+  icsFormRevision: text('ics_form_revision').notNull().default('Rev. 1/07-25-22'),
+  parFormCode: text('par_form_code').notNull().default('FM-FAS-SUPPLY-07-09'),
+  parFormRevision: text('par_form_revision').notNull().default('Rev. 1/07-25-22'),
   updatedAt: tstz('updated_at').notNull().defaultNow(),
   updatedBy: uuid('updated_by').references(() => users.id),
 }, (t) => [

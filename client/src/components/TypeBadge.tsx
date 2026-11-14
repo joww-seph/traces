@@ -5,7 +5,7 @@ export function TypeBadge({ type, className }: { type: 'ICS' | 'PAR'; className?
   return (
     <span className={cn(
       'inline-flex h-6 w-11 items-center justify-center rounded-md text-xs font-semibold',
-      type === 'ICS' ? 'bg-cyan/15 text-[#00739e]' : 'bg-primary/12 text-primary',
+      type === 'ICS' ? 'bg-cyan/15 text-[#005577]' : 'bg-primary/12 text-primary',
       className,
     )}>
       {type}

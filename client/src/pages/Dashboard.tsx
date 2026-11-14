@@ -5,7 +5,7 @@ import { Link } from 'react-router'
 import { api } from '@/api'
 import { EmptyState, PageHeader } from '@/components/PageHeader'
 import { TypeBadge } from '@/components/TypeBadge'
-import { Button } from '@/components/ui/button'
+import { buttonVariants } from '@/components/ui/button'
 
 type DocRow = { id: string; type: 'ICS' | 'PAR'; docNo: string; issuedDate: string; receivedByShort: string }
 type Stat = { properties: number; mainUnits: number; valueCentavos: number }
@@ -44,7 +44,7 @@ export default function Dashboard() {
       <PageHeader
         title="Dashboard"
         description="Value and item counts come straight from every ICS and PAR line on record."
-        actions={<Button render={<Link to="/documents/new" />} nativeButton={false}><FilePlus2 /> New ICS or PAR</Button>}
+        actions={<Link to="/documents/new" className={buttonVariants()}><FilePlus2 /> New ICS or PAR</Link>}
       />
 
       <section aria-label="Totals" className="grid overflow-hidden rounded-xl border bg-card md:grid-cols-[1fr_1fr_minmax(0,0.7fr)] md:divide-x max-md:divide-y">
@@ -67,7 +67,7 @@ export default function Dashboard() {
         </div>
         {docs.data && !docs.data.rows.length ? (
           <EmptyState title="No ICS or PAR yet"
-            action={<Button render={<Link to="/documents/new" />} nativeButton={false}>Enter the first document</Button>}>
+            action={<Link to="/documents/new" className={buttonVariants()}>Enter the first document</Link>}>
             Upload a signed ICS or PAR and enter its lines once; cards, registry rows and stickers follow from it.
           </EmptyState>
         ) : (

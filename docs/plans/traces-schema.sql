@@ -41,7 +41,11 @@ CREATE TABLE settings (
   ppe_threshold_centavos  bigint NOT NULL CHECK (ppe_threshold_centavos > 0),
   card_row_mode           card_row_mode NOT NULL DEFAULT 'merged',
   public_base_url         text NOT NULL,
-  ppe_registry_title      text NOT NULL DEFAULT 'REGISTRY OF PPE ISSUED',
+  ppe_registry_title      text NOT NULL DEFAULT 'REGISTRY OF PROPERTY, PLANT AND EQUIPMENT ISSUED',
+  ics_form_code           text NOT NULL DEFAULT 'FM-FAS-SUPPLY-07-10',   -- printed in the ICS/PAR export corner
+  ics_form_revision       text NOT NULL DEFAULT 'Rev. 1/07-25-22',
+  par_form_code           text NOT NULL DEFAULT 'FM-FAS-SUPPLY-07-09',
+  par_form_revision       text NOT NULL DEFAULT 'Rev. 1/07-25-22',
   updated_at              timestamptz NOT NULL DEFAULT now(),
   updated_by              uuid REFERENCES users(id)
 );

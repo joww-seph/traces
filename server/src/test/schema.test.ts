@@ -10,6 +10,10 @@ const INDEXES = ['users_email_lower_uq', 'session_expire_idx', 'officers_short_n
   'documents_received_by_idx', 'lines_category_idx', 'properties_property_no_uq', 'properties_line_idx',
   'qr_tokens_one_active_uq', 'movements_property_date_idx', 'movements_officer_idx', 'count_items_property_idx',
   'audit_logs_entity_idx', 'audit_logs_at_idx']
+const COLUMNS: Record<string, string[]> = {
+  properties: ['old_property_no', 'serial_no', 'component_label'],
+  settings: ['ppe_registry_title', 'ics_form_code', 'ics_form_revision', 'par_form_code', 'par_form_revision'],
+}
 const CONSTRAINTS = ['documents_type_doc_no_uq', 'documents_pdf_all_or_none', 'lines_document_line_no_uq',
   'movements_custody_needs_officer', 'physical_counts_unique_session']
 
@@ -31,6 +35,20 @@ describe('structure', () => {
   it('has every named index', async () => {
     expect(await names(`SELECT indexname FROM pg_indexes WHERE schemaname='public'`)).toEqual(expect.arrayContaining(INDEXES))
   })
+  it('has the added columns (old property no., form codes)', async () => {
+    for (const [table, cols] of Object.entries(COLUMNS)) {
+      const got = await names(`SELECT column_name FROM information_schema.columns WHERE table_name='${table}'`)
+      expect(got).toEqual(expect.arrayContaining(cols))
+    }
+  })
+  it('new settings default to the PPE registry title and the ICS/PAR form codes', async () => {
+    await resetDb()
+    const s = (await pool.query('SELECT * FROM settings')).rows[0]
+    expect(s).toMatchObject({
+      ppe_registry_title: 'REGISTRY OF PROPERTY, PLANT AND EQUIPMENT ISSUED',
+      ics_form_code: 'FM-FAS-SUPPLY-07-10', par_form_code: 'FM-FAS-SUPPLY-07-09', ics_form_revision: 'Rev. 1/07-25-22',
+    })
+  })
   it('has every named constraint', async () => {
     expect(await names(`SELECT conname FROM pg_constraint`)).toEqual(expect.arrayContaining(CONSTRAINTS))
   })
@@ -41,7 +59,7 @@ async function seed() {
   const u = (await pool.query(
     `INSERT INTO users (email, display_name, password_hash, role) VALUES ('a@b.c','A','x','superadmin') RETURNING id`)).rows[0].id
   const o = (await pool.query(
-    `INSERT INTO officers (full_name, short_name, position) VALUES ('Dana P','DP','Chief') RETURNING id`)).rows[0].id
+    `INSERT INTO officers (full_name, short_name, position) VALUES ('Maria S','MS','Chief') RETURNING id`)).rows[0].id
   const d = (await pool.query(
     `INSERT INTO documents (type, doc_no, fund_cluster, issued_date, issued_by_officer_id, issued_by_position,
        received_by_officer_id, received_by_position, created_by)

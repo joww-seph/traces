@@ -6,14 +6,14 @@ import { agentFor, loginAs } from './helpers.js'
 beforeEach(resetDb)
 afterAll(async () => { await pool.end(); await testPool.end() })
 
-const officer = { fullName: 'Dana P. Libunao', shortName: 'DPLibunao', position: 'Supply Officer III', office: 'Supply Unit' }
+const officer = { fullName: 'Maria Santos', shortName: 'MSantos', position: 'Supply Officer III', office: 'Supply Unit' }
 
 describe('officers', () => {
   it('create, list, patch and deactivate', async () => {
     const { agent } = await loginAs('supply_admin')
     const created = await agent.post('/api/officers').send(officer)
     expect(created.status).toBe(201)
-    expect(created.body).toMatchObject({ shortName: 'DPLibunao', active: true })
+    expect(created.body).toMatchObject({ shortName: 'MSantos', active: true })
 
     expect((await agent.get('/api/officers')).body).toHaveLength(1)
 
@@ -33,7 +33,7 @@ describe('officers', () => {
   it('duplicate short_name in a different case -> 409', async () => {
     const { agent } = await loginAs('supply_admin')
     await agent.post('/api/officers').send(officer)
-    const dup = await agent.post('/api/officers').send({ ...officer, fullName: 'Someone Else', shortName: 'dplibunao' })
+    const dup = await agent.post('/api/officers').send({ ...officer, fullName: 'Someone Else', shortName: 'msantos' })
     expect(dup.status).toBe(409)
   })
 

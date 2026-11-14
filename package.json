@@ -8,7 +8,7 @@
     "client"
   ],
   "scripts": {
-    "dev": "docker compose up -d db && concurrently -n api,web -c blue,green \"npm -w server run dev\" \"npm -w client run dev\"",
+    "dev": "docker compose up -d db && concurrently -k -n api,web -c blue,green \"npm -w server run dev\" \"npm -w client run dev\"",
     "db:generate": "npm -w server run db:generate",
     "db:migrate": "npm -w server run db:migrate",
     "db:studio": "npm -w server run db:studio",
@@ -16,10 +16,19 @@
     "build": "npm -w shared run build && npm -w client run build && npm -w server run build",
     "start": "npm -w server run start",
     "seed:superadmin": "npm -w server run seed:superadmin --",
-    "seed:dev": "npm -w server run seed:dev",
-    "backup": "npm -w server run backup"
+    "seed:dev": "npm -w server run seed:dev --",
+    "backup": "npm -w server run backup",
+    "lan": "npm -w server run lan --",
+    "reset:password": "npm -w server run reset:password --",
+    "test:e2e": "playwright test"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.14.0",
+    "@playwright/test": "^1.65.1",
     "concurrently": "^9.2.5"
+  },
+  "overrides": {
+    "uuid": "^11.1.1",
+    "esbuild": "^0.28.2"
   }
 }

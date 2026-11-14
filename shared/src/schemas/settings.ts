@@ -8,4 +8,8 @@ export const settingsPatch = z.object({
   cardRowMode: z.enum(['merged', 'split']),
   publicBaseUrl: z.string().trim().url(),
   ppeRegistryTitle: nonEmpty,
+  icsFormCode: nonEmpty,
+  icsFormRevision: nonEmpty,
+  parFormCode: nonEmpty,
+  parFormRevision: nonEmpty,
 }).partial()

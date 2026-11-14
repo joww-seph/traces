@@ -26,7 +26,7 @@ const ROLE_LABEL = { superadmin: 'Superadmin', supply_admin: 'Supply admin' } as
 function NavGroup({ title, items }: { title: string; items: Item[] }) {
   return (
     <div className="grid gap-0.5">
-      <p className="px-3 pb-1 text-xs font-medium text-sidebar-foreground/55">{title}</p>
+      <p className="px-3 pb-1 text-xs font-medium text-sidebar-foreground/80">{title}</p>
       {items.map(({ to, label, Icon, end }) => (
         <NavLink key={to} to={to} end={end}
           className={({ isActive }) => cn(
@@ -52,11 +52,11 @@ function SidebarContents({ onLogout, showBrand = true }: { onLogout: () => void;
   const { user } = useAuth()
   return (
     <div className="flex h-full flex-col gap-6 px-3 py-5">
-      {showBrand && <NavLink to="/" aria-label="TRACES dashboard" className="flex items-center gap-3 rounded-md px-3 focus-visible:outline-2 focus-visible:outline-sidebar-ring">
+      {showBrand && <NavLink to="/" className="flex items-center gap-3 rounded-md px-3 focus-visible:outline-2 focus-visible:outline-sidebar-ring">
         <img src="/traces-logo.png" alt="" className="size-10 rounded-[3px] bg-white p-0.5" />
         <span className="grid leading-tight">
           <span className="font-display text-lg font-bold text-white">TRACES</span>
-          <span className="text-xs text-sidebar-foreground/70">Supply Unit, DOST-1</span>
+          <span className="text-xs text-sidebar-foreground/80">Supply Unit, DOST-1</span>
         </span>
       </NavLink>}
 
@@ -68,8 +68,8 @@ function SidebarContents({ onLogout, showBrand = true }: { onLogout: () => void;
       <div className="mt-auto grid gap-3 border-t border-sidebar-border pt-4">
         <div className="grid gap-0.5 px-3">
           <span className="truncate text-sm font-medium text-white">{user?.displayName}</span>
-          <span className="truncate text-xs text-sidebar-foreground/65">{user && ROLE_LABEL[user.role]}</span>
-          <span className="truncate text-xs text-sidebar-foreground/65">{user?.email}</span>
+          <span className="truncate text-xs text-sidebar-foreground/80">{user && ROLE_LABEL[user.role]}</span>
+          <span className="truncate text-xs text-sidebar-foreground/80">{user?.email}</span>
         </div>
         <div className="grid gap-0.5">
           <NavLink to="/account/password" className="flex items-center gap-3 rounded-md px-3 py-2 text-sm text-sidebar-foreground/85 hover:bg-sidebar-accent hover:text-white">

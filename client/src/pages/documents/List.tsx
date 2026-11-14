@@ -7,7 +7,7 @@ import { api } from '@/api'
 import { NativeSelect } from '@/components/NativeSelect'
 import { EmptyState, PageHeader } from '@/components/PageHeader'
 import { TypeBadge } from '@/components/TypeBadge'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 
@@ -32,7 +32,7 @@ export default function Documents() {
       <PageHeader
         title="ICS and PAR"
         description="Signed issuance slips. Open one to see its PDF, add lines and print stickers."
-        actions={<Button render={<Link to="/documents/new" />} nativeButton={false}><FilePlus2 /> New ICS or PAR</Button>}
+        actions={<Link to="/documents/new" className={buttonVariants()}><FilePlus2 /> New ICS or PAR</Link>}
       />
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
@@ -51,7 +51,7 @@ export default function Documents() {
         <EmptyState title={filtered ? 'No documents match' : 'No ICS or PAR yet'}
           action={filtered
             ? <Button variant="outline" onClick={() => { setQ(''); setType('') }}>Clear filters</Button>
-            : <Button render={<Link to="/documents/new" />} nativeButton={false}>Enter the first document</Button>}>
+            : <Link to="/documents/new" className={buttonVariants()}>Enter the first document</Link>}>
           {filtered ? 'Try another number or show both types.' : 'Upload a signed ICS or PAR to start the records.'}
         </EmptyState>
       ) : (

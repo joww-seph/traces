@@ -20,7 +20,8 @@ export function sessionMiddleware() {
     cookie: {
       httpOnly: true,
       sameSite: 'lax',
-      secure: process.env.NODE_ENV === 'production',
+      // secure cookies need HTTPS; COOKIE_SECURE=false lets a production build run over plain http on a LAN demo
+      secure: (process.env.COOKIE_SECURE ?? String(process.env.NODE_ENV === 'production')) === 'true',
       maxAge: 8 * 60 * 60 * 1000,
     },
   })

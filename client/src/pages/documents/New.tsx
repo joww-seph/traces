@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { documentMeta, nonEmpty } from '@traces/shared'
+import { documentMeta, formatLongDate, isIsoDate, nonEmpty } from '@traces/shared'
 import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { Link, useNavigate } from 'react-router'
@@ -85,7 +85,8 @@ export default function NewDocument() {
           <Field label="Fund cluster" htmlFor="fundCluster" error={msg('fundCluster')}>
             <Input id="fundCluster" className="h-9" aria-invalid={!!errors.fundCluster} {...form.register('fundCluster')} />
           </Field>
-          <Field label="Date issued" htmlFor="issuedDate" error={msg('issuedDate')}>
+          <Field label="Date issued" htmlFor="issuedDate" error={msg('issuedDate')}
+            hint={(() => { const d = watch('issuedDate'); return d && isIsoDate(d) ? formatLongDate(d) : undefined })()}>
             <Input id="issuedDate" type="date" className="h-9" aria-invalid={!!errors.issuedDate} {...form.register('issuedDate')} />
           </Field>
         </FormSection>
@@ -105,7 +106,7 @@ export default function NewDocument() {
           </Field>
           {!officers.length && (
             <p className="text-sm text-muted-foreground sm:col-span-2">
-              No officers yet. <Link to="/officers" className="font-medium text-primary hover:underline">Add officers</Link> first.
+              No officers yet. <Link to="/officers" className="font-medium text-primary underline underline-offset-2">Add officers</Link> first.
             </p>
           )}
         </FormSection>

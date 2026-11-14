@@ -400,7 +400,6 @@ Conventions:
 - **QR content:** `${settings.public_base_url}/q/${token}`. The image is generated **in the browser at print time** with the `qrcode` package, error-correction level `M`, margin 2. The database never stores a QR image or a domain on the token.
 - **1x1 sticker (default):** 25.4 × 25.4 mm cell. QR about 19 mm, with the property no. underneath in 6–7 pt bold monospace.
 - **Passport sticker:** 35 × 45 mm cell, QR 28 mm, property no. 8 pt.
-- **Inventory tag (selectable layout):** modelled on the COA inventory tag the office uses today (red border, "COA CIRCULAR NO. 80-124, JAN 18, 1980", "Republic of the Philippines / GOVERNMENT PROPERTY", Office/Location `DOST REGION 1`, Article, Property No., Serial No., Serviceable/Unserviceable, Unit/Quantity, Acquisition Cost, Date Acquired, Date Counted, COA Representative and Property Custodian names, "TAMPERING THIS STICKER IS PUNISHABLE BY LAW") with the QR code printed on it. The sheet offers 1x1 · passport · inventory tag.
 - **Sheet:** A4 with `@page { size: A4; margin: 10mm }`. 1x1 layout is 6 × 9 (54 per sheet) with 3 mm gaps; passport is 4 × 5. Add a "Print at 100% scale" hint.
 - **LAN warning:** when `public_base_url` is a private IP or `localhost`, the sticker page shows a banner: "Test stickers only — QR codes will break after deployment."
 
@@ -519,11 +518,11 @@ traces/
 
 | # | Question | Default in code |
 |---|---|---|
-| Q1 | Card shows one row (Option A) or two rows (Option B) per issuance? | `card_row_mode = 'merged'` |
-| Q2 | Physical count frequency (yearly / semester)? | Admin types `as_at` per count |
-| Q3 | Hide any fields on the public view? | Show all form fields (BR-12) |
-| Q4 | Title for the PPE registry | `ppe_registry_title` setting |
-| Q5 | Production domain and host | `public_base_url` setting; one Node process + Postgres |
+| Q1 | Card shows one row (Option A) or two rows (Option B) per issuance? | **Decided 2026-11-14: merged** (`card_row_mode = 'merged'`) |
+| Q2 | Physical count frequency (yearly / semester)? | Open: admin types `as_at` per count |
+| Q3 | Hide any fields on the public view? | **Decided 2026-11-14: nothing hidden.** The public sees the whole signed ICS/PAR PDF and all form fields (BR-12) |
+| Q4 | Title for the PPE registry | **Decided 2026-11-14:** `REGISTRY OF PROPERTY, PLANT AND EQUIPMENT ISSUED` (`ppe_registry_title`, editable) |
+| Q5 | Production domain and host | Development: this laptop's LAN address (`npm run lan`), so phones on the same Wi-Fi can use it. Production: set `public_base_url` before printing real stickers |
 
 ---
 
@@ -552,9 +551,9 @@ Sources: photos of a signed ICS (Appendix 59) and PAR (Appendix 71), a filled RP
 - **Old property number:** `properties.old_property_no` (nullable). The filled RPCPPE carries legacy numbers in Remarks (`Old P#: 10605140-00-7`); exports print it there automatically.
 - **Multi-line descriptions:** ICS descriptions hold spec lists (`Laptop Unit / Specification: / - Processors: 8 Cores …`). The line form uses a textarea and the grids keep line breaks.
 - **Signature labels per form:** ICS = *Received from* (supply unit, left) / *Received by* (end user, right). PAR = *Received by* (end user, left) / *Issued by* (supply and/or property custodian, right). The UI labels the issuing officer accordingly.
-- **Form codes** printed on exports: ICS `FM-FAS-SUPPLY-07-10 Rev. 1/07-25-22`, PAR `FM-FAS-SUPPLY-07-09 Rev. 1/07-25-22`.
-- **Sticker:** inventory-tag layout added (§12).
-- **Branding:** TRACES logo (frame `#004AAD`, letters `#4C70FC`) as primary colour, favicon and header; DOST logo on the login page.
+- **Form codes** are printed in the corner of ICS and PAR exports (decided 2026-11-14): ICS `FM-FAS-SUPPLY-07-10 Rev. 1/07-25-22`, PAR `FM-FAS-SUPPLY-07-09 Rev. 1/07-25-22`. They are editable settings (`ics_form_code`, `ics_form_revision`, `par_form_code`, `par_form_revision`); the templates hold them in cells (F2:G3 on ICS, E2:F2 on PAR), not drawing shapes, which ExcelJS would drop. No other form carries a code.
+- **Sticker:** the sticker is the QR code only (1x1 and passport sizes, §12). The COA inventory tag is not part of TRACES.
+- **Branding:** TRACES logo (frame `#004AAD`, letters `#4C70FC`) as primary colour, favicon and header; DOST logo on the login page. Typeface: Montserrat (Medium base weight), a free stand-in for Gotham, which is not redistributable.
 - **Export templates** are saved in `server/src/exports/templates/` (`ics`, `regspi`, `par`, `pc`, `rpcppe` as `.xlsx`, converted from the official files). SPC and RPCSP are still built from the form images in Task 20.
 
 **Decided to keep as specified**
@@ -563,4 +562,20 @@ Sources: photos of a signed ICS (Appendix 59) and PAR (Appendix 71), a filled RP
 - **Stock Card (consumables)** stays out of scope.
 
 **Real-world samples useful for testing:** property numbers like `1998-05-140-TSE000-RSTL15`, `2026-03ICT-0193c`; separate ICS lines with letter suffixes (`0193`, `0193a`…) that are *not* components; PAR items acquired decades before the PAR date (Date Acquired drives the RECEIPT movement).
+
+### Decisions log, 2026-11-14
+| Topic | Decision |
+|---|---|
+| Public QR page | Shows the entire signed ICS/PAR PDF and every form field. The repository is public, so no real PDFs, signatures, passwords or reference photos are ever committed (`docs/references/`, `docs/ACCOUNTS.md`, `.env`, `storage*` are ignored). |
+| Category rule (BR-01) | Stays at ₱50,000. Differences from the office's Excel registry are accepted. |
+| Card rows (Q1) | Merged. |
+| PPE registry title (Q4) | `REGISTRY OF PROPERTY, PLANT AND EQUIPMENT ISSUED`. RPCPPE is only the physical count report. |
+| RPCPPE layout | Official Appendix 73 (no Total Value column). |
+| Old P# | Stored per property and printed automatically in the count report Remarks as `Old P#: <number>`. |
+| ICS letter-suffix numbers | `0193`, `0193a`, `0193b` that are separate items on the ICS are entered as separate main units, not components. |
+| Sticker | QR code only. |
+| Typeface | Montserrat. |
+| Stock Card | Out of scope. |
+| Replaced PDFs | Kept in `STORAGE_DIR/pdfs/replaced/`, never deleted; the audit row names the old file. |
+| Dev network address | `npm run lan` detects the LAN IPv4 (192.168.100.211 on 2026-11-14), sets `public_base_url` and `APP_ORIGIN`. |
 

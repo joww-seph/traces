@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { categorize, lineInput, nextInSequence, pesoToCentavos } from '@traces/shared'
+import { categorize, formatLongDate, isIsoDate, lineInput, nextInSequence, pesoToCentavos } from '@traces/shared'
 import { useEffect, useState } from 'react'
 import { useFieldArray, useForm } from 'react-hook-form'
 import { useNavigate, useParams } from 'react-router'
@@ -174,6 +174,8 @@ export default function LineForm() {
       <Label htmlFor={n}>{label}</Label>
       <Input id={n} aria-invalid={!!errors[n]} {...register(n as 'qty')} {...props} />
       {err(n)}
+      {/* the native date picker follows the browser language; spell the chosen date out so a swapped day/month is caught */}
+      {!errors[n] && props.type === 'date' && isIsoDate(String(v[n])) && <p className="text-xs text-muted-foreground">{formatLongDate(String(v[n]))}</p>}
     </div>
   )
 
