@@ -16,7 +16,8 @@ import { clearSettingsCache } from '../services/settings.js'
 //   npm run seed:dev              adds the samples to an empty database
 //   npm run seed:dev -- --more    adds a larger made-up set (officers, 13 issuances) on top of what exists
 //   npm run seed:dev -- --reset   first wipes officers, cards, documents, lines, properties and PDFs (users, settings and property types stay)
-const { values } = parseArgs({ options: { reset: { type: 'boolean' }, more: { type: 'boolean' } } })
+//   add --officers --issuer <short name> to issue the samples to the officers already in the database (they are kept on --reset, none are added)
+const { values } = parseArgs({ options: { reset: { type: 'boolean' }, more: { type: 'boolean' }, officers: { type: 'boolean' }, issuer: { type: 'string' } } })
 if (process.env.NODE_ENV === 'production') { console.error('seed:dev never runs in production'); process.exit(1) }
 
 const ctx = { actorId: null as string | null, ip: null }
@@ -26,11 +27,24 @@ type Item = { article: string; model: string; typeId: 1 | 2 | 3; pesos: number; 
 const TYPE_CODE = { 1: 'ICT', 2: 'FF', 3: 'OE' } as const
 
 async function officersFrom(list: Officer[]) {
+  if (values.officers) return existingOfficers(list)
   const existing = await db.execute(sql`SELECT id, short_name FROM officers`)
   const byShort = new Map<string, string>((existing.rows as { id: string; short_name: string }[]).map((r) => [r.short_name, r.id]))
   for (const o of list) {
     if (!byShort.has(o.shortName)) byShort.set(o.shortName, (await createOfficer({ ...o, canReceive: true, designations: o.designations ?? [] }, ctx)).id)
   }
+  return (short: string) => byShort.get(short)!
+}
+
+// --officers: the first made-up person (the issuer) becomes --issuer, the others are spread over the active receivers
+async function existingOfficers(list: Officer[]) {
+  const rows = (await db.execute(sql`SELECT id, short_name, can_receive FROM officers WHERE active ORDER BY full_name`)).rows as { id: string; short_name: string; can_receive: boolean }[]
+  const issuer = rows.find((r) => r.short_name === values.issuer)
+  if (!issuer) { console.error('--officers needs --issuer <short name of an active officer>'); process.exit(1) }
+  const receivers = rows.filter((r) => r.can_receive && r.id !== issuer.id)
+  if (!receivers.length) { console.error('No active officer can receive property.'); process.exit(1) }
+  const byShort = new Map<string, string>([[list[0].shortName, issuer.id]])
+  list.slice(1).forEach((o, i) => byShort.set(o.shortName, receivers[Math.floor((i * receivers.length) / (list.length - 1))].id))
   return (short: string) => byShort.get(short)!
 }
 
@@ -155,7 +169,7 @@ async function seedMore() {
   const th = await threshold()
   let docs = 0, props = 0
   for (const p of plans) { const r = await issue(admin, id, p, th); docs += r.documents; props += r.properties }
-  console.log(`Seeded ${plans.length} issuances (${docs} documents with generated PDFs), ${props} property numbers, 9 officers in all.`)
+  console.log(`Seeded ${plans.length} issuances (${docs} documents with generated PDFs), ${props} property numbers${values.officers ? '' : ', 9 officers in all'}.`)
 }
 
 try {
@@ -163,11 +177,13 @@ try {
   if (values.reset) {
     await db.execute(sql`UPDATE settings SET default_issued_by_officer_id = NULL`)
     await db.execute(sql`TRUNCATE audit_logs, movements, qr_tokens, properties, line_pdf_regions, document_files, lines, documents, items RESTART IDENTITY CASCADE`)
-    await db.execute(sql`DELETE FROM officer_designations`)
-    await db.execute(sql`DELETE FROM officers`)
+    if (!values.officers) {
+      await db.execute(sql`DELETE FROM officer_designations`)
+      await db.execute(sql`DELETE FROM officers`)
+    }
     rmSync(pdfDir(), { recursive: true, force: true })
     clearSettingsCache()
-    console.log('Wiped officers, cards, documents, lines, properties and stored PDFs.')
+    console.log(`Wiped ${values.officers ? '' : 'officers, '}cards, documents, lines, properties and stored PDFs.`)
   }
   if ((await db.select({ id: documents.id }).from(documents).limit(1)).length) {
     console.error('Documents already exist. Run with --reset to replace them with the samples.')
@@ -203,7 +219,7 @@ try {
     generate: true,
   }, { actorId: admin, ip: null })
 
-  console.log(`Seeded 3 officers, ${a.documents + old.documents.length} documents (${a.properties + 1} property numbers) with generated PDFs.`)
+  console.log(`Seeded ${values.officers ? 'samples for existing officers' : '3 officers'}, ${a.documents + old.documents.length} documents (${a.properties + 1} property numbers) with generated PDFs.`)
 } finally {
   await pool.end()
 }
