@@ -14,6 +14,7 @@ import { propertiesRouter } from './routes/properties.js'
 import { publicRouter } from './routes/public.js'
 import { viewsRouter } from './routes/views.js'
 import { settingsRouter } from './routes/settings.js'
+import { stickersRouter } from './routes/stickers.js'
 
 export function createApp() {
   const app = express()
@@ -28,7 +29,7 @@ export function createApp() {
     res.json({ ok: true, db: true })
   })
 
-  app.use('/api', authRouter(), settingsRouter(), officersRouter(), documentsRouter(), linesRouter(), propertiesRouter(), viewsRouter(), publicRouter(), adminSettingsRouter())
+  app.use('/api', authRouter(), settingsRouter(), officersRouter(), documentsRouter(), linesRouter(), propertiesRouter(), viewsRouter(), stickersRouter(), publicRouter(), adminSettingsRouter())
   // routers mount here as they are built
   app.use('/api', notFound)
 
