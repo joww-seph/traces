@@ -197,7 +197,9 @@ export default function IssueForm() {
       setHeaderError({})
       if (!built.body) throw new Error('rows')
       if (documentId) {
-        const out = await api.post<{ lines: { lineId: string }[] }>(`/api/documents/${documentId}/lines/batch`, { rows: built.body.rows })
+        const out = await api.post<{ lines: { lineId: string; warning?: { message: string } }[] }>(`/api/documents/${documentId}/lines/batch`, { rows: built.body.rows })
+        const warned = out.lines.find((l) => l.warning)
+        if (warned) toast.warning(warned.warning!.message, { duration: 8000 })
         const d = doc.data!
         return { documents: [{ id: d.id, type: d.type, docNo: d.docNo, lineIds: out.lines.map((l) => l.lineId) }], warnings: [] } as Result
       }

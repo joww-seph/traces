@@ -7,6 +7,7 @@ import { api } from '@/api'
 import { NativeSelect } from '@/components/NativeSelect'
 import { EmptyState, PageHeader } from '@/components/PageHeader'
 import { Button, buttonVariants } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { useSettings } from '@/lib/queries'
 import { cn } from '@/lib/utils'
@@ -30,7 +31,9 @@ function Picker() {
   const navigate = useNavigate()
   const [docId, setDocId] = useState('')
   const [nos, setNos] = useState('')
-  const docs = useQuery({ queryKey: ['documents', 'picker'], queryFn: () => api.get<{ rows: { id: string; type: string; docNo: string }[] }>('/api/documents') })
+  const [find, setFind] = useState('')
+  // the 25 newest, or the ones whose number matches what is typed
+  const docs = useQuery({ queryKey: ['documents', 'picker', find], queryFn: () => api.get<{ rows: { id: string; type: string; docNo: string }[] }>(`/api/documents${find.trim() ? `?q=${encodeURIComponent(find.trim())}` : ''}`) })
   const go = (e: React.FormEvent) => {
     e.preventDefault()
     if (docId) navigate(`/stickers?documentId=${docId}`)
@@ -40,6 +43,7 @@ function Picker() {
     <form onSubmit={go} className="grid max-w-2xl gap-6 rounded-xl border bg-card p-5 sm:p-6">
       <div className="grid gap-1.5">
         <label htmlFor="doc" className="text-sm font-medium">All items of one document</label>
+        <Input aria-label="Find a document by number" placeholder="Type part of the ICS or PAR number" className="h-9" value={find} onChange={(e) => setFind(e.target.value)} />
         <NativeSelect id="doc" className="h-9" value={docId} onChange={(e) => { setDocId(e.target.value); setNos('') }}>
           <option value="">Choose an ICS or PAR</option>
           {docs.data?.rows.map((d) => <option key={d.id} value={d.id}>{d.type} {d.docNo}</option>)}

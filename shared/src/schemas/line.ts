@@ -54,6 +54,7 @@ export const lineInput = z.strictObject({
 // PATCH: line fields + region changes; property add/remove handled by dedicated arrays.
 export const linePatch = z.object({
   line: lineFields.partial().optional(),
+  item: itemRef.optional(), // move the line to another card of the same category
   region: pdfRegion.nullable().optional(),
   addProperties: z.array(propertyFields).optional(),
   removePropertyNos: z.array(propertyNo).optional(),

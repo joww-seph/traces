@@ -335,3 +335,47 @@ describe('withTokenRetry', () => {
     expect(calls).toBe(1)
   })
 })
+
+describe('corrections reach the ledger (card, registry, report)', () => {
+  const holder = async (no: string) => (await testPool.query(
+    `SELECT c.holder_officer_id FROM v_custody c JOIN properties p ON p.id=c.property_id WHERE p.property_no=$1`, [no])).rows[0]?.holder_officer_id
+  const dates = async (no: string) => (await testPool.query(
+    `SELECT m.type, m.date::text FROM movements m JOIN properties p ON p.id=m.property_id WHERE p.property_no=$1 ORDER BY m.id`, [no])).rows
+
+  it('a corrected receiver and date of issue move the ISSUE movements with them', async () => {
+    const { post, agent, doc, receiver } = await setup()
+    await post(laptop())
+    expect(await holder('2026-09ICT-0199')).toBe(receiver.id)
+    const other = (await agent.post('/api/officers').send({ fullName: 'Other Person', shortName: 'OPerson', position: 'Clerk', canReceive: true })).body
+    expect((await agent.patch(`/api/documents/${doc.id}`).send({ receivedByOfficerId: other.id, issuedDate: '2026-03-05' })).status).toBe(200)
+    expect(await holder('2026-09ICT-0199')).toBe(other.id)
+    expect(await holder('2026-09ICT-0199a')).toBe(other.id)
+    expect(await dates('2026-09ICT-0199')).toEqual([{ type: 'RECEIPT', date: '2026-02-15' }, { type: 'ISSUE', date: '2026-03-05' }])
+  })
+
+  it('a corrected date acquired and IAR number move the RECEIPT movements', async () => {
+    const { post, agent } = await setup()
+    const { lineId } = (await post(laptop())).body
+    expect((await agent.patch(`/api/lines/${lineId}`).send({ line: { dateAcquired: '2026-01-20', iarNo: 'IAR-9' } })).status).toBe(200)
+    expect(await dates('2026-09ICT-0199')).toEqual([{ type: 'RECEIPT', date: '2026-01-20' }, { type: 'ISSUE', date: '2026-03-01' }])
+    const r = (await testPool.query(`SELECT reference_text, reference_document_id FROM movements WHERE type='RECEIPT' LIMIT 1`)).rows[0]
+    expect(r).toEqual({ reference_text: 'IAR-9', reference_document_id: null })
+  })
+})
+
+describe('moving a line to another card', () => {
+  it('a wrong card can be corrected to one of the same category; another category is 409', async () => {
+    const { post, agent } = await setup()
+    const { lineId } = (await post(laptop())).body
+    const other = (await agent.post('/api/items').send({ propertyTypeId: 1, category: 'ppe', article: 'Laptop', description: 'Dell Latitude', unit: 'unit' })).body
+    const res = await agent.patch(`/api/lines/${lineId}`).send({ item: { itemId: other.id } })
+    expect(res.status).toBe(200)
+    expect((await testPool.query('SELECT item_id FROM lines WHERE id=$1', [lineId])).rows[0].item_id).toBe(other.id)
+    const wrong = await agent.patch(`/api/lines/${lineId}`).send({ item: { itemId: DEFAULT_ITEM.semi } })
+    expect(wrong.status).toBe(409)
+    expect(wrong.body.error.code).toBe('CATEGORY_MISMATCH')
+    const created = await agent.patch(`/api/lines/${lineId}`).send({ item: { new: { propertyTypeId: 1, article: 'Laptop', description: 'HP ProBook', unit: 'unit' } } })
+    expect(created.status).toBe(200)
+    expect((await testPool.query(`SELECT category FROM items WHERE description='HP ProBook'`)).rows[0].category).toBe('ppe')
+  })
+})

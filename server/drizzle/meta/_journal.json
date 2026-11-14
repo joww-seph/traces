@@ -50,6 +50,13 @@
       "when": 1794639859175,
       "tag": "0006_update02_files",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1794644195290,
+      "tag": "0007_receivers_can_receive",
+      "breakpoints": true
     }
   ]
 }

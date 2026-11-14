@@ -55,6 +55,18 @@ describe('POST /api/documents/:id/generate', () => {
     expect(files()[0]).not.toBe(first)
   })
 
+  it('changing the entries after generating marks the form as outdated until it is regenerated', async () => {
+    const { agent, doc } = await seed(1)
+    await agent.post(`/api/documents/${doc.id}/generate`)
+    expect((await agent.get(`/api/documents/${doc.id}`)).body.generatedOutdated).toBe(false)
+    await agent.post(`/api/documents/${doc.id}/lines`).send(lineBody(2))
+    expect((await agent.get(`/api/documents/${doc.id}`)).body.generatedOutdated).toBe(true)
+    await agent.post(`/api/documents/${doc.id}/generate`)
+    expect((await agent.get(`/api/documents/${doc.id}`)).body.generatedOutdated).toBe(false)
+    await agent.patch(`/api/documents/${doc.id}`).send({ purpose: 'Changed' })
+    expect((await agent.get(`/api/documents/${doc.id}`)).body.generatedOutdated).toBe(true)
+  })
+
   it('a long form runs to a second page and its boxes follow', async () => {
     const { agent, doc } = await seed(25)
     const res = await agent.post(`/api/documents/${doc.id}/generate`)

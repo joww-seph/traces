@@ -56,7 +56,7 @@ export async function findPropertyByNo(no: string) {
 
 export async function cardHeader(itemId: string) {
   const row = (await db.select({
-    id: items.id, category: items.category, article: items.article, description: items.description, unit: items.unit,
+    id: items.id, category: items.category, article: items.article, description: items.description, unit: items.unit, active: items.active,
     propertyTypeId: items.propertyTypeId, propertyTypeCode: propertyTypes.code, propertyTypeName: propertyTypes.name,
   }).from(items).innerJoin(propertyTypes, eq(propertyTypes.id, items.propertyTypeId)).where(eq(items.id, itemId)))[0]
   if (!row) throw new AppError('ITEM_NOT_FOUND', 404, 'Card not found')

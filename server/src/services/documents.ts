@@ -2,7 +2,7 @@ import type { documentMeta, documentPatch } from '@traces/shared'
 import { and, asc, count, desc, eq, gte, ilike, inArray, isNull, lte, sql } from 'drizzle-orm'
 import type { z } from 'zod'
 import { db } from '../db/client.js'
-import { documentFiles, documents, items, linePdfRegions, lines, officers, properties, propertyTypes } from '../db/schema.js'
+import { documentFiles, documents, items, linePdfRegions, lines, movements, officers, properties, propertyTypes } from '../db/schema.js'
 import { AppError, pgErrorOf } from '../middleware/error.js'
 import { audit, type Ctx } from './audit.js'
 import { assertNotSigned, filesOf, filesSummary, type DocFile, type DocStatus } from './documentFiles.js'
@@ -105,8 +105,15 @@ export async function getDocument(id: string) {
       .from(items).innerJoin(propertyTypes, eq(propertyTypes.id, items.propertyTypeId)).where(inArray(items.id, itemIds))
     : []
   const region = (lineId: string, kind: 'generated' | 'uploaded') => regionOut(regions.find((r) => r.lineId === lineId && r.kind === kind))
+  const files = (await filesOf([id])).get(id)!
+  // the generated form no longer matches the entries once a line or the header changed after it was made
+  const gen = files.generated
+  const generatedOutdated = gen ? Boolean((await db.execute(sql`SELECT EXISTS (
+      SELECT 1 FROM audit_logs a WHERE a.at > ${gen.createdAt} AND a.action <> 'line.region' AND (
+        (a.entity = 'lines' AND a.entity_id IN (SELECT l.id::text FROM lines l WHERE l.document_id = ${id}))
+        OR (a.entity = 'documents' AND a.entity_id = ${id} AND a.action = 'document.update'))) AS x`)).rows[0].x) : false
   return {
-    ...present(doc, (await filesOf([id])).get(id)),
+    ...present(doc, files), generatedOutdated,
     lines: lineRows.map((l) => ({
       ...l,
       ...cards.find((c) => c.id === l.itemId),
@@ -132,6 +139,11 @@ export async function patchDocument(id: string, patch: z.infer<typeof documentPa
       const after = Object.keys(set).length
         ? (await tx.update(documents).set(set).where(eq(documents.id, id)).returning())[0]
         : before
+      // the ISSUE movements are this document's facts: a corrected receiver or date moves them too (custody, card, report)
+      if (patch.receivedByOfficerId || patch.issuedDate) {
+        await tx.update(movements).set({ officerId: after.receivedByOfficerId, date: after.issuedDate })
+          .where(and(eq(movements.referenceDocumentId, id), eq(movements.type, 'ISSUE')))
+      }
       const files = (await filesOf([id], tx)).get(id)
       await audit(tx, ctx, 'document.update', 'documents', id, present(before, files), present(after, files))
       return present(after, files)

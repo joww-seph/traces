@@ -34,7 +34,7 @@ export default function Reports() {
   const { data: settings } = useSettings()
   const { data: types = [] } = usePropertyTypes()
   const [search, setSearch] = useState('')
-  const { data: officers = [] } = useReceivers(search)
+  const { data: officers = [] } = useReceivers(search, true)
   const [officerId, setOfficerId] = useState('')
   const [category, setCategory] = useState<'semi' | 'ppe'>('ppe')
   const [typeId, setTypeId] = useState('')
@@ -86,7 +86,7 @@ export default function Reports() {
             <Input id="r-search" placeholder="Search by name or program, e.g. SARAi" className="h-9" value={search} onChange={(e) => setSearch(e.target.value)} />
             <NativeSelect id="r-officer" aria-label="Choose the officer" className="h-9" value={officerId} onChange={(e) => setOfficerId(e.target.value)}>
               <option value="">Choose an officer</option>
-              {officers.map((o) => <option key={o.id} value={o.id}>{o.fullName} ({o.shortName})</option>)}
+              {officers.map((o) => <option key={o.id} value={o.id}>{o.fullName} ({o.shortName}){o.active ? '' : ', inactive'}</option>)}
             </NativeSelect>
           </div>
           <div className="grid content-start gap-1.5">

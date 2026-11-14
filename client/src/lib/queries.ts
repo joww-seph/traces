@@ -21,10 +21,11 @@ export const useOfficers = (activeOnly = false) =>
   useQuery({ queryKey: ['officers', activeOnly], queryFn: () => api.get<Officer[]>(`/api/officers${activeOnly ? '?active=true' : ''}`) })
 
 // who may be "Received by": only officers on the accountable list; q also searches their programs
-export const useReceivers = (q = '') =>
+// `includeInactive`: the report also lists officers who left but may still hold property
+export const useReceivers = (q = '', includeInactive = false) =>
   useQuery({
-    queryKey: ['officers', 'receivers', q],
-    queryFn: () => api.get<Officer[]>(`/api/officers?active=true&canReceive=true${q.trim() ? `&q=${encodeURIComponent(q.trim())}` : ''}`),
+    queryKey: ['officers', 'receivers', q, includeInactive],
+    queryFn: () => api.get<Officer[]>(`/api/officers?canReceive=true${includeInactive ? '' : '&active=true'}${q.trim() ? `&q=${encodeURIComponent(q.trim())}` : ''}`),
   })
 
 export const useSettings = () => useQuery({ queryKey: ['settings'], queryFn: () => api.get<Settings>('/api/settings') })

@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { officerInput } from '@traces/shared'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
@@ -15,7 +15,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { useOfficers, type Officer } from '@/lib/queries'
+import { type Officer } from '@/lib/queries'
 
 type Form = Omit<z.input<typeof officerInput>, 'designations' | 'canReceive'> & { canReceive: boolean; designations: string }
 
@@ -81,7 +81,8 @@ function OfficerDialog({ officer, onClose }: { officer: Officer | 'new' | null; 
 
 export default function Officers() {
   const qc = useQueryClient()
-  const { data = [], isLoading } = useOfficers()
+  const [q, setQ] = useState('')
+  const { data = [], isLoading } = useQuery({ queryKey: ['officers', 'list', q], queryFn: () => api.get<Officer[]>(`/api/officers${q.trim() ? `?q=${encodeURIComponent(q.trim())}` : ''}`) })
   const [dialog, setDialog] = useState<Officer | 'new' | null>(null)
   const toggle = useMutation({
     mutationFn: (o: Officer) => (o.active ? api.delete(`/api/officers/${o.id}`) : api.patch(`/api/officers/${o.id}`, { active: true })),
@@ -94,6 +95,10 @@ export default function Officers() {
       <PageHeader title="Officers"
         description="People who issue or receive property. Their position fills in on new documents, and their short name appears in the registry."
         actions={<Button onClick={() => setDialog('new')}><UserPlus /> Add officer</Button>} />
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <Input aria-label="Search officers" placeholder="Search by name or program, e.g. SARAi" className="h-9 w-full bg-card sm:w-80" value={q} onChange={(e) => setQ(e.target.value)} />
+        <span className="ml-auto text-sm text-muted-foreground">{data.length} {data.length === 1 ? 'officer' : 'officers'}</span>
+      </div>
       <div className="overflow-x-auto rounded-xl border bg-card">
         <Table>
           <TableHeader>
@@ -109,7 +114,7 @@ export default function Officers() {
               <TableRow key={o.id}>
                 <TableCell className="pl-5 font-medium">{o.shortName}</TableCell>
                 <TableCell>{o.fullName}</TableCell>
-                <TableCell>{o.position}</TableCell>
+                <TableCell>{o.position}{o.designations.length > 0 && <span className="block text-xs text-muted-foreground">{o.designations.join('; ')}</span>}</TableCell>
                 <TableCell>{o.office}</TableCell>
                 <TableCell>{o.canReceive ? 'Yes' : 'No'}</TableCell>
                 <TableCell><Badge variant={o.active ? 'default' : 'secondary'}>{o.active ? 'Active' : 'Inactive'}</Badge></TableCell>

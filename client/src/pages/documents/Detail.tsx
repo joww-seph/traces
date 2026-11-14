@@ -28,7 +28,7 @@ export type DocLine = {
 export type DocDetail = {
   id: string; type: 'ICS' | 'PAR'; docNo: string; fundCluster: string; issuedDate: string; purpose: string | null
   issuedByOfficerId: string; issuedByPosition: string; receivedByOfficerId: string; receivedByPosition: string
-  hasPdf: boolean; status: DocStatus
+  hasPdf: boolean; status: DocStatus; generatedOutdated: boolean
   files: { generated: { pageCount: number } | null; uploaded: { originalName: string | null; pageCount: number } | null }
   lines: DocLine[]
 }
@@ -194,6 +194,13 @@ export default function DocumentDetail() {
         <p role="status" className="mb-4 rounded-md border bg-muted/40 px-4 py-2.5 text-sm text-muted-foreground">
           This form has a signed copy, so its entries are locked. To correct them, remove the signed copy first; the file is archived and the reason is logged.
         </p>
+      )}
+
+      {!signed && doc.generatedOutdated && (
+        <div role="alert" className="mb-4 flex flex-wrap items-center gap-3 rounded-md border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm text-amber-950">
+          <span>The entries changed after this form was generated. Regenerate it before printing.</span>
+          <Button size="sm" variant="outline" onClick={() => generate.mutate()} disabled={generate.isPending}><RefreshCw /> Regenerate now</Button>
+        </div>
       )}
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">

@@ -15,6 +15,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import type { DocDetail } from '@/pages/documents/Detail'
+import { CardPicker } from '@/pages/issue/CardPicker'
+import { blankEntry, type Entry } from '@/pages/issue/model'
 
 type Condition = 'serviceable' | 'unserviceable'
 type Row = { propertyNo: string; kind: 'main' | 'component'; componentLabel: string; serialNo: string; oldPropertyNo: string; condition: Condition; existing: boolean }
@@ -53,6 +55,7 @@ export default function LineForm() {
   const rows = useFieldArray({ control, name: 'properties' })
   const [region, setRegion] = useState<Region | null>(null)
   const [removed, setRemoved] = useState<string[]>([])
+  const [card, setCard] = useState<Entry | null>(null) // set while the card is being changed
 
   useEffect(() => {
     const l = lineQ.data
@@ -127,7 +130,14 @@ export default function LineForm() {
       estUsefulLifeYears: values.estUsefulLifeYears ? Number(values.estUsefulLifeYears) : undefined,
       dateAcquired: values.dateAcquired, iarNo: opt(values.iarNo), iarDate: opt(values.iarDate),
     }
-    const body = { line, addProperties: props.filter((_, i) => !values.properties[i].existing), removePropertyNos: removed }
+    let item: object | undefined
+    if (card?.cardMode === 'pick' && card.itemId) item = { itemId: card.itemId }
+    else if (card?.cardMode === 'new') {
+      const c = card.newCard
+      if (!c.typeId || !c.article.trim() || !c.model.trim() || !c.unit.trim()) return toast.error('Fill in the new card: type, article, model and unit.')
+      item = { new: { propertyTypeId: Number(c.typeId), article: c.article.trim(), description: c.model.trim(), unit: c.unit.trim() } }
+    }
+    const body = { line, ...(item ? { item } : {}), addProperties: props.filter((_, i) => !values.properties[i].existing), removePropertyNos: removed }
     const parsed = linePatch.safeParse(body)
     if (!parsed.success) {
       for (const issue of parsed.error.issues) {
@@ -180,7 +190,14 @@ export default function LineForm() {
             <div className="grid gap-1 sm:col-span-2">
               <span className="text-sm text-muted-foreground">Card</span>
               <p className="text-sm font-medium">{l ? `${l.article}, ${l.itemDescription} (${l.unit})` : ' '}</p>
-              <p className="text-xs text-muted-foreground">The card and unit are fixed when the line is entered.</p>
+              {!signed && !card && <Button type="button" variant="outline" size="xs" className="justify-self-start" onClick={() => setCard(blankEntry())}>Change card</Button>}
+              {card && l && (
+                <div className="grid gap-1.5">
+                  <CardPicker n={1} entry={card} category={l.category} onChange={(p) => setCard({ ...card, ...p })} />
+                  <p className="text-xs text-muted-foreground">Only {l.category === 'ppe' ? 'PC' : 'SPC'} cards fit this line. The new card takes effect when you save.</p>
+                  <Button type="button" variant="ghost" size="xs" className="justify-self-start" onClick={() => setCard(null)}>Keep the current card</Button>
+                </div>
+              )}
             </div>
             {text('qty', 'Quantity', { inputMode: 'numeric' })}
             {text('unitCost', 'Unit cost (₱)', { inputMode: 'decimal', placeholder: '96,450.00' })}

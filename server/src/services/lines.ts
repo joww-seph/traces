@@ -224,7 +224,7 @@ export async function updateLine(lineId: string, patch: z.infer<typeof linePatch
     return await withTokenRetry(() => db.transaction(async (tx) => {
       const before = await lockLiveLine(tx, lineId)
       const doc = await lockLiveDocument(tx, before.documentId)
-      if (patch.line || patch.addProperties?.length || patch.removePropertyNos?.length) await assertNotSigned(tx, doc.id) // boxes stay editable
+      if (patch.line || patch.item || patch.addProperties?.length || patch.removePropertyNos?.length) await assertNotSigned(tx, doc.id) // boxes stay editable
       const s = await getSettings(tx)
       const { lineNo, ...fields } = patch.line ?? {}
 
@@ -235,6 +235,15 @@ export async function updateLine(lineId: string, patch: z.infer<typeof linePatch
           `The new cost is on the other side of the ${formatPeso(s.ppeThresholdCentavos)} threshold, but the category stays ${before.category.toUpperCase()}.`)
       }
       if (Object.keys(fields).length) await tx.update(lines).set(fields).where(eq(lines.id, lineId))
+      // the card can be corrected, but only to one of the line's (frozen) category
+      if (patch.item) await tx.update(lines).set({ itemId: await resolveItem(tx, patch.item, before.category, new Map()) }).where(eq(lines.id, lineId))
+      // the RECEIPT movements carry the date acquired and the IAR number: keep them in step with the line
+      if ('dateAcquired' in fields || 'iarNo' in fields) {
+        const cur = (await tx.select().from(lines).where(eq(lines.id, lineId)))[0]
+        await tx.update(movements).set({
+          date: cur.dateAcquired ?? doc.issuedDate, referenceText: cur.iarNo ?? null, referenceDocumentId: cur.iarNo ? null : doc.id,
+        }).where(and(eq(movements.type, 'RECEIPT'), inArray(movements.propertyId, tx.select({ id: properties.id }).from(properties).where(eq(properties.lineId, lineId)))))
+      }
       if (lineNo !== undefined && lineNo !== before.lineNo) await reorder(tx, doc.id, lineId, lineNo)
 
       if (patch.region === null) await tx.delete(linePdfRegions).where(and(eq(linePdfRegions.lineId, lineId), eq(linePdfRegions.kind, 'uploaded')))
