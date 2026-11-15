@@ -192,12 +192,24 @@ test.describe('records flow', () => {
     await login(page)
     await page.goto('/issue')
     await page.locator('#desc-0').fill('Typed but not saved')
+    await page.locator('#purpose').fill('Also typed')
+    await pickOfficer(page, 'rcv', 'Maria Santos')
     await page.waitForTimeout(700)
     await page.reload()
     await expect(page.getByText('Your unsaved entry was restored')).toBeVisible()
     await expect(page.locator('#desc-0')).toHaveValue('Typed but not saved')
     await page.getByRole('button', { name: 'Discard draft' }).click()
+    // the rows and the header are new again, the banner and the button are gone
     await expect(page.locator('#desc-0')).toHaveValue('')
+    await expect(page.locator('#purpose')).toHaveValue('')
+    await expect(page.locator('#rcv')).toHaveValue('')
+    await expect(page.getByText('Your unsaved entry was restored')).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Discard draft' })).toHaveCount(0)
+    // and nothing comes back after the autosave delay or a reload
+    await page.waitForTimeout(900)
+    await page.reload()
+    await expect(page.getByText('Your unsaved entry was restored')).toHaveCount(0)
+    await expect(page.locator('#purpose')).toHaveValue('')
   })
 
   test('save without a PDF: the form is stored for a later upload, and rows can be added to it', async ({ page }) => {

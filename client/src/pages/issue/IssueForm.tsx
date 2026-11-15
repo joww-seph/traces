@@ -54,7 +54,7 @@ export default function IssueForm() {
 
   const doc = useQuery({ queryKey: ['document', documentId], enabled: !!documentId, queryFn: () => api.get<DocDetail>(`/api/documents/${documentId}`) })
 
-  const [draft] = useState(() => readDraft(draftKey))
+  const [draft, setDraft] = useState(() => readDraft(draftKey))
   const [entries, setEntries] = useState<Entry[]>(() => draft?.entries ?? [blankEntry()])
   const [header, setHeader] = useState<Header>(() => ({
     receivedBy: '', receivedByPosition: '', issuedBy: '', issuedByPosition: '', issuedDate: today(), fundCluster: '', purpose: '', icsNo: '', parNo: '', ...draft?.header,
@@ -84,6 +84,20 @@ export default function IssueForm() {
     return () => clearTimeout(t)
   }, [entries, header, draftKey])
   const clearDraft = () => { try { localStorage.removeItem(draftKey) } catch { /* ignore */ } }
+  // throws the unsaved entry away: the rows and the header go back to a new form, and the banner and button go
+  const discardDraft = () => {
+    clearDraft()
+    setDraft(null)
+    setEntries([blankEntry()])
+    setErrors({})
+    setHeaderError({})
+    const issuerId = settings?.defaultIssuedByOfficerId ?? ''
+    setHeader({
+      receivedBy: '', receivedByPosition: '', issuedDate: today(), fundCluster: settings?.defaultFundCluster ?? '', purpose: '', icsNo: '', parNo: '',
+      issuedBy: issuerId, issuedByPosition: allOfficers.find((o) => o.id === issuerId)?.position ?? '',
+    })
+    toast.success('Draft discarded')
+  }
 
   const threshold = settings?.ppeThresholdCentavos
   const codes = useMemo(() => Object.fromEntries(types.map((t) => [t.id, t.code])), [types])
@@ -280,7 +294,7 @@ export default function IssueForm() {
         description={documentId
           ? 'These rows are added to the form that already exists. The receiver and the date stay as they are.'
           : 'Fill in the four sections in order. One save writes the cards, the registry, the report and the ICS or PAR together.'}
-        actions={draft && !documentId ? <Button variant="destructive" size="sm" onClick={() => { clearDraft(); setEntries([blankEntry()]); toast.success('Draft discarded') }}>Discard draft</Button> : undefined}
+        actions={draft && !documentId ? <Button variant="destructive" size="sm" onClick={discardDraft}>Discard draft</Button> : undefined}
       />
       {draft && <p role="status" className="mb-4 rounded-md border bg-muted/40 px-4 py-2.5 text-sm text-muted-foreground">Your unsaved entry was restored from this computer.</p>}
 
