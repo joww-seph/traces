@@ -832,7 +832,7 @@ part('Part 8. Tests', 'How we know a change did not break anything.')
   box(s, { x: 4.7, y: 1.5, w: 3.9, h: 2.4, title: 'server API tests', body: 'Vitest + supertest. Real HTTP requests to the app, real traces_test database, wiped before each test.\n\nserver/src/test/', valign: 'top', align: 'left', fill: NAVY })
   box(s, { x: 8.9, y: 1.5, w: 3.9, h: 2.4, title: 'browser tests (e2e)', body: 'Playwright in Chrome. Clicks the real app on :3100 / :5273. Also checks accessibility (axe) and phone width.\n\ne2e/*.spec.ts', valign: 'top', align: 'left' })
   bullets(s, [
-    ['npm test', 'runs the first two (about 240 tests). npm run test:e2e runs the 45 browser tests in order.'],
+    ['npm test', 'runs the first two (about 300 tests). npm run test:e2e runs the 45 browser tests in order.'],
     ['The e2e files share one database and run in order:', 'app.spec.ts first. Run the whole suite; one test alone may lack the officers an earlier test created.'],
     ['Tests use TEST_DATABASE_URL only.', 'They can never touch your dev data.'],
   ], { y: 4.2, h: 1.8, size: 15 })
