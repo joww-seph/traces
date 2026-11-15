@@ -59,13 +59,12 @@ function OfficerDialog({ officer, onClose }: { officer: Officer | 'new' | null; 
         <DialogHeader><DialogTitle>{editing ? 'Edit officer' : 'Add officer'}</DialogTitle></DialogHeader>
         <form onSubmit={form.handleSubmit((v) => save.mutate(v))} className="grid gap-3" noValidate>
           {field('fullName', 'Full name')}
-          <p id="o-shortName" className="-mt-1 text-xs text-muted-foreground">Short name: <span className="font-medium text-foreground">{fullName.trim() ? shortNameOf(fullName) : '—'}</span> (made from the name: first letter of the first name, middle initial and surname)</p>
+          <p id="o-shortName" className="-mt-1 text-xs text-muted-foreground">Short name: <span className="font-medium text-foreground">{fullName.trim() ? shortNameOf(fullName) : '—'}</span></p>
           {field('position', 'Position / designation')}
           {field('office', 'Office')}
           <div className="grid gap-1.5">
             <Label htmlFor="o-designations">Programs and projects (one per line)</Label>
             <Textarea id="o-designations" rows={3} placeholder={'SARAi CENTRO, Focal Person'} {...form.register('designations')} />
-            <p className="text-xs text-muted-foreground">Searching for a program in the officer lists finds this person.</p>
           </div>
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" className="size-4" {...form.register('canReceive')} /> Can receive property (appears under “Received by” and in reports)
@@ -94,7 +93,7 @@ export default function Officers() {
   return (
     <>
       <PageHeader title="Officers"
-        description="People who issue or receive property. Their position fills in on new documents. The short name is made from the full name."
+        description="People who issue or receive property."
         actions={<Button onClick={() => setDialog('new')}><UserPlus /> Add officer</Button>} />
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <Input aria-label="Search officers" placeholder="Search by name or program, e.g. SARAi" className="h-9 w-full bg-card sm:w-80" value={q} onChange={(e) => setQ(e.target.value)} />

@@ -65,7 +65,7 @@ export default function SettingsPage() {
             <Label htmlFor="s-threshold">PPE threshold (pesos)</Label>
             <Input id="s-threshold" inputMode="decimal" aria-invalid={centavos === null} value={d.threshold} onChange={set('threshold')} />
             <p className="text-xs text-muted-foreground">
-              {centavos === null ? 'Enter pesos, for example 50,000.00.' : `Items costing ${formatPeso(centavos)} or more are PPE. Existing records keep their category.`}
+              {centavos === null ? 'Enter pesos, for example 50,000.00.' : `PPE from ${formatPeso(centavos)}.`}
             </p>
           </div>
           <div className="grid gap-1.5">
@@ -82,7 +82,6 @@ export default function SettingsPage() {
           <div className="grid gap-1.5 sm:col-span-2">
             <Label htmlFor="s-issuer">Issued by / Received from (default)</Label>
             <OfficerPicker id="s-issuer" officers={officers} value={d.issuer} noneLabel="None, choose on each issuance" onChange={(o) => setD({ ...d, issuer: o?.id ?? '' })} />
-            <p className="text-xs text-muted-foreground">The supply officer printed as the issuer on every new form. It can still be changed on the form.</p>
           </div>
           {text('icsFormCode', 'ICS form code')}
           {text('icsFormRevision', 'ICS revision')}

@@ -95,7 +95,7 @@ export default function StickerSheet() {
   const sheet = useMemo(() => data?.flatMap((st) => Array.from({ length: copies[st.propertyNo] ?? 1 }, () => st)), [data, copies])
 
   if (!qs) {
-    return (<><PageHeader title="Stickers" description="Print QR stickers for the items of one document, or for specific property numbers. Every property number, including components, gets its own sticker." /><Picker /></>)
+    return (<><PageHeader title="Stickers" description="Print QR stickers for the items of one document, or for specific property numbers." /><Picker /></>)
   }
 
   const perSheet = size === '1x1' ? 54 : 20

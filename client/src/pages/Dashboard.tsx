@@ -53,7 +53,6 @@ export default function Dashboard() {
     <>
       <PageHeader
         title="Dashboard"
-        description="Value and item counts come straight from every ICS and PAR line on record."
         actions={<Link to="/issue" className={buttonVariants()}><FilePlus2 /> New issuance</Link>}
       />
 

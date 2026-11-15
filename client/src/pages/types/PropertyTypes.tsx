@@ -68,7 +68,7 @@ export default function PropertyTypes() {
   })
   return (
     <>
-      <PageHeader title="Property types" description="The kinds of property from the COA list. The code goes into every property number; the registry and reports are grouped by type."
+      <PageHeader title="Property types" description="The kinds of property from the COA list."
         actions={<Button onClick={() => setDialog('new')}><Plus /> Add type</Button>} />
       <div className="overflow-x-auto rounded-xl border bg-card">
         <Table>

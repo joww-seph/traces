@@ -74,9 +74,8 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
             {errors.displayName && <p className="text-xs text-destructive">{errors.displayName.message}</p>}
           </div>
           <div className="grid gap-1.5">
-            <Label htmlFor="u-email">Email (made from the name)</Label>
+            <Label htmlFor="u-email">Email</Label>
             <Input id="u-email" readOnly className="bg-muted" value={name.trim() ? accountEmailOf(name) : ''} placeholder="first initial, middle initial and surname@region1.dost.gov.ph" />
-            <p className="text-xs text-muted-foreground">If someone already has this address, a number is added to it.</p>
           </div>
           <div className="grid gap-1.5">
             <Label htmlFor="u-role">Role</Label>
@@ -115,7 +114,7 @@ export default function Users() {
 
   return (
     <>
-      <PageHeader title="User accounts" description="Who can sign in to TRACES. Deactivating or resetting an account signs that person out at once."
+      <PageHeader title="User accounts" description="Who can sign in to TRACES."
         actions={<Button onClick={() => setCreating(true)}><UserPlus /> Add user</Button>} />
       <div className="overflow-x-auto rounded-xl border bg-card">
         <Table>

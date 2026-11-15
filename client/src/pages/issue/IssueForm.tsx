@@ -271,7 +271,7 @@ export default function IssueForm() {
   const e0 = entries[0]
   const addRow = () => setEntries((es) => [...es, blankEntry(es.at(-1))])
   const submit = (generate: boolean) => (ev: React.FormEvent | React.MouseEvent) => { ev.preventDefault(); save.mutate(generate) }
-  const hint = (cat: 'semi' | 'ppe' | null) => (cat ? <Badge variant={cat === 'ppe' ? 'default' : 'secondary'}>{cat === 'ppe' ? 'PPE · PC · PAR' : 'Semi-expendable · SPC · ICS'}</Badge> : <span className="text-xs text-muted-foreground">Category follows the cost</span>)
+  const hint = (cat: 'semi' | 'ppe' | null) => (cat ? <Badge variant={cat === 'ppe' ? 'default' : 'secondary'}>{cat === 'ppe' ? 'PPE · PC · PAR' : 'Semi-expendable · SPC · ICS'}</Badge> : null)
 
   return (
     <>
@@ -288,7 +288,6 @@ export default function IssueForm() {
         {/* 1. Property card */}
         <section aria-labelledby="s1" className="border-b pb-6">
           <h2 id="s1" className="text-base font-semibold">1. Property card</h2>
-          <p className="mt-1 mb-4 text-sm text-muted-foreground">One row for each model you are issuing. Rows of the same model go on the same card.</p>
           <div className="grid gap-4">
             {entries.map((e, i) => {
               const cat = categoryOf(e, threshold)
@@ -333,7 +332,7 @@ export default function IssueForm() {
                   </div>
 
                   <div className="grid gap-2">
-                    <p className="text-sm font-medium">Property numbers <span className="font-normal text-muted-foreground">(suggested; type over one to change it)</span></p>
+                    <p className="text-sm font-medium">Property numbers</p>
                     <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                       {e.mains.map((m, u) => (
                         <div key={u} className="grid gap-1 rounded-md bg-muted/40 p-2">
@@ -357,8 +356,7 @@ export default function IssueForm() {
                         ))}
                       </div>
                     )}
-                    <div><Button type="button" variant="outline" size="xs" onClick={() => setEntries((es) => es.map((x, q) => (q === i ? { ...x, comps: [...x.comps, { label: '', no: '', serial: '' }] } : x)))}><Plus /> Add component</Button>
-                      <span className="ml-2 text-xs text-muted-foreground">Parts of a set share this row but each gets its own sticker.</span></div>
+                    <div><Button type="button" variant="outline" size="xs" onClick={() => setEntries((es) => es.map((x, q) => (q === i ? { ...x, comps: [...x.comps, { label: '', no: '', serial: '' }] } : x)))}><Plus /> Add component</Button></div>
                   </div>
                   {errs && <ul role="alert" className="list-disc pl-5 text-sm text-destructive">{errs.map((m, k) => <li key={k}>{m}</li>)}</ul>}
                 </fieldset>
@@ -369,7 +367,7 @@ export default function IssueForm() {
         </section>
 
         {/* 2. Registry */}
-        <FormSection title="2. Registry" hint="Who receives the items and when. The purpose is printed in the registry's Remarks.">
+        <FormSection title="2. Registry">
           {documentId ? (
             <p className="text-sm text-muted-foreground sm:col-span-2">
               Received by <strong>{receiver?.fullName ?? ' '}</strong> on <strong>{doc.data ? formatLongDate(doc.data.issuedDate) : ''}</strong>, fund cluster {doc.data?.fundCluster}.
@@ -398,7 +396,7 @@ export default function IssueForm() {
         <section aria-labelledby="s3" className="grid gap-3 border-b py-6">
           <div>
             <h2 id="s3" className="text-base font-semibold">3. Report</h2>
-            <p className="mt-1 text-sm text-muted-foreground">How these rows will appear on {receiver ? `${receiver.fullName}'s` : "the receiver's"} RPCSP or RPCPPE. On Hand per Count and Shortage/Overage stay blank; they are counted by hand.</p>
+            <p className="mt-1 text-sm text-muted-foreground">How these rows will appear on {receiver ? `${receiver.fullName}'s` : "the receiver's"} RPCSP or RPCPPE.</p>
           </div>
           <div className="overflow-x-auto rounded-lg border">
             <table className="w-full min-w-[44rem] text-sm">
@@ -428,7 +426,7 @@ export default function IssueForm() {
         </section>
 
         {/* 4. ICS / PAR */}
-        <FormSection title="4. ICS / PAR" hint="The slips this save creates. The numbers are typed as on the form.">
+        <FormSection title="4. ICS / PAR">
           <p role="status" className="rounded-md bg-muted/50 px-3 py-2 text-sm sm:col-span-2" data-testid="summary">
             {icsRows + parRows === 0 ? 'Enter a cost on each row to see which forms this makes.'
               : `This creates ${[icsRows ? `${icsRows} ICS (${icsRows} ${icsRows === 1 ? 'row' : 'rows'})` : '', parRows ? `${parRows} PAR (${parRows} ${parRows === 1 ? 'row' : 'rows'})` : ''].filter(Boolean).join(' and ')}.`}

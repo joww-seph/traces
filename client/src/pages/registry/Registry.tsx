@@ -34,7 +34,7 @@ export default function Registry() {
 
   return (
     <>
-      <PageHeader title="Registry" description="One row per ICS or PAR line, worked out from the lines you entered. Select a row to open its first property."
+      <PageHeader title="Registry" description="One row per ICS or PAR line."
         actions={<ExportButton path={`/api/exports/${category === 'semi' ? 'regspi' : 'regppe'}?${new URLSearchParams({ ...(typeId && { typeId }), ...(from && { from }), ...(to && { to }) })}`} label={category === 'semi' ? 'Export RegSPI' : 'Export registry'} />} />
 
       <div className="mb-4 flex flex-wrap items-end gap-x-6 gap-y-3">

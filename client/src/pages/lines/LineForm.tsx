@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { formatLongDate, isIsoDate, linePatch, nextComponentSuffix, pesoToCentavos } from '@traces/shared'
 import { useEffect, useState } from 'react'
 import { useFieldArray, useForm } from 'react-hook-form'
-import { Link, useNavigate, useParams } from 'react-router'
+import { useNavigate, useParams } from 'react-router'
 import { toast } from 'sonner'
 import { ApiError, api } from '@/api'
 import { NativeSelect } from '@/components/NativeSelect'
@@ -194,7 +194,6 @@ export default function LineForm() {
               {card && l && (
                 <div className="grid gap-1.5">
                   <CardPicker n={1} entry={card} category={l.category} onChange={(p) => setCard({ ...card, ...p })} />
-                  <p className="text-xs text-muted-foreground">Only {l.category === 'ppe' ? 'PC' : 'SPC'} cards fit this line. The new card takes effect when you save.</p>
                   <Button type="button" variant="ghost" size="xs" className="justify-self-start" onClick={() => setCard(null)}>Keep the current card</Button>
                 </div>
               )}
@@ -205,7 +204,6 @@ export default function LineForm() {
               <span className="text-sm text-muted-foreground">Category</span>
               <div className="flex items-center gap-2">
                 {l ? <Badge>{l.category === 'ppe' ? 'PPE' : 'Semi-expendable'}</Badge> : null}
-                <span className="text-xs text-muted-foreground">fixed when the line was created</span>
               </div>
             </div>
             <div className="grid gap-1.5 sm:col-span-2">
@@ -253,7 +251,6 @@ export default function LineForm() {
             })}
             <div className="flex flex-wrap items-center gap-2">
               <Button type="button" variant="outline" size="sm" disabled={signed} onClick={addComponent}>Add component</Button>
-              <span className="text-xs text-muted-foreground">To add more units of the same model, use <Link to={doc ? `/issue?documentId=${doc.id}` : '/issue'} className="underline">the issuance form</Link>.</span>
             </div>
             {Number.isInteger(qty) && qty > 0 && mains !== qty && (
               <p role="status" className="text-sm text-amber-700">
@@ -279,7 +276,7 @@ export default function LineForm() {
         <h2 id="pdf-box" className="text-base font-semibold">Where this line sits on the signed copy</h2>
         {doc?.files.uploaded
           ? <PdfRegionPicker url={`/api/documents/${doc.id}/pdf?kind=uploaded`} value={region} onChange={(r) => saveRegion.mutate(r)} />
-          : <p className="text-sm text-muted-foreground">There is no signed copy yet. The highlight on the generated form is placed by TRACES; once the signed copy is uploaded you can adjust it here.</p>}
+          : <p className="text-sm text-muted-foreground">No signed copy yet.</p>}
       </section>
     </div>
     </>

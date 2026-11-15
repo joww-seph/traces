@@ -75,7 +75,7 @@ export default function Reports() {
   return (
     <>
       <div className="print:hidden">
-        <PageHeader title="Reports" description="The physical count report of one accountable officer: what the cards say they hold on a date. Print it and count by hand; the count columns are left blank."
+        <PageHeader title="Reports" description="The physical count report of one accountable officer on a date."
           actions={<>
             <Button variant="outline" onClick={exportIt} disabled={!r}>Export to Excel</Button>
             <Button onClick={() => window.print()} disabled={!r}><Printer /> Print</Button>
@@ -132,7 +132,6 @@ export default function Reports() {
           </div>
           <div className="mt-3 print:hidden">
             <Button variant="outline" size="sm" onClick={() => saveDefault.mutate()} disabled={saveDefault.isPending}><Save /> Save these names as the default</Button>
-            <p className="mt-1 text-xs text-muted-foreground">Edits above are used for printing and export only. They are saved for next time only when you save them as the default.</p>
           </div>
         </section>
       )}

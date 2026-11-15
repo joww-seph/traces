@@ -36,7 +36,7 @@ export default function Audit() {
 
   return (
     <>
-      <PageHeader title="Audit log" description="Every change to the records, newest first. Entries cannot be edited." />
+      <PageHeader title="Audit log" description="Every change to the records, newest first." />
       <div className="mb-4 grid gap-3 sm:grid-cols-4">
         <div className="grid gap-1.5"><Label htmlFor="a-entity">Record type</Label>
           <NativeSelect id="a-entity" value={f.entity} onChange={set('entity')}><option value="">All</option>{ENTITIES.map((e) => <option key={e}>{e}</option>)}</NativeSelect></div>
