@@ -50,6 +50,7 @@ TRACES **reverses** it. The admin enters each **ICS/PAR line once** and uploads 
 **Out of scope (but the schema already allows them)**
 - Transfers (PTR/ITR), returns (RRSP), re-issue and disposal UI. The movement types exist; no screens or routes.
 - Importing the old Excel data. Data is entered fresh through the form.
+- Pasting rows from Excel into the issuance form (dropped from Update 02 V-01 on 2026-11-15).
 - Consumables / Stock Card (for supplies, not equipment).
 - Multi-entity support.
 - Self-service password reset. The superadmin resets passwords.
@@ -593,3 +594,5 @@ Sources: photos of a signed ICS (Appendix 59) and PAR (Appendix 71), a filled RP
 | Hosting (Q5) | Probably the office's own domain; on hold. Stickers printed before then point to the dev address. |
 | Positions | Abbreviations are written out: `SRS` becomes `Science Research Specialist` wherever a position is entered or imported. |
 | Short names | First letter of the first given name + middle initial + surname; a second given name does not count. Account email = short name in lowercase @region1.dost.gov.ph. |
+| Scope (confirmed) | Out of scope and not planned: transfers (PTR/ITR), returns (RRSP), re-issue and disposal screens; importing old Excel data; pasting rows from Excel into the issuance form. The RETURN / REISSUE / DISPOSE movement types and the official Returned / Re-issued / Disposed columns stay (the official forms print them; they stay 0). |
+| Delete form | `/documents/:id` gets a **Delete form** button for unsigned forms (soft delete, audited). A form with an uploaded or signed copy is refused with 409 `DOCUMENT_SIGNED` until that copy is removed with a reason. The form number and its property numbers stay used. |

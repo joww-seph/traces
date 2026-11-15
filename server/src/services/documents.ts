@@ -160,6 +160,7 @@ export async function patchDocument(id: string, patch: z.infer<typeof documentPa
 export async function softDeleteDocument(id: string, ctx: Ctx) {
   await db.transaction(async (tx) => {
     const doc = await findLive(tx, id)
+    await assertNotSigned(tx, id) // V-06: a signed form is a record; remove the signed copy (with a reason) first
     await tx.update(documents).set({ deletedAt: new Date() }).where(eq(documents.id, id))
     await audit(tx, ctx, 'document.delete', 'documents', id, present(doc, (await filesOf([id], tx)).get(id)), null)
   })

@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { formatLongDate, formatPeso } from '@traces/shared'
 import type { ColDef, ColGroupDef } from 'ag-grid-community'
-import { FileUp, Highlighter, Plus, Printer, QrCode, RefreshCw, ShieldOff } from 'lucide-react'
+import { FileUp, Highlighter, Plus, Printer, QrCode, RefreshCw, ShieldOff, Trash2 } from 'lucide-react'
 import { useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { toast } from 'sonner'
@@ -89,6 +89,37 @@ function RemoveSignedDialog({ doc, open, onClose }: { doc: DocDetail; open: bool
   )
 }
 
+// Soft delete of an unsigned form; the server refuses a signed one (409 DOCUMENT_SIGNED).
+function DeleteFormDialog({ doc, open, onClose }: { doc: DocDetail; open: boolean; onClose: () => void }) {
+  const qc = useQueryClient()
+  const navigate = useNavigate()
+  const name = `${doc.type} ${doc.docNo}`
+  const stickers = doc.lines.reduce((n, l) => n + l.properties.length, 0)
+  const remove = useMutation({
+    mutationFn: () => api.delete(`/api/documents/${doc.id}`),
+    onSuccess: () => { qc.invalidateQueries(); toast.success(`${name} deleted`); onClose(); navigate('/documents') },
+    onError: (e) => toast.error(e instanceof ApiError ? e.message : 'Could not delete the form'),
+  })
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Delete {name}?</DialogTitle>
+          <DialogDescription>
+            Its {doc.lines.length === 1 ? 'line' : `${doc.lines.length} lines`} leave the cards, the registry and the reports,
+            and {stickers === 1 ? 'its sticker stops' : `its ${stickers} stickers stop`} working. The form number and the property numbers
+            cannot be used again. The deletion is written to the audit log.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose}>Keep the form</Button>
+          <Button variant="destructive" disabled={remove.isPending} onClick={() => remove.mutate()}>Delete {name}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 // Draw or nudge the highlight box of one line on the PDF being shown. Allowed even when the form is signed.
 function HighlightEditor({ doc, kind }: { doc: DocDetail; kind: Kind }) {
   const qc = useQueryClient()
@@ -127,6 +158,7 @@ export default function DocumentDetail() {
   const [shown, setShown] = useState<Kind | null>(null)
   const [highlighting, setHighlighting] = useState(false)
   const [removing, setRemoving] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const columns = useMemo(() => (doc?.type === 'PAR' ? parColumns : icsColumns), [doc?.type])
 
   const refresh = () => { qc.invalidateQueries({ queryKey: ['document', id] }); qc.invalidateQueries({ queryKey: ['documents'] }); qc.invalidateQueries({ queryKey: ['dashboard'] }) }
@@ -177,6 +209,7 @@ export default function DocumentDetail() {
           {doc.hasPdf && doc.lines.length > 0 && <Button variant="outline" onClick={() => setHighlighting((h) => !h)}><Highlighter /> {highlighting ? 'Hide highlights' : 'Adjust highlights'}</Button>}
           {signed && <Button variant="destructive" onClick={() => setRemoving(true)}><ShieldOff /> Remove signed copy</Button>}
           <Link to={`/stickers?documentId=${doc.id}`} className={buttonVariants({ variant: 'outline' })}><QrCode /> Print stickers</Link>
+          {!signed && <Button variant="destructive" onClick={() => setDeleting(true)}><Trash2 /> Delete form</Button>}
           {!signed && <Link to={`/issue?documentId=${doc.id}`} className={buttonVariants()}><Plus /> Add lines</Link>}
         </>}
         meta={
@@ -244,6 +277,7 @@ export default function DocumentDetail() {
         </section>
       </div>
       <RemoveSignedDialog doc={doc} open={removing} onClose={() => setRemoving(false)} />
+      <DeleteFormDialog doc={doc} open={deleting} onClose={() => setDeleting(false)} />
     </>
   )
 }

@@ -4,7 +4,7 @@ import { PDFDocument } from 'pdf-lib'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { pool } from '../db/client.js'
 import { testPool, resetDb } from './db.js'
-import { agentFor, itemFor, loginAs } from './helpers.js'
+import { agentFor, itemFor, loginAs, makeDocument, signDocument } from './helpers.js'
 
 // the made-up people of these tests; their short names are made from these names (MSantos, JDelaCruz, ...)
 const FULL_NAME: Record<string, string> = { JDelaCruz: 'Juan Dela Cruz', MSantos: 'Maria Santos', Staffer: 'Sam Staffer', Iss: 'Ivan Issuer', Rcv: 'Rita Receiver' }
@@ -142,11 +142,30 @@ describe('read, patch, delete', () => {
     expect((await agent.get('/api/documents?from=2026-01-01')).body.total).toBe(1)
     expect((await agent.get(`/api/documents?officerId=${a.receivedByOfficerId}`)).body.total).toBe(2)
 
+    // its uploaded PDF locks it like a signed copy; removing that copy (with a reason) comes first
+    expect((await agent.delete(`/api/documents/${a.id}/pdf`).send({ reason: 'Entered twice' })).status).toBe(200)
     expect((await agent.delete(`/api/documents/${a.id}`)).status).toBe(200)
     const list = await agent.get('/api/documents')
     expect(list.body.rows.map((r: { id: string }) => r.id)).not.toContain(a.id)
     expect((await agent.get(`/api/documents/${a.id}`)).status).toBe(404)
     expect((await upload(agent, meta())).status).toBe(409)
+  })
+
+  it('a signed form cannot be deleted (V-06 lock); once the signed copy is removed it can, and the delete is audited', async () => {
+    const { agent } = await loginAs('supply_admin')
+    const { doc } = await makeDocument(agent)
+    await signDocument(agent, doc.id)
+
+    const refused = await agent.delete(`/api/documents/${doc.id}`)
+    expect(refused.status).toBe(409)
+    expect(refused.body.error.code).toBe('DOCUMENT_SIGNED')
+    expect((await agent.get(`/api/documents/${doc.id}`)).status).toBe(200)
+
+    expect((await agent.delete(`/api/documents/${doc.id}/pdf`).send({ reason: 'Entered by mistake' })).status).toBe(200)
+    expect((await agent.delete(`/api/documents/${doc.id}`)).status).toBe(200)
+    expect((await agent.get(`/api/documents/${doc.id}`)).status).toBe(404)
+    const logged = await testPool.query(`SELECT 1 FROM audit_logs WHERE action = 'document.delete' AND entity_id = $1`, [doc.id])
+    expect(logged.rowCount).toBe(1)
   })
 
   it('GET /:id returns the document with its (empty) lines; /pdf streams the file', async () => {

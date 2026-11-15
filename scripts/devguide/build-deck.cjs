@@ -477,15 +477,12 @@ part('Part 4. The database', 'Where the truth lives. Learn this part well: the r
     ['date', 'type', 'officer', 'what it means'],
     ['2026-05-01', 'RECEIPT', '', 'Supply received the laptop (balance on the card goes up by 1)'],
     ['2026-05-12', 'ISSUE', 'Maria Santos', 'Maria received it (who holds it changes, balance stays)'],
-    ['2026-09-30', 'RETURN', 'Maria Santos', 'Maria gave it back (no screen for this yet)'],
-    ['2027-01-15', 'REISSUE', 'Juan Dela Cruz', 'Juan received it (no screen for this yet)'],
-    ['2031-02-01', 'DISPOSE', '', 'Thrown out or sold (balance goes down by 1)'],
   ], { colW: [1.8, 1.7, 2.4, 6.4], size: 14, monoCols: [0, 1] })
   bullets(s, [
-    ['Balance on the card (BR-08)', '= all RECEIPT minus all DISPOSE, added up in date order.'],
-    ['Who holds it now', '= the latest ISSUE / REISSUE / RETURN. After a RETURN nobody holds it.'],
+    ['Balance on the card (BR-08)', '= all RECEIPT minus all DISPOSE, added up in date order. Who holds it = the latest ISSUE.'],
+    ['RETURN, REISSUE and DISPOSE', 'also exist in the database, only because the official registry and cards print Returned, Re-issued and Disposed columns. TRACES never records them (out of scope), so those columns stay 0.'],
     ['Nothing is ever overwritten.', 'History is added, row by row, like a ledger.'],
-  ], { y: 4.2, h: 1.3 })
+  ], { y: 2.6, h: 2.8 })
   plain(s, 'You never store "Maria has 4 laptops". You store what happened, and the database adds it up when you ask.')
 }
 
@@ -657,6 +654,7 @@ part('Part 5. The server', 'What happens between a click and a saved row.')
     ['Uploads are checked:', 'size limit 20 MB, PDF content type and the %PDF- header (middleware/upload.ts).'],
     ['line_pdf_regions', 'stores where each line sits on the page (fractions 0 to 1), so the viewer can highlight that row.'],
     ['To correct a signed form:', 'remove the signed copy with a reason, fix, print, sign and upload again.'],
+    ['Delete form', 'removes an unsigned ICS / PAR (soft delete). A signed one must have its signed copy removed first. Its numbers stay used.'],
   ], { y: 3.45, h: 3.3, size: 15 })
 }
 
@@ -938,16 +936,14 @@ part('Part 9. Doing real work', 'Recipes, rules, and where to look things up.')
 }
 
 {
-  const s = content('Not built yet: good first tasks to discuss')
+  const s = content('Before TRACES goes live')
   bullets(s, [
-    ['Transfers, returns, re-issue and disposal screens.', 'The movements table already has RETURN, REISSUE and DISPOSE; there is no page to enter them.'],
-    ['Excel import of old records.', 'Possible with exceljs + the existing createIssuance; needs a sample file and its layout first.'],
-    ['Delete a whole ICS or PAR from the screen.', 'The API has DELETE /api/documents/:id; the page has no button.'],
-    ['Report officer list hints.', 'The officer picker on Reports does not show who actually holds items.'],
-    ['Production hosting.', 'HTTPS, nginx, the address (possibly dost1.ph, on hold), backups and real accounts are not set up.'],
-    ['Before real use:', 'clear the sample TEST forms, and reprint stickers once public_base_url is the production address.'],
-  ], { h: 4.4, size: 15 })
-  plain(s, 'Each of these needs a decision from the Supply Unit first. Ask, write down the answer in the spec\'s decisions log, then build with tests.', { y: 5.85, h: 1.0 })
+    ['Production hosting.', 'HTTPS, nginx, the address (on hold), scheduled backups and real staff accounts (docs/DEPLOY.md).'],
+    ['Clear the sample forms', 'from the database before entering real records.'],
+    ['Set public_base_url', 'to the production address before printing real stickers.'],
+    ['Fill in the report footer names', '(Reports page, "Save these names as the default").'],
+  ], { h: 3.0, size: 16 })
+  plain(s, "Features outside the spec's scope (transfers, returns, disposal, Excel import) are not planned. A new one needs a written decision from the Supply Unit in the spec first.", { y: 5.6, h: 1.1 })
 }
 
 {

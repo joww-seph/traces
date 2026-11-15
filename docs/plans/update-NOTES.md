@@ -17,7 +17,7 @@ No differences in tables or constraints, apart from:
 - `GET /api/documents` filters by `?status=none|generated|signed|unsigned` instead of `?hasPdf=false`; the list has a PDF column.
 - No `/api/documents/:id/entry` or `/documents/new` pages: both redirect to `/issue`. `/issue?documentId=` adds rows to an unsigned form.
 - After a save, `/issue` shows the saved forms with Print / Open / Stickers buttons instead of jumping to the PDF (a mixed save makes two forms).
-- Paste-from-Excel on the entry rows is not built (v1 has no BR-14 in the repo). Rows are typed, or copied with Ctrl+D / "Make copies".
+- Paste-from-Excel on the entry rows was dropped (decision 2026-11-15). Rows are typed, or copied with Ctrl+D / "Make copies".
 - A row taller than a page is split over pages in the generated form; its box is the first piece.
 - PAR signature order follows the reference prototype (Issued by left, Received by right).
 - The public Report tab shows only rows of the scanned document (same rule as the registry), and the public card shows only the scanned line's rows and number range.

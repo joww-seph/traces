@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { E2E } from '../playwright.config'
-import { a11y, login, noHorizontalScroll } from './helpers'
+import { a11y, apiSeed, apiSign, login, noHorizontalScroll } from './helpers'
 
 // Files run in name order, so this runs after day3.spec.ts in the same database (the semi chair 2026-09ICT-0402 exists).
 test.describe.configure({ mode: 'serial' })
@@ -18,6 +18,36 @@ test('exports: registry and a model card download an .xlsx', async ({ page }) =>
   await page.getByRole('link', { name: 'Office chair' }).first().click()
   const [card] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Export SPC' }).click()])
   expect(card.suggestedFilename()).toMatch(/\.xlsx$/)
+})
+
+test('delete form: an unsigned ICS can be deleted after confirming; a signed PAR has no delete button', async ({ page }) => {
+  await login(page)
+  const nos = { main: '2026-05DEL-0001', part: '2026-05DEL-0001a', semi: '2026-05DEL-0002' }
+  const s = await apiSeed(page, '2026-05DEL-001', nos)
+  await apiSign(page, s.parId, 1)
+  const semiToken = await s.token(nos.semi)
+
+  await page.goto(`/documents/${s.parId}`)
+  await expect(page.getByText('its entries are locked')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Delete form' })).toHaveCount(0)
+
+  await page.goto(`/documents/${s.icsId}`)
+  await page.getByRole('button', { name: 'Delete form' }).click()
+  const dialog = page.getByRole('dialog')
+  await expect(dialog.getByText('cannot be used again')).toBeVisible()
+  await dialog.getByRole('button', { name: 'Keep the form' }).click()
+  await expect(page).toHaveURL(new RegExp(`/documents/${s.icsId}$`)) // nothing happened
+
+  await page.getByRole('button', { name: 'Delete form' }).click()
+  await page.getByRole('dialog').getByRole('button', { name: 'Delete ICS 2026-05DEL-001' }).click()
+  await expect(page).toHaveURL(/\/documents$/)
+  await expect(page.getByText('ICS 2026-05DEL-001 deleted')).toBeVisible()
+  await page.getByLabel('Search by document number').fill('2026-05DEL-001')
+  await expect(page.getByRole('link', { name: '2026-05DEL-001-P' })).toBeVisible() // the signed PAR stays
+  await expect(page.getByRole('link', { name: '2026-05DEL-001', exact: true })).toHaveCount(0)
+
+  await page.goto(`/q/${semiToken}`) // its sticker stops working
+  await expect(page.getByText('This item was removed')).toBeVisible()
 })
 
 test('a supply admin does not see the admin pages', async ({ page }) => {
