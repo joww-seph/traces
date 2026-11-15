@@ -6,7 +6,7 @@ const path = require('node:path')
 const pptxgen = require('pptxgenjs')
 
 const SHOTS = path.resolve('docs/manual/shots')
-const OUT = path.resolve('docs/TRACES-User-Manual.pptx')
+const OUT = path.resolve(process.env.MANUAL_OUT ?? 'docs/TRACES-User-Manual.pptx')
 const { slides } = JSON.parse(fs.readFileSync(path.join(SHOTS, 'steps.json'), 'utf8'))
 
 const pres = new pptxgen()

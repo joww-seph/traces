@@ -121,10 +121,10 @@ async function seedMore() {
   const id = await officersFrom([
     { fullName: 'Juan Dela Cruz', shortName: 'JDelaCruz', position: 'Administrative Officer V', office: 'Supply Unit' },
     { fullName: 'Maria Santos', shortName: 'MSantos', position: 'ARD for Field Operations', office: 'Field Operations', designations: ['SARAi CENTRO, Focal Person'] },
-    { fullName: 'Pedro Reyes', shortName: 'PReyes', position: 'SRS II', office: 'Regional Standards and Testing Laboratory' },
+    { fullName: 'Pedro Reyes', shortName: 'PReyes', position: 'Science Research Specialist II', office: 'Regional Standards and Testing Laboratory' },
     { fullName: 'Lorna Bautista', shortName: 'LBautista', position: 'Accountant III', office: 'Accounting' },
     { fullName: 'Ramon Garcia', shortName: 'RGarcia', position: 'Engineer III', office: 'Technical Operations', designations: ['SARAi, Coordinator'] },
-    { fullName: 'Carla Mendoza', shortName: 'CMendoza', position: 'SRS I', office: 'Planning' },
+    { fullName: 'Carla Mendoza', shortName: 'CMendoza', position: 'Science Research Specialist I', office: 'Planning' },
     { fullName: 'Tomas Villanueva', shortName: 'TVillanueva', position: 'Driver II', office: 'Administrative Unit' },
     { fullName: 'Elena Flores', shortName: 'EFlores', position: 'Cashier II', office: 'Finance' },
     { fullName: 'Danilo Navarro', shortName: 'DNavarro', position: 'Information Systems Analyst II', office: 'ICT Unit' },
@@ -193,7 +193,7 @@ try {
   const id = await officersFrom([
     { fullName: 'Juan Dela Cruz', shortName: 'JDelaCruz', position: 'Administrative Officer V', office: 'Supply Unit' },
     { fullName: 'Maria Santos', shortName: 'MSantos', position: 'ARD for Field Operations', office: 'Field Operations', designations: ['SARAi CENTRO, Focal Person'] },
-    { fullName: 'Pedro Reyes', shortName: 'PReyes', position: 'SRS II', office: 'Regional Standards and Testing Laboratory' },
+    { fullName: 'Pedro Reyes', shortName: 'PReyes', position: 'Science Research Specialist II', office: 'Regional Standards and Testing Laboratory' },
   ])
   await setDefaultIssuer(id('JDelaCruz'))
   const th = await threshold()
