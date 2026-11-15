@@ -6,7 +6,6 @@ import { Link, useNavigate, useSearchParams } from 'react-router'
 import { toast } from 'sonner'
 import { ApiError, api } from '@/api'
 import { FormSection } from '@/components/FormSection'
-import { NativeSelect } from '@/components/NativeSelect'
 import { EmptyState, PageHeader } from '@/components/PageHeader'
 import { TypeBadge } from '@/components/TypeBadge'
 import { Badge } from '@/components/ui/badge'
@@ -19,6 +18,7 @@ import type { DocDetail } from '@/pages/documents/Detail'
 import { CardPicker } from '@/pages/issue/CardPicker'
 import { articleOf, blankEntry, categoryOf, centavosOf, duplicate, numbersOf, slotsOf, unitOf, withQty, type Entry } from '@/pages/issue/model'
 import { PageSkeleton } from '@/components/Loading'
+import { OfficerPicker } from '@/components/OfficerPicker'
 
 type Header = {
   receivedBy: string; receivedByPosition: string; issuedBy: string; issuedByPosition: string
@@ -50,8 +50,7 @@ export default function IssueForm() {
   const { data: settings } = useSettings()
   const { data: types = [] } = usePropertyTypes()
   const { data: allOfficers = [] } = useOfficers(true)
-  const [search, setSearch] = useState('')
-  const { data: receivers = [] } = useReceivers(search)
+  const { data: receivers = [] } = useReceivers()
 
   const doc = useQuery({ queryKey: ['document', documentId], enabled: !!documentId, queryFn: () => api.get<DocDetail>(`/api/documents/${documentId}`) })
 
@@ -378,15 +377,11 @@ export default function IssueForm() {
           ) : (
             <>
               <div className="grid content-start gap-1.5 sm:col-span-2">
-                <Label htmlFor="rcv-search">Received by (accountable officer)</Label>
-                <Input id="rcv-search" className="h-9" placeholder="Search by name or program, e.g. SARAi" value={search} onChange={(ev) => setSearch(ev.target.value)} />
-                <NativeSelect id="rcv" aria-label="Choose the receiving officer" className="h-9" value={header.receivedBy}
-                  onChange={(ev) => setHeader({ ...header, receivedBy: ev.target.value, receivedByPosition: receivers.find((o) => o.id === ev.target.value)?.position ?? header.receivedByPosition })}>
-                  <option value="">Choose an officer</option>
-                  {receivers.map((o) => <option key={o.id} value={o.id}>{o.fullName} ({o.shortName}){o.designations.length ? ` · ${o.designations[0]}` : ''}</option>)}
-                </NativeSelect>
+                <Label htmlFor="rcv">Received by (accountable officer)</Label>
+                <OfficerPicker id="rcv" officers={receivers} value={header.receivedBy} invalid={!!headerError.receiver}
+                  onChange={(o) => setHeader({ ...header, receivedBy: o?.id ?? '', receivedByPosition: o?.position ?? header.receivedByPosition })} />
                 {headerError.receiver && <p role="alert" className="text-sm text-destructive">{headerError.receiver}</p>}
-                {!receivers.length && <p className="text-xs text-muted-foreground">No officer matches. Officers who may receive property are set up on the <Link to="/officers" className="underline">Officers</Link> page.</p>}
+                {!receivers.length && <p className="text-xs text-muted-foreground">No officer can receive property yet. Officers who may receive property are set up on the <Link to="/officers" className="underline">Officers</Link> page.</p>}
               </div>
               <div className="grid content-start gap-1.5"><Label htmlFor="date">Date issued</Label>
                 <Input id="date" type="date" className="h-9" value={header.issuedDate} onChange={(ev) => setHeader({ ...header, issuedDate: ev.target.value })} />
@@ -451,11 +446,8 @@ export default function IssueForm() {
           {!documentId && (
             <>
               <div className="grid content-start gap-1.5"><Label htmlFor="issuer">Received from / Issued by</Label>
-                <NativeSelect id="issuer" className="h-9" value={header.issuedBy}
-                  onChange={(ev) => setHeader({ ...header, issuedBy: ev.target.value, issuedByPosition: allOfficers.find((o) => o.id === ev.target.value)?.position ?? '' })}>
-                  <option value="">Choose an officer</option>
-                  {allOfficers.map((o) => <option key={o.id} value={o.id}>{o.fullName} ({o.shortName})</option>)}
-                </NativeSelect></div>
+                <OfficerPicker id="issuer" officers={allOfficers} value={header.issuedBy}
+                  onChange={(o) => setHeader({ ...header, issuedBy: o?.id ?? '', issuedByPosition: o?.position ?? '' })} /></div>
               <div className="grid content-start gap-1.5"><Label htmlFor="issuerPos">Position as printed</Label>
                 <Input id="issuerPos" className="h-9" value={header.issuedByPosition} placeholder={issuer?.position} onChange={(ev) => setHeader({ ...header, issuedByPosition: ev.target.value })} /></div>
               <div className="grid content-start gap-1.5 sm:col-start-2"><Label htmlFor="rcvPos">Received by, position as printed</Label>

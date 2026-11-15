@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useOfficers, useSettings, type Settings } from '@/lib/queries'
 import { PageSkeleton } from '@/components/Loading'
+import { OfficerPicker } from '@/components/OfficerPicker'
 
 type Draft = Omit<Settings, 'ppeThresholdCentavos' | 'defaultIssuedByOfficerId'> & { threshold: string; issuer: string }
 
@@ -80,10 +81,7 @@ export default function SettingsPage() {
           <h2 className="font-medium sm:col-span-2">Generated ICS and PAR</h2>
           <div className="grid gap-1.5 sm:col-span-2">
             <Label htmlFor="s-issuer">Issued by / Received from (default)</Label>
-            <NativeSelect id="s-issuer" value={d.issuer} onChange={set('issuer')}>
-              <option value="">None, choose on each issuance</option>
-              {officers.map((o) => <option key={o.id} value={o.id}>{o.fullName} ({o.shortName})</option>)}
-            </NativeSelect>
+            <OfficerPicker id="s-issuer" officers={officers} value={d.issuer} noneLabel="None, choose on each issuance" onChange={(o) => setD({ ...d, issuer: o?.id ?? '' })} />
             <p className="text-xs text-muted-foreground">The supply officer printed as the issuer on every new form. It can still be changed on the form.</p>
           </div>
           {text('icsFormCode', 'ICS form code')}

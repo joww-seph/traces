@@ -6,6 +6,13 @@ import { expect, type Page } from '@playwright/test'
 import { PDFDocument, StandardFonts } from 'pdf-lib'
 import { E2E } from '../playwright.config'
 
+// Types into an officer field and picks the officer whose full name starts the option.
+export async function pickOfficer(page: Page, id: string, fullName: string) {
+  await page.locator(`#${id}`).fill(fullName)
+  await page.getByRole('listbox', { name: 'Officers' }).getByRole('option', { name: `${fullName} (` }).first().click()
+  await expect(page.locator(`#${id}`)).toHaveValue(new RegExp(`^${fullName} [(]`)) // test names are plain letters, no escaping needed
+}
+
 export async function login(page: Page, who: { email: string; password: string } = E2E.supply) {
   await page.goto('/login')
   await page.getByLabel('Email address').fill(who.email)

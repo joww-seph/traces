@@ -319,21 +319,19 @@ await shot(page, {
   marks: [row(2).getByRole('button', { name: 'Add component' }), row(2).getByLabel('Row 2, component 1, label'), row(2).getByLabel('Row 2, component 1, property number'), row(2).getByRole('button', { name: 'Copy row' })],
   scrollTo: row(2),
 })
-await page.locator('#rcv-search').fill('SARAi')
-await page.waitForTimeout(600)
-await page.locator('#rcv').selectOption({ index: 1 })
+await page.locator('#rcv').fill('SARAi')
+await page.getByRole('listbox', { name: 'Officers' }).getByRole('option').first().click()
 await page.locator('#date').fill('2026-11-14')
 await page.locator('#purpose').fill('Equipment for the SARAi project team')
 await shot(page, {
   section: S.issue, title: 'Part 2, Registry: who receives the items',
   steps: [
-    'Type a name or a program to shorten the list.',
-    'Pick the accountable officer who receives the items. Only officers allowed to receive property are listed.',
+    'Received by: click the box and type part of a name or a program (for example SARAi), then click the officer in the list. Only officers allowed to receive property are listed.',
     'Date issued: the date on the slip.',
     'Fund cluster: filled in for you.',
     'Purpose: printed in the registry\'s Remarks column.',
   ],
-  marks: ['#rcv-search', '#rcv', '#date', '#fund', '#purpose'],
+  marks: ['#rcv', '#date', '#fund', '#purpose'],
   scrollTo: page.getByRole('heading', { name: '2. Registry' }),
 })
 await shot(page, {
@@ -349,7 +347,7 @@ await shot(page, {
   steps: [
     'TRACES tells you which slips this makes. Here: one ICS (the cheaper desktop) and one PAR (the laptops).',
     'Type the ICS number and the PAR number. A box only appears when that slip is needed.',
-    'Received from / Issued by: the supply officer is filled in. Positions can be changed to match the printed form.',
+    'Received from / Issued by: the supply officer is filled in. To change it, type a name and pick from the list. Positions can be changed to match the printed form.',
     'Save and generate ICS/PAR: saves everything and makes the slips ready to print.',
     'Use "Save, I\'ll upload the PDF" only when encoding an old paper form that already exists.',
   ],
@@ -506,20 +504,19 @@ await shot(page, {
 
 // ───────────── Reports ─────────────
 await page.goto(`${BASE}/reports`)
-await page.locator('#r-search').fill('SARAi')
-await page.waitForTimeout(600)
-await page.locator('#r-officer').selectOption({ index: 1 })
+await page.locator('#r-officer').fill('SARAi')
+await page.getByRole('listbox', { name: 'Officers' }).getByRole('option').first().click()
 await page.locator('.ag-row').first().waitFor()
 await shot(page, {
   section: S.reports, title: 'Report on the physical count',
   steps: [
-    'Find the accountable officer by name or program, then pick them in the list below it.',
+    'Accountable officer: type part of a name or a program, then click the officer in the list.',
     'RPCPPE (PPE) or RPCSP (semi-expendable).',
     '"As at": the date of the count. Today is filled in.',
     'Everything the officer holds on that date, one row per slip row.',
     'Print prints the report; Export to Excel downloads the official RPCPPE / RPCSP file.',
   ],
-  marks: ['#r-search', '#r-category', '#r-asat', page.locator('.ag-root-wrapper'), page.getByRole('button', { name: 'Print' })],
+  marks: ['#r-officer', '#r-category', '#r-asat', page.locator('.ag-root-wrapper'), page.getByRole('button', { name: 'Print' })],
   note: 'On Hand per Count and Shortage/Overage are left empty on purpose: print the report and fill them in by hand during the count.',
 })
 await shot(page, {

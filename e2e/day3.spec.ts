@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { E2E } from '../playwright.config'
-import { a11y, apiSeed, login, noHorizontalScroll, officerIds, samplePdf } from './helpers'
+import { a11y, apiSeed, login, noHorizontalScroll, officerIds, pickOfficer, samplePdf } from './helpers'
 
 // Runs after app.spec.ts and day2.spec.ts in the same database (officers JDelaCruz and MSantos exist; MSantos holds PPE).
 test.describe.configure({ mode: 'serial' })
@@ -24,9 +24,10 @@ test('reports: one row per line, balance per card filled, the count columns blan
 
   await page.goto('/reports')
   await expect(page.getByText('Choose an accountable officer')).toBeVisible()
-  await page.locator('#r-search').fill('SARAi')
-  await expect(page.locator('#r-officer option', { hasText: 'Maria Santos' })).toHaveCount(1)
-  await page.locator('#r-officer').selectOption({ label: 'Maria Santos (MSantos)' })
+  await page.locator('#r-officer').fill('SARAi') // typing a program finds the officer
+  await expect(page.getByRole('listbox', { name: 'Officers' }).getByRole('option')).toHaveCount(1)
+  await page.locator('#r-officer').press('Enter') // Enter picks the highlighted match
+  await expect(page.locator('#r-officer')).toHaveValue('Maria Santos (MSantos)')
   await page.locator('#r-asat').fill('2026-12-31')
   await expect(page.getByText('REPORT ON THE PHYSICAL COUNT OF PROPERTY, PLANT AND EQUIPMENT')).toBeVisible()
   await expect(page.locator('.ag-row')).toHaveCount(4) // four laptop sets (app, day2 x2, day3), one row each
@@ -48,19 +49,19 @@ test('reports: one row per line, balance per card filled, the count columns blan
 test('reports: the footer names are used for printing and saved only as a default; the Excel export downloads', async ({ page }) => {
   await login(page)
   await page.goto('/reports')
-  await page.locator('#r-officer').selectOption({ label: 'Maria Santos (MSantos)' })
+  await pickOfficer(page, 'r-officer', 'Maria Santos')
   await expect(page.locator('.ag-row').first()).toBeVisible()
   await page.locator('#sig-head_of_agency').fill('The Director')
   await page.getByRole('button', { name: 'Save these names as the default' }).click()
   await expect(page.getByText('Saved as the default names')).toBeVisible()
   await page.reload()
-  await page.locator('#r-officer').selectOption({ label: 'Maria Santos (MSantos)' })
+  await pickOfficer(page, 'r-officer', 'Maria Santos')
   await expect(page.locator('#sig-head_of_agency')).toHaveValue('The Director')
   await page.locator('#sig-committee').fill('Chair A\nMember B') // not saved
   const [file] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Export to Excel' }).click()])
   expect(file.suggestedFilename()).toMatch(/^RPCPPE_.*\.xlsx$/)
   await page.reload()
-  await page.locator('#r-officer').selectOption({ label: 'Maria Santos (MSantos)' })
+  await pickOfficer(page, 'r-officer', 'Maria Santos')
   await expect(page.locator('#sig-committee')).toHaveValue('') // the unsaved edit is gone
   await expect(page.getByRole('button', { name: 'Print' })).toBeEnabled()
 })
@@ -110,7 +111,7 @@ test('dashboard: tiles open their pages and the unsigned count follows', async (
 test('reports and the signed-copy pages: phone width and accessibility', async ({ page }) => {
   await login(page)
   await page.goto('/reports')
-  await page.locator('#r-officer').selectOption({ label: 'Maria Santos (MSantos)' })
+  await pickOfficer(page, 'r-officer', 'Maria Santos')
   await expect(page.locator('.ag-row').first()).toBeVisible()
   expect(await a11y(page), 'reports').toEqual([])
   await page.goto(`/documents/${icsId}`)

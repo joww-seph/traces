@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
 import { E2E } from '../playwright.config'
-import { a11y, login, noHorizontalScroll } from './helpers'
+import { a11y, login, pickOfficer, noHorizontalScroll } from './helpers'
 
 test.describe.configure({ mode: 'serial' })
 
@@ -30,8 +30,8 @@ async function fillRow(page: Page, n: number, r: { type: string; article: string
 }
 
 async function chooseHeader(page: Page, o: { receiver?: boolean; issuer?: boolean } = {}) {
-  if (o.receiver !== false) await page.locator('#rcv').selectOption({ label: 'Maria Santos (MSantos)' })
-  if (o.issuer !== false) await page.locator('#issuer').selectOption({ label: 'Juan Dela Cruz (JDelaCruz)' })
+  if (o.receiver !== false) await pickOfficer(page, 'rcv', 'Maria Santos')
+  if (o.issuer !== false) await pickOfficer(page, 'issuer', 'Juan Dela Cruz')
 }
 
 test.describe('sign in', () => {

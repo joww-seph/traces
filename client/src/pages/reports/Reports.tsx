@@ -15,6 +15,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { reportColumns, type ReportRow } from '@/lib/propertyView'
 import { usePropertyTypes, useReceivers, useSettings } from '@/lib/queries'
 import { BlockSkeleton } from '@/components/Loading'
+import { OfficerPicker } from '@/components/OfficerPicker'
 
 type Role = 'committee' | 'head_of_agency' | 'coa_representative'
 type Signatory = { role: Role; sortOrder: number; name: string; position: string | null }
@@ -34,8 +35,7 @@ export default function Reports() {
   const qc = useQueryClient()
   const { data: settings } = useSettings()
   const { data: types = [] } = usePropertyTypes()
-  const [search, setSearch] = useState('')
-  const { data: officers = [] } = useReceivers(search, true)
+  const { data: officers = [] } = useReceivers('', true)
   const [officerId, setOfficerId] = useState('')
   const [category, setCategory] = useState<'semi' | 'ppe'>('ppe')
   const [typeId, setTypeId] = useState('')
@@ -83,12 +83,8 @@ export default function Reports() {
 
         <div className="mb-5 grid gap-4 rounded-xl border bg-card p-4 sm:grid-cols-2 lg:grid-cols-4">
           <div className="grid content-start gap-1.5 sm:col-span-2">
-            <Label htmlFor="r-search">Accountable officer</Label>
-            <Input id="r-search" placeholder="Search by name or program, e.g. SARAi" className="h-9" value={search} onChange={(e) => setSearch(e.target.value)} />
-            <NativeSelect id="r-officer" aria-label="Choose the officer" className="h-9" value={officerId} onChange={(e) => setOfficerId(e.target.value)}>
-              <option value="">Choose an officer</option>
-              {officers.map((o) => <option key={o.id} value={o.id}>{o.fullName} ({o.shortName}){o.active ? '' : ', inactive'}</option>)}
-            </NativeSelect>
+            <Label htmlFor="r-officer">Accountable officer</Label>
+            <OfficerPicker id="r-officer" officers={officers} value={officerId} onChange={(o) => setOfficerId(o?.id ?? '')} />
           </div>
           <div className="grid content-start gap-1.5">
             <Label htmlFor="r-category">Report</Label>
