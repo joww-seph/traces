@@ -142,7 +142,7 @@ describe('seed-officers script', () => {
     expect(rows).toHaveLength(3) // the existing arreyes was updated, not duplicated
     expect(rows.every((r) => r.can_receive && r.active)).toBe(true)
     expect(rows.find((r) => r.full_name === 'Ana R. Reyes')).toMatchObject({ position: 'Regional Director' })
-    expect(rows.find((r) => r.short_name === 'CDiaz')).toMatchObject({ full_name: 'Cy "CJ" Diaz' })
+    expect(rows.find((r) => r.short_name === 'CDiaz')).toMatchObject({ full_name: 'Cy "CJ" Diaz', position: 'Science Research Specialist II' }) // SRS written out
     const des = (await testPool.query(`SELECT d.designation FROM officer_designations d JOIN officers o ON o.id=d.officer_id WHERE lower(o.short_name)='arreyes' ORDER BY d.sort_order`)).rows
     expect(des.map((d) => d.designation)).toEqual(['ORD, Regional Director', 'SARAi CENTRO, Focal Person'])
   })

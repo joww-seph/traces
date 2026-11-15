@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { usePropertyTypes, type PropertyType } from '@/lib/queries'
+import { TableSkeletonRows } from '@/components/Loading'
 
 function TypeDialog({ type, onClose }: { type: PropertyType | 'new' | null; onClose: () => void }) {
   const qc = useQueryClient()
@@ -75,7 +76,7 @@ export default function PropertyTypes() {
             <TableRow className="bg-muted/50 hover:bg-muted/50"><TableHead className="pl-5">Code</TableHead><TableHead>Name</TableHead><TableHead>Status</TableHead><TableHead /></TableRow>
           </TableHeader>
           <TableBody>
-            {isLoading && <TableRow><TableCell colSpan={4} className="py-6 pl-5 text-muted-foreground">Loading property types</TableCell></TableRow>}
+            {isLoading && <TableSkeletonRows cols={4} label="Loading property types" />}
             {data.map((t) => (
               <TableRow key={t.id}>
                 <TableCell className="figures pl-5 font-medium">{t.code}</TableCell>

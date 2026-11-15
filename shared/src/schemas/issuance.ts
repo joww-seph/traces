@@ -1,14 +1,14 @@
 import { z } from 'zod'
-import { isoDate, nonEmpty, uuid } from './common.js'
+import { isoDate, nonEmpty, positionText, uuid } from './common.js'
 import { lineInput } from './line.js'
 
 // One issuance form (Update 02 V-01): the receiver and date once, then every row. The server splits it into an ICS
 // (rows under the PPE threshold) and a PAR (rows at or above it) and saves both together.
 export const issuanceHeader = z.strictObject({
   receivedByOfficerId: uuid,
-  receivedByPosition: nonEmpty.optional(), // as printed; the officer's own position when omitted
+  receivedByPosition: positionText.optional(), // as printed; the officer's own position when omitted
   issuedByOfficerId: uuid,
-  issuedByPosition: nonEmpty.optional(),
+  issuedByPosition: positionText.optional(),
   issuedDate: isoDate,
   fundCluster: nonEmpty,
   purpose: z.string().trim().optional(), // becomes the registry's Remarks

@@ -18,6 +18,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { useOfficers } from '@/lib/queries'
 import { StatusBadge, type DocStatus } from '@/pages/documents/List'
+import { PageSkeleton } from '@/components/Loading'
 
 export type DocProperty = { id: string; propertyNo: string; componentLabel: string | null }
 export type DocLine = {
@@ -140,7 +141,7 @@ export default function DocumentDetail() {
     onError: (e) => toast.error(e instanceof ApiError ? e.message : 'Could not attach the PDF'),
   })
 
-  if (isLoading) return <p className="text-sm text-muted-foreground">Loading document</p>
+  if (isLoading) return <PageSkeleton label="Loading the document" />
   if (error || !doc) {
     return <EmptyState title="Document not found" action={<Link to="/documents" className={buttonVariants()}>Back to ICS and PAR</Link>}>
       It may have been deleted, or the link is wrong.

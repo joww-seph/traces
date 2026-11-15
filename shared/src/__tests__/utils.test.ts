@@ -181,6 +181,19 @@ describe('names (made-up people)', () => {
     expect(shortNameOf('Cy "CJ" Diaz')).toBe('CDiaz') // a nickname in quotes or brackets is not a given name
     expect(shortNameOf('Liza (Beth) M. Tan')).toBe('LMTan')
   })
+  it('SRS in a position is written out as Science Research Specialist', async () => {
+    const { spellOutPosition, officerInput, issuanceHeader } = await import('../index.js')
+    expect(spellOutPosition('SRS II')).toBe('Science Research Specialist II')
+    expect(spellOutPosition('Senior SRS')).toBe('Senior Science Research Specialist')
+    expect(spellOutPosition('Chief SRS / Provincial Director')).toBe('Chief Science Research Specialist / Provincial Director')
+    expect(spellOutPosition('PLANNING, SRS I')).toBe('PLANNING, Science Research Specialist I')
+    expect(spellOutPosition('Science Research Specialist II')).toBe('Science Research Specialist II')
+    expect(spellOutPosition('SRSP Coordinator')).toBe('SRSP Coordinator') // only the word SRS on its own
+    // every position typed into TRACES goes through it
+    expect(officerInput.parse({ fullName: 'A B', position: 'SRS I', designations: ['FIC, SRS II'] })).toMatchObject({ position: 'Science Research Specialist I', designations: ['FIC, Science Research Specialist II'] })
+    const ids = { receivedByOfficerId: '00000000-0000-4000-8000-000000000001', issuedByOfficerId: '00000000-0000-4000-8000-000000000002' }
+    expect(issuanceHeader.parse({ ...ids, issuedDate: '2026-01-02', fundCluster: 'RAF', receivedByPosition: 'Senior SRS' }).receivedByPosition).toBe('Senior Science Research Specialist')
+  })
   it('the account email is the short name at region1.dost.gov.ph', async () => {
     const { accountEmailOf } = await import('../index.js')
     expect(accountEmailOf('Rosa M. Lim')).toBe('rmlim@region1.dost.gov.ph')

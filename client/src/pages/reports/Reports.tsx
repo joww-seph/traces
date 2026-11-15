@@ -14,6 +14,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { reportColumns, type ReportRow } from '@/lib/propertyView'
 import { usePropertyTypes, useReceivers, useSettings } from '@/lib/queries'
+import { BlockSkeleton } from '@/components/Loading'
 
 type Role = 'committee' | 'head_of_agency' | 'coa_representative'
 type Signatory = { role: Role; sortOrder: number; name: string; position: string | null }
@@ -108,7 +109,7 @@ export default function Reports() {
       </div>
 
       {!ready && <div className="print:hidden"><EmptyState title="Choose an accountable officer">The report lists the items that officer holds on the chosen date.</EmptyState></div>}
-      {ready && report.isLoading && <p className="text-sm text-muted-foreground">Preparing the report</p>}
+      {ready && report.isLoading && <BlockSkeleton label="Preparing the report" lines={8} />}
       {r && (
         <section aria-label={title}>
           <div className="mb-3 text-center">

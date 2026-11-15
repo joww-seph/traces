@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { isoDate, nonEmpty, uuid } from './common.js'
+import { isoDate, nonEmpty, positionText, uuid } from './common.js'
 
 // Positions are optional: the server snapshots the officer's current position when omitted.
 export const documentMeta = z.object({
@@ -8,9 +8,9 @@ export const documentMeta = z.object({
   fundCluster: nonEmpty,
   issuedDate: isoDate,
   issuedByOfficerId: uuid,
-  issuedByPosition: nonEmpty.optional(),
+  issuedByPosition: positionText.optional(),
   receivedByOfficerId: uuid,
-  receivedByPosition: nonEmpty.optional(),
+  receivedByPosition: positionText.optional(),
   purpose: z.string().trim().optional(),
 })
 export const documentPatch = documentMeta.partial()

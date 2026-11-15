@@ -16,6 +16,7 @@ import { Label } from '@/components/ui/label'
 import type { PropertyView } from '@/lib/propertyView'
 import { useSettings } from '@/lib/queries'
 import { useState } from 'react'
+import { PageSkeleton } from '@/components/Loading'
 
 // Blank inputs mean "clear the value"; the server validates what is sent (shared propertyPatch).
 type Form = { serialNo: string; oldPropertyNo: string; componentLabel: string; condition: 'serviceable' | 'unserviceable' }
@@ -71,7 +72,7 @@ export default function PropertyDetail() {
     onError: (e) => toast.error(e instanceof ApiError ? e.message : 'Could not replace the QR code'),
   })
 
-  if (isLoading) return <p className="text-sm text-muted-foreground">Loading property</p>
+  if (isLoading) return <PageSkeleton label="Loading the property" />
   if (error || !data) {
     return <EmptyState title="Property not found" action={<Link to="/registry" className={buttonVariants()}>Back to the registry</Link>}>
       The number may be mistyped, or the item was removed.

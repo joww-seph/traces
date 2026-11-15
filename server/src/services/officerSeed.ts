@@ -1,7 +1,7 @@
 import { eq, sql } from 'drizzle-orm'
 import { db } from '../db/client.js'
 import { officerDesignations, officers } from '../db/schema.js'
-import { shortNameOf, titleCaseName } from '@traces/shared'
+import { shortNameOf, spellOutPosition, titleCaseName } from '@traces/shared'
 import { audit } from './audit.js'
 
 // Columns: full_name, short_name, position, office, designations (" | " separated), note.
@@ -46,12 +46,12 @@ export async function seedOfficers(csv: string) {
       // names typed in capitals are written with capital initials; the short name is made from the name, like in the app
       const fullName = titleCaseName(r[iFull])
       const shortName = shortNameOf(fullName) || r[iShort].trim()
-      const values = { fullName, shortName, position: r[iPos].trim(), office: (r[iOffice] ?? '').trim(), canReceive: true, active: true }
+      const values = { fullName, shortName, position: spellOutPosition(r[iPos].trim()), office: (r[iOffice] ?? '').trim(), canReceive: true, active: true }
       const existing = (await tx.select({ id: officers.id }).from(officers).where(sql`lower(${officers.shortName}) = lower(${shortName})`))[0]
       const id = existing
         ? (await tx.update(officers).set(values).where(eq(officers.id, existing.id)).returning({ id: officers.id }))[0].id
         : (await tx.insert(officers).values(values).returning({ id: officers.id }))[0].id
-      const list = (r[iDes] ?? '').split(' | ').map((x) => x.trim()).filter(Boolean)
+      const list = (r[iDes] ?? '').split(' | ').map((x) => spellOutPosition(x.trim())).filter(Boolean)
       await tx.delete(officerDesignations).where(eq(officerDesignations.officerId, id))
       if (list.length) await tx.insert(officerDesignations).values(list.map((designation, i) => ({ officerId: id, sortOrder: i + 1, designation })))
       if ((r[iNote] ?? '').trim()) notes.push({ shortName, note: r[iNote].trim() })

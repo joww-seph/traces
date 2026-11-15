@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { TableSkeletonRows } from '@/components/Loading'
 
 export type DocStatus = 'none' | 'generated' | 'signed'
 export const STATUS_LABEL: Record<DocStatus, string> = { none: 'No PDF', generated: 'Generated, unsigned', signed: 'Signed' }
@@ -77,7 +78,7 @@ export default function Documents() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {isLoading && <TableRow><TableCell colSpan={6} className="py-6 pl-5 text-muted-foreground">Loading documents</TableCell></TableRow>}
+              {isLoading && <TableSkeletonRows cols={6} label="Loading documents" />}
               {data?.rows.map((d) => (
                 <TableRow key={d.id} className="cursor-pointer" onClick={() => navigate(`/documents/${d.id}`)}>
                   <TableCell className="pl-5"><TypeBadge type={d.type} /></TableCell>

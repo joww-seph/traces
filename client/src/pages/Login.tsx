@@ -14,7 +14,6 @@ import { Label } from '@/components/ui/label'
 
 type Form = z.infer<typeof loginInput>
 
-// Logos, wordmark and full name, centred. Sized up on the desktop panel, compact on phones.
 function BrandBlock({ large }: { large?: boolean }) {
   return (
     <div className="flex flex-col items-center text-center">
@@ -31,11 +30,9 @@ function BrandBlock({ large }: { large?: boolean }) {
   )
 }
 
-// Desktop only: the DOST Ilocos building spans the narrow left panel, at its bottom. Phones skip the illustration so the form is reachable at once.
 function BrandPanel() {
   return (
     <section aria-label="TRACES" className="relative isolate hidden min-h-screen items-center justify-center overflow-hidden bg-[#baccd8] px-10 pb-[25vh] lg:flex">
-      {/* the whole art, proportions kept, as wide as the narrow brand panel; only its top (plain sky) fades */}
       <img src="/login-bg.webp" alt="" style={{ maskImage: 'linear-gradient(to bottom, transparent, #000 25%)', clipPath: 'inset(0 2px 0 0)' }}
         className="absolute inset-x-0 bottom-0 -z-10 h-auto w-full duration-700 animate-in fade-in" />
       <BrandBlock large />

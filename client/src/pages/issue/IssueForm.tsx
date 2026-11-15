@@ -18,6 +18,7 @@ import { useOfficers, usePropertyTypes, useReceivers, useSettings } from '@/lib/
 import type { DocDetail } from '@/pages/documents/Detail'
 import { CardPicker } from '@/pages/issue/CardPicker'
 import { articleOf, blankEntry, categoryOf, centavosOf, duplicate, numbersOf, slotsOf, unitOf, withQty, type Entry } from '@/pages/issue/model'
+import { PageSkeleton } from '@/components/Loading'
 
 type Header = {
   receivedBy: string; receivedByPosition: string; issuedBy: string; issuedByPosition: string
@@ -256,7 +257,7 @@ export default function IssueForm() {
     )
   }
 
-  if (documentId && doc.isLoading) return <p className="text-sm text-muted-foreground">Loading document</p>
+  if (documentId && doc.isLoading) return <PageSkeleton label="Loading the document" />
   if (documentId && (doc.error || !doc.data)) {
     return <EmptyState title="Document not found" action={<Link to="/documents" className={buttonVariants()}>Back to ICS and PAR</Link>}>It may have been deleted, or the link is wrong.</EmptyState>
   }

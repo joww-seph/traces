@@ -15,6 +15,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { TableSkeletonRows } from '@/components/Loading'
 
 type User = { id: string; email: string; displayName: string; role: 'supply_admin' | 'superadmin'; active: boolean; mustChangePassword: boolean }
 type Form = z.input<typeof userCreate>
@@ -124,7 +125,7 @@ export default function Users() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {isLoading && <TableRow><TableCell colSpan={5} className="py-6 pl-5 text-muted-foreground">Loading users</TableCell></TableRow>}
+            {isLoading && <TableSkeletonRows cols={5} label="Loading users" />}
             {data.map((u) => (
               <TableRow key={u.id}>
                 <TableCell className="pl-5 font-medium">{u.displayName}</TableCell>

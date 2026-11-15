@@ -579,3 +579,17 @@ Sources: photos of a signed ICS (Appendix 59) and PAR (Appendix 71), a filled RP
 | Replaced PDFs | Kept in `STORAGE_DIR/pdfs/replaced/`, never deleted; the audit row names the old file. |
 | Dev network address | `npm run lan` detects the LAN IPv4 (192.168.100.211 on 2026-11-14), sets `public_base_url` and `APP_ORIGIN`. |
 
+
+### Decisions log, 2026-11-15
+| Topic | Decision |
+|---|---|
+| ICS/PAR number format | Typed by hand; good enough for now. |
+| Mixed purchase | Confirmed: rows under the threshold go on one ICS, the rest on one PAR, in one save (Update 02 V-02). |
+| Stock received before issue | Unknown. Default kept: every ICS/PAR line records its own receipt. |
+| Property type codes | Pending; only ICT, FF and OE exist. |
+| Officer list flags (Update 01 U-06) | The flagged entries are correct as listed. |
+| Sticker | QR code only (confirmed). |
+| Physical count frequency (Q2) | Unknown; the report takes any "as at" date. |
+| Hosting (Q5) | Probably the office's own domain; on hold. Stickers printed before then point to the dev address. |
+| Positions | Abbreviations are written out: `SRS` becomes `Science Research Specialist` wherever a position is entered or imported. |
+| Short names | First letter of the first given name + middle initial + surname; a second given name does not count. Account email = short name in lowercase @region1.dost.gov.ph. |

@@ -13,6 +13,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import type { CardRow } from '@/lib/propertyView'
 import { useSettings } from '@/lib/queries'
+import { PageSkeleton } from '@/components/Loading'
 
 type CardView = {
   header: {
@@ -67,7 +68,7 @@ export default function Card() {
     queryKey: ['card', itemId], retry: false,
     queryFn: () => api.get<CardView>(`/api/views/card/${encodeURIComponent(itemId)}`),
   })
-  if (isLoading) return <p className="text-sm text-muted-foreground">Loading card</p>
+  if (isLoading) return <PageSkeleton label="Loading the card" />
   if (error || !data) {
     return <EmptyState title="Card not found" action={<Link to="/cards" className={buttonVariants()}>Back to the cards</Link>}>The link may be wrong, or the card was removed.</EmptyState>
   }

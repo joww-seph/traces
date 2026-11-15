@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { TableSkeletonRows } from '@/components/Loading'
 
 type Row = {
   id: number; at: string; action: string; entity: string; entityId: string | null
@@ -50,7 +51,7 @@ export default function Audit() {
             <TableRow className="bg-muted/50 hover:bg-muted/50"><TableHead className="pl-5">When</TableHead><TableHead>Who</TableHead><TableHead>Action</TableHead><TableHead>Record</TableHead><TableHead /></TableRow>
           </TableHeader>
           <TableBody>
-            {log.isLoading && <TableRow><TableCell colSpan={5} className="py-6 pl-5 text-muted-foreground">Loading the log</TableCell></TableRow>}
+            {log.isLoading && <TableSkeletonRows cols={5} label="Loading the log" />}
             {!log.isLoading && !rows.length && <TableRow><TableCell colSpan={5} className="py-8 pl-5 text-muted-foreground">No entries match these filters.</TableCell></TableRow>}
             {rows.map((r) => (
               <Fragment key={r.id}>

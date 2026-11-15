@@ -6,6 +6,7 @@ import { api } from '@/api'
 import { EmptyState, PageHeader } from '@/components/PageHeader'
 import { TypeBadge } from '@/components/TypeBadge'
 import { buttonVariants } from '@/components/ui/button'
+import { Skeleton } from '@/components/ui/skeleton'
 
 type DocRow = { id: string; type: 'ICS' | 'PAR'; docNo: string; issuedDate: string; receivedByName: string }
 type Stat = { properties: number; mainUnits: number; valueCentavos: number }
@@ -13,12 +14,11 @@ type Summary = { documents: { ICS: number; PAR: number }; categories: { semi: St
 
 const plural = (n: number, one: string, many = `${one}s`) => `${n.toLocaleString('en-PH')} ${n === 1 ? one : many}`
 
-// A tile that opens its page: the dashboard is where most work starts.
-function Tile({ to, label, value, note, Icon, warn }: { to: string; label: string; value?: number; note: string; Icon: LucideIcon; warn?: boolean }) {
+function Tile({ to, label, value, note, Icon, warn, loading }: { to: string; label: string; value?: number; note: string; Icon: LucideIcon; warn?: boolean; loading?: boolean }) {
   return (
     <Link to={to} className="group grid content-start gap-1 rounded-xl border bg-card p-4 transition-colors hover:bg-accent/60 focus-visible:outline-2 focus-visible:outline-ring">
       <span className="flex items-center gap-2 text-sm font-medium"><Icon aria-hidden className={`size-4 ${warn && value ? 'text-amber-600' : 'text-primary'}`} />{label}</span>
-      <span className="figures font-display text-2xl font-bold">{value === undefined ? ' ' : value.toLocaleString('en-PH')}</span>
+      <span className="figures font-display text-2xl font-bold">{loading ? <Skeleton className="my-1 h-6 w-12" /> : value === undefined ? ' ' : value.toLocaleString('en-PH')}</span>
       <span className="text-xs text-muted-foreground group-hover:text-foreground">{note}</span>
     </Link>
   )
@@ -31,13 +31,12 @@ function Category({ name, form, stat, share, tone }: { name: string; form: strin
         <h2 className="text-base font-semibold">{name}</h2>
         <span className="text-xs text-muted-foreground">{form}</span>
       </div>
-      <p className="figures font-display text-3xl font-bold tracking-tight sm:text-4xl">{stat ? formatPeso(stat.valueCentavos) : ' '}</p>
-      {/* share of the combined value carried by this category */}
+      <p className="figures font-display text-3xl font-bold tracking-tight sm:text-4xl">{stat ? formatPeso(stat.valueCentavos) : <Skeleton className="h-9 w-56 max-w-full" />}</p>
       <div className="h-1.5 overflow-hidden rounded-full bg-muted" role="img" aria-label={`${Math.round(share * 100)}% of total value`}>
         <div className={`h-full rounded-full ${tone}`} style={{ width: `${Math.max(share * 100, stat?.valueCentavos ? 2 : 0)}%` }} />
       </div>
       <p className="text-sm text-muted-foreground">
-        {stat ? `${plural(stat.mainUnits, 'item')} under ${plural(stat.properties, 'property number')}` : 'Loading'}
+        {stat ? `${plural(stat.mainUnits, 'item')} under ${plural(stat.properties, 'property number')}` : <Skeleton className="h-4 w-48" />}
       </p>
     </div>
   )
@@ -59,11 +58,11 @@ export default function Dashboard() {
       />
 
       <section aria-label="Shortcuts" className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-        <Tile to="/cards" label="Cards" value={s?.cards} note="One per model" Icon={Layers} />
-        <Tile to="/registry" label="Registry" value={s && s.categories.semi.mainUnits + s.categories.ppe.mainUnits} note="Items issued" Icon={BookOpen} />
+        <Tile to="/cards" label="Cards" value={s?.cards} note="One per model" Icon={Layers} loading={summary.isLoading} />
+        <Tile to="/registry" label="Registry" value={s && s.categories.semi.mainUnits + s.categories.ppe.mainUnits} note="Items issued" Icon={BookOpen} loading={summary.isLoading} />
         <Tile to="/reports" label="Reports" note="RPCSP and RPCPPE by officer" Icon={ClipboardList} />
-        <Tile to="/documents" label="ICS and PAR" value={s && s.documents.ICS + s.documents.PAR} note="All documents" Icon={FileText} />
-        <Tile to="/documents?status=unsigned" label="Unsigned ICS/PAR" value={s?.unsignedDocuments} note="Entries without a signed copy" Icon={FileWarning} warn />
+        <Tile to="/documents" label="ICS and PAR" value={s && s.documents.ICS + s.documents.PAR} note="All documents" Icon={FileText} loading={summary.isLoading} />
+        <Tile to="/documents?status=unsigned" label="Unsigned ICS/PAR" value={s?.unsignedDocuments} note="Entries without a signed copy" Icon={FileWarning} warn loading={summary.isLoading} />
       </section>
 
       <section aria-label="Totals" className="grid overflow-hidden rounded-xl border bg-card md:grid-cols-[1fr_1fr_minmax(0,0.7fr)] md:divide-x max-md:divide-y">
@@ -102,7 +101,7 @@ export default function Dashboard() {
                   </Link>
                 </li>
               ))}
-              {docs.isLoading && <li className="px-5 py-4 text-sm text-muted-foreground">Loading documents</li>}
+              {docs.isLoading && [0, 1, 2, 3].map((i) => <li key={i} className="flex gap-4 px-5 py-4" aria-hidden><Skeleton className="h-5 w-10" /><Skeleton className="h-5 w-40" /><Skeleton className="ml-auto h-5 w-32" /></li>)}
             </ul>
           </div>
         )}

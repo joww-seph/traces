@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { usePropertyTypes, type Card } from '@/lib/queries'
 import type { Entry } from '@/pages/issue/model'
+import { Skeleton } from '@/components/ui/skeleton'
 
 // The card of a row: search the existing cards of this row's category, or make a new one inline.
 export function CardPicker({ n, entry, category, onChange }: {
@@ -64,7 +65,7 @@ export function CardPicker({ n, entry, category, onChange }: {
       {open && (
         // floats over the page below the search box instead of pushing the form down
         <ul className="absolute inset-x-0 top-9 z-50 max-h-64 overflow-auto rounded-lg border bg-popover p-1 text-sm text-popover-foreground shadow-lg ring-1 ring-foreground/5" aria-label="Matching cards">
-          {results.isLoading && <li className="px-2 py-1.5 text-muted-foreground">Searching</li>}
+          {results.isLoading && <li role="status" aria-label="Searching" className="grid gap-2 px-2 py-2">{[0, 1, 2].map((i) => <Skeleton key={i} className="h-4 w-full" />)}</li>}
           {results.data?.map((c) => (
             <li key={c.id}>
               <button type="button" className="w-full rounded-md px-2 py-1.5 text-left hover:bg-accent focus-visible:bg-accent focus-visible:outline-none"

@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { useSettings } from '@/lib/queries'
 import { cn } from '@/lib/utils'
+import { Skeleton } from '@/components/ui/skeleton'
 
 type Sticker = { propertyNo: string; url: string }
 type Size = '1x1' | 'passport'
@@ -142,7 +143,7 @@ export default function StickerSheet() {
         )}
       </div>
 
-      {isLoading && <p className="text-sm text-muted-foreground print:hidden">Preparing stickers</p>}
+      {isLoading && <div role="status" aria-label="Preparing stickers" className="grid grid-cols-4 gap-3 sm:grid-cols-6 print:hidden">{Array.from({ length: 12 }, (_, i) => <Skeleton key={i} className="aspect-square" />)}</div>}
       {error && <div className="print:hidden"><EmptyState title="No stickers found" action={<Link to="/stickers" className={buttonVariants()}>Choose again</Link>}>No active QR codes match. Check the document or the property numbers.</EmptyState></div>}
       {sheet && <Sheet stickers={sheet} size={size} />}
     </>

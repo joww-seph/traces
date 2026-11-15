@@ -44,3 +44,6 @@ export function shortNameOf(fullName: string): string {
 
 export const ACCOUNT_DOMAIN = 'region1.dost.gov.ph'
 export const accountEmailOf = (fullName: string) => `${shortNameOf(fullName).toLowerCase()}@${ACCOUNT_DOMAIN}`
+
+// Positions are printed in full on the forms: "Senior SRS" -> "Senior Science Research Specialist".
+export const spellOutPosition = (position: string) => position.replace(/\bSRS\b/g, 'Science Research Specialist')

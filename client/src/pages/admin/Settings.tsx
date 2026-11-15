@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useOfficers, useSettings, type Settings } from '@/lib/queries'
+import { PageSkeleton } from '@/components/Loading'
 
 type Draft = Omit<Settings, 'ppeThresholdCentavos' | 'defaultIssuedByOfficerId'> & { threshold: string; issuer: string }
 
@@ -29,7 +30,7 @@ export default function SettingsPage() {
     onError: (e) => toast.error(e instanceof ApiError ? e.message : 'Could not save'),
   })
 
-  if (!d) return <p className="text-sm text-muted-foreground">Loading settings</p>
+  if (!d) return <PageSkeleton label="Loading settings" />
   const set = (k: keyof Draft) => (e: { target: { value: string } }) => setD({ ...d, [k]: e.target.value })
   const text = (k: keyof Draft, label: string, hint?: string) => (
     <div className="grid gap-1.5">
@@ -69,7 +70,7 @@ export default function SettingsPage() {
           <div className="grid gap-1.5">
             <Label htmlFor="s-cardRowMode">Property card rows</Label>
             <NativeSelect id="s-cardRowMode" value={d.cardRowMode} onChange={set('cardRowMode')}>
-              <option value="merged">Merged: issue and return on one row</option>
+              <option value="merged">Merged: receipt and issue on one row</option>
               <option value="split">Split: one row per movement</option>
             </NativeSelect>
           </div>

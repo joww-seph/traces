@@ -6,6 +6,7 @@ import { TracesMark } from '@/components/Brand'
 import { PropertySummary, PropertyTabs } from '@/components/PropertyTabs'
 import { TypeBadge } from '@/components/TypeBadge'
 import type { PropertyView } from '@/lib/propertyView'
+import { PageSkeleton } from '@/components/Loading'
 
 // What a scan lands on. No login, read-only, built for a phone first.
 function Notice({ icon, title, children }: { icon: React.ReactNode; title: string; children: React.ReactNode }) {
@@ -27,7 +28,7 @@ export default function QrView() {
     queryFn: () => api.get<PropertyView>(`/api/public/q/${encodeURIComponent(token)}`),
   })
 
-  if (isLoading) return <main className="grid min-h-dvh place-items-center text-sm text-muted-foreground" aria-busy="true">Opening the record</main>
+  if (isLoading) return <main className="mx-auto max-w-3xl p-4" aria-busy="true"><PageSkeleton label="Opening the record" /></main>
   if (error || !data) {
     const e = error instanceof ApiError ? error : null
     if (e?.code === 'QR_REPLACED') return <Notice icon={<TimerReset />} title="This sticker was replaced">Look for the newer QR sticker on the item and scan that one instead.</Notice>

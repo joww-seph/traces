@@ -12,6 +12,7 @@ import { registryColumns, type RegistryRow } from '@/lib/propertyView'
 import { NativeSelect } from '@/components/NativeSelect'
 import { usePropertyTypes, useSettings } from '@/lib/queries'
 import { cn } from '@/lib/utils'
+import { BlockSkeleton } from '@/components/Loading'
 
 const CATEGORIES = [
   { id: 'semi', label: 'Semi-expendable', note: 'Lines under the PPE threshold' },
@@ -63,7 +64,8 @@ export default function Registry() {
 
       <h2 className="mb-1 text-center text-sm font-bold tracking-wide">{title}</h2>
       <p className="mb-3 text-center text-xs text-muted-foreground">{types.find((t) => String(t.id) === typeId)?.name ?? 'All property types'}</p>
-      {!isLoading && !data.length
+      {isLoading ? <BlockSkeleton label="Loading the registry" lines={10} />
+        : !data.length
         ? <EmptyState title="Nothing issued in this category">{from || to ? 'No lines were issued in that period. Clear the dates to see everything.' : 'Add lines to an ICS or PAR and they appear here.'}</EmptyState>
         : <FormGrid<RegistryRow> columnDefs={registryColumns} rowData={data} height={Math.min(680, 170 + data.length * 96)}
             onRowClicked={(r) => navigate(`/properties/${encodeURIComponent(r.propertyNos[0])}`)} />}

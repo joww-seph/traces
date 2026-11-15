@@ -16,6 +16,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { type Officer } from '@/lib/queries'
+import { TableSkeletonRows } from '@/components/Loading'
 
 type Form = Omit<z.input<typeof officerInput>, 'designations' | 'canReceive'> & { canReceive: boolean; designations: string }
 
@@ -108,7 +109,7 @@ export default function Officers() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {isLoading && <TableRow><TableCell colSpan={6} className="py-6 pl-5 text-muted-foreground">Loading officers</TableCell></TableRow>}
+            {isLoading && <TableSkeletonRows cols={6} label="Loading officers" />}
             {!isLoading && !data.length && <TableRow><TableCell colSpan={6} className="py-8 pl-5 text-muted-foreground">No officers yet. Add the Supply Unit staff and the accountable officers who receive property.</TableCell></TableRow>}
             {data.map((o) => (
               <TableRow key={o.id}>

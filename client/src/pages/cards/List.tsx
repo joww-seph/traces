@@ -10,6 +10,7 @@ import { buttonVariants } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { usePropertyTypes } from '@/lib/queries'
+import { TableSkeletonRows } from '@/components/Loading'
 
 type CardRow = {
   id: string; category: 'semi' | 'ppe'; article: string; description: string; unit: string; propertyTypeId: number
@@ -58,7 +59,7 @@ export default function Cards() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {isLoading && <TableRow><TableCell colSpan={6} className="py-6 pl-5 text-muted-foreground">Loading cards</TableCell></TableRow>}
+              {isLoading && <TableSkeletonRows cols={6} label="Loading cards" />}
               {data.map((c) => (
                 <TableRow key={c.id} className="cursor-pointer" onClick={() => navigate(`/cards/${c.id}`)}>
                   <TableCell className="pl-5 font-medium"><Link to={`/cards/${c.id}`} className="hover:underline">{c.article}</Link></TableCell>
