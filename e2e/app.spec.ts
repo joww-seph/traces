@@ -163,12 +163,15 @@ test.describe('records flow', () => {
     await expect(page.getByRole('group', { name: 'Row 5' }).getByLabel('Row 5, unit 1, property number')).toHaveAttribute('placeholder', '2026-05ICT-0006')
   })
 
-  test('a number already on file cannot be used twice, and a missing number is asked for', async ({ page }) => {
+  test('the ICS number is suggested; a number already on file cannot be used twice, and a missing number is asked for', async ({ page }) => {
     await login(page)
     await page.goto('/issue')
     await fillRow(page, 1, { type: FF, article: 'Steel cabinet', model: 'Steel filing cabinet, 4-drawer', unit: 'unit', description: 'Steel cabinet', cost: '8,800.00', date: '2026-05-02' })
     await chooseHeader(page)
-    await page.getByRole('button', { name: 'Save and generate ICS/PAR' }).click() // no ICS number yet
+    await page.getByLabel('Date issued').fill('2026-05-12')
+    await expect(page.locator('#icsNo')).toHaveValue(/^2026-05-\d{3}$/) // office style, for the issue date
+    await page.locator('#icsNo').fill('')
+    await page.getByRole('button', { name: 'Save and generate ICS/PAR' }).click() // no ICS number
     await expect(page.getByText(/Enter the ICS number/).first()).toBeVisible()
     await page.locator('#icsNo').fill('2026-03SARAi-005')
     await page.getByRole('button', { name: 'Save and generate ICS/PAR' }).click()

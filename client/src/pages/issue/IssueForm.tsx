@@ -1,7 +1,7 @@
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
 import { formatLongDate, formatPeso, isIsoDate, issuanceInput, lineInput, parseSeries } from '@traces/shared'
 import { Copy, ExternalLink, FilePlus2, Plus, Printer, Trash2 } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
 import { toast } from 'sonner'
 import { ApiError, api } from '@/api'
@@ -74,10 +74,28 @@ export default function IssueForm() {
     }))
   }, [settings, allOfficers])
 
+  // ICS/PAR numbers are suggested in the office's style (ICS YYYY-MM-NNN, PAR YYYY-RO-NN) for the issue date.
+  // A suggestion fills an empty box or replaces the previous suggestion; a number the user typed is kept.
+  type DocNos = { icsNo: string; parNo: string }
+  const nextDocNos = useQuery({
+    queryKey: ['next-doc-no', header.issuedDate], enabled: !documentId && isIsoDate(header.issuedDate), staleTime: 15_000,
+    queryFn: () => api.get<DocNos>(`/api/document-numbers/next?issuedDate=${header.issuedDate}`),
+  })
+  const suggestedNos = useRef<DocNos | null>(null)
+  useEffect(() => {
+    const s = nextDocNos.data
+    if (!s) return
+    const prev = suggestedNos.current
+    suggestedNos.current = s
+    setHeader((h) => ({
+      ...h, icsNo: !h.icsNo || h.icsNo === prev?.icsNo ? s.icsNo : h.icsNo, parNo: !h.parNo || h.parNo === prev?.parNo ? s.parNo : h.parNo,
+    }))
+  }, [nextDocNos.data])
+
   // the draft is kept on this computer so a closed tab or a power cut does not lose a long entry
   useEffect(() => {
     // nothing typed yet = no draft, so an untouched form is never "restored"
-    const blank = entries.length === 1 && !entries[0].description && !entries[0].cost && !entries[0].itemId && !entries[0].newCard.article && !entries[0].newCard.model && !header.icsNo && !header.parNo && !header.purpose && !header.receivedBy
+    const blank = entries.length === 1 && !entries[0].description && !entries[0].cost && !entries[0].itemId && !entries[0].newCard.article && !entries[0].newCard.model && (!header.icsNo || header.icsNo === suggestedNos.current?.icsNo) && (!header.parNo || header.parNo === suggestedNos.current?.parNo) && !header.purpose && !header.receivedBy
     const t = setTimeout(() => {
       try { if (blank) localStorage.removeItem(draftKey); else localStorage.setItem(draftKey, JSON.stringify({ entries, header })) } catch { /* storage unavailable: no draft */ }
     }, 400)
@@ -93,7 +111,7 @@ export default function IssueForm() {
     setHeaderError({})
     const issuerId = settings?.defaultIssuedByOfficerId ?? ''
     setHeader({
-      receivedBy: '', receivedByPosition: '', issuedDate: today(), fundCluster: settings?.defaultFundCluster ?? '', purpose: '', icsNo: '', parNo: '',
+      receivedBy: '', receivedByPosition: '', issuedDate: today(), fundCluster: settings?.defaultFundCluster ?? '', purpose: '', icsNo: suggestedNos.current?.icsNo ?? '', parNo: suggestedNos.current?.parNo ?? '',
       issuedBy: issuerId, issuedByPosition: allOfficers.find((o) => o.id === issuerId)?.position ?? '',
     })
     toast.success('Draft discarded')
@@ -172,7 +190,7 @@ export default function IssueForm() {
 
   const finish = (r: Result) => {
     clearDraft()
-    for (const k of ['officers', 'documents', 'cards', 'registry', 'dashboard', 'items', 'next-no', 'stickers']) qc.invalidateQueries({ queryKey: [k] })
+    for (const k of ['officers', 'documents', 'cards', 'registry', 'dashboard', 'items', 'next-no', 'next-doc-no', 'stickers']) qc.invalidateQueries({ queryKey: [k] })
     setResult(r)
     window.scrollTo({ top: 0 })
   }
@@ -190,6 +208,7 @@ export default function IssueForm() {
     } else if (e.code === 'DOC_NO_REQUIRED') {
       setHeaderError(d.type === 'PAR' ? { parNo: e.message } : { ics: e.message }); toast.error(e.message)
     } else if (e.code === 'DUPLICATE_DOCUMENT_NO') {
+      qc.invalidateQueries({ queryKey: ['next-doc-no'] }) // somebody else may have taken the suggested number
       setHeaderError(String((e.details as { type?: string })?.type) === 'PAR' ? { parNo: e.message } : { ics: e.message }); toast.error(e.message)
     } else if (e.code === 'OFFICER_CANNOT_RECEIVE') {
       setHeaderError({ receiver: e.message }); toast.error(e.message)
@@ -263,7 +282,7 @@ export default function IssueForm() {
           ))}
         </ul>
         <div className="mt-6 flex gap-2">
-          <Button onClick={() => { setResult(null); setEntries([blankEntry()]); setHeader((h) => ({ ...h, icsNo: '', parNo: '', purpose: '' })); if (documentId) navigate('/issue') }}><FilePlus2 /> Enter another issuance</Button>
+          <Button onClick={() => { setResult(null); setEntries([blankEntry()]); setHeader((h) => ({ ...h, icsNo: suggestedNos.current?.icsNo ?? '', parNo: suggestedNos.current?.parNo ?? '', purpose: '' })); if (documentId) navigate('/issue') }}><FilePlus2 /> Enter another issuance</Button>
           <Link to="/documents" className={buttonVariants({ variant: 'outline' })}>All ICS and PAR</Link>
         </div>
       </>
@@ -447,12 +466,12 @@ export default function IssueForm() {
           </p>
           {!documentId && icsRows > 0 && (
             <div className="grid content-start gap-1.5"><Label htmlFor="icsNo">ICS No.</Label>
-              <Input id="icsNo" className="figures h-9" placeholder="e.g. 2026-09IT-001" aria-invalid={!!headerError.ics} value={header.icsNo} onChange={(ev) => setHeader({ ...header, icsNo: ev.target.value })} />
+              <Input id="icsNo" className="figures h-9" aria-invalid={!!headerError.ics} value={header.icsNo} onChange={(ev) => setHeader({ ...header, icsNo: ev.target.value })} />
               {headerError.ics && <p role="alert" className="text-sm text-destructive">{headerError.ics}</p>}</div>
           )}
           {!documentId && parRows > 0 && (
             <div className="grid content-start gap-1.5"><Label htmlFor="parNo">PAR No.</Label>
-              <Input id="parNo" className="figures h-9" placeholder="e.g. 2026-RO-68" aria-invalid={!!headerError.parNo} value={header.parNo} onChange={(ev) => setHeader({ ...header, parNo: ev.target.value })} />
+              <Input id="parNo" className="figures h-9" aria-invalid={!!headerError.parNo} value={header.parNo} onChange={(ev) => setHeader({ ...header, parNo: ev.target.value })} />
               {headerError.parNo && <p role="alert" className="text-sm text-destructive">{headerError.parNo}</p>}</div>
           )}
           {!documentId && (

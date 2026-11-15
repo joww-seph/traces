@@ -584,7 +584,7 @@ Sources: photos of a signed ICS (Appendix 59) and PAR (Appendix 71), a filled RP
 ### Decisions log, 2026-11-15
 | Topic | Decision |
 |---|---|
-| ICS/PAR number format | Typed by hand; good enough for now. |
+| ICS/PAR number format | Suggested automatically in the office's style, editable (decision 2026-11-15): ICS `YYYY-MM-NNN`, PAR `YYYY-RO-NN`, from the issue date, one counter per year and form type (deleted forms still count). `GET /api/document-numbers/next?issuedDate=`. Nothing is reserved; the unique `(type, doc_no)` is the guard. |
 | Mixed purchase | Confirmed: rows under the threshold go on one ICS, the rest on one PAR, in one save (Update 02 V-02). |
 | Stock received before issue | Unknown. Default kept: every ICS/PAR line records its own receipt. |
 | Property type codes | Pending; only ICT, FF and OE exist. |

@@ -579,7 +579,7 @@ part('Part 5. The server', 'What happens between a click and a saved row.')
   bullets(s, [
     'Opens one transaction. Everything below is saved together or not at all.',
     'Sorts every row: below the PPE threshold -> ICS, at or above -> PAR (BR-01).',
-    'Needs the ICS number if any row is semi, the PAR number if any row is PPE (else 400 DOC_NO_REQUIRED).',
+    'Needs the ICS number if any row is semi, the PAR number if any row is PPE (else 400 DOC_NO_REQUIRED). The form fills both in from GET /api/document-numbers/next (ICS YYYY-MM-NNN, PAR YYYY-RO-NN); the user can change them.',
     'Checks the receiver may receive (officers.can_receive).',
     'Checks every property number of the whole form before writing anything (409 DUPLICATE_PROPERTY_NO lists them all).',
     'Inserts the document(s), then each row with insertLineTx (next slide), plus audit rows.',
