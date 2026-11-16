@@ -49,13 +49,13 @@ export const router = createBrowserRouter([
         { path: 'cards', element: <Cards /> },
         { path: 'cards/:itemId', element: <Card /> },
         { path: 'reports', element: <Reports /> },
-        { path: 'property-types', element: <PropertyTypes /> },
-        { path: 'officers', element: <Officers /> },
         { path: 'stickers', element: <StickerSheet /> },
         { path: 'account/password', element: <Password /> },
         {
           element: <RequireRole roles={['superadmin']} />,
           children: [
+            { path: 'officers', element: <Officers /> }, // kept by the IT officer
+            { path: 'property-types', element: <PropertyTypes /> },
             { path: 'admin/users', element: <Users /> },
             { path: 'admin/settings', element: <SettingsPage /> },
             { path: 'admin/audit', element: <Audit /> },

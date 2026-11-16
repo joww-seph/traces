@@ -5,7 +5,7 @@ import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 import { createApp } from '../app.js'
 import { pool } from '../db/client.js'
 import { testPool, resetDb } from './db.js'
-import { agentFor, itemFor, loginAs, makeDocument, signDocument } from './helpers.js'
+import { agentFor, itemFor, loginAs, makeDocument, signDocument, makeOfficer } from './helpers.js'
 
 const STORAGE = path.resolve(process.env.STORAGE_DIR!)
 beforeEach(async () => { await resetDb(); rmSync(STORAGE, { recursive: true, force: true }) })
@@ -105,11 +105,11 @@ describe('GET /api/properties/:no/view (admin)', () => {
   })
 })
 
-describe('public view of a shared model card (SEC-10)', () => {
-  it('never shows another line’s officer on the card, registry or report tab', async () => {
+describe('public view of a shared model card (SEC-10, revised 2026-11-16)', () => {
+  it('shows the whole card and registry with this line highlighted, but never another line’s officer', async () => {
     const { agent, ics } = await seed()
     const second = await makeDocument(agent, { docNo: '2026-04TEST-001', issuedDate: '2026-04-01' })
-    const other = (await agent.post('/api/officers').send({ fullName: 'Zed O. Other', position: 'Clerk' })).body
+    const other = await makeOfficer({ fullName: 'Zed O. Other', position: 'Clerk' })
     await testPool.query(`UPDATE documents SET received_by_officer_id = $1 WHERE id = $2`, [other.id, second.doc.id])
     const itemId = (await testPool.query(`SELECT item_id FROM lines WHERE description='Described' ORDER BY line_no LIMIT 1`)).rows[0].item_id
     await agent.post(`/api/documents/${second.doc.id}/lines`).send(body(9645000, [{ propertyNo: 'L-2' }], undefined, { itemId }))
@@ -120,10 +120,19 @@ describe('public view of a shared model card (SEC-10)', () => {
     const text = JSON.stringify(pub)
     expect(text).not.toContain('ZOOther')
     expect(text).not.toContain('Zed O. Other')
-    expect(text).not.toContain('L-2')
-    expect(pub.tabs.card.rows.length).toBe(2) // this line's receipt + issue only
-    // while staff see both issuances on the card
-    expect(JSON.stringify((await agent.get('/api/properties/L-1/view')).body.tabs.card)).toContain('Zed O. Other')
+    const staff = (await agent.get('/api/properties/L-1/view')).body
+    expect(JSON.stringify(staff.tabs.card)).toContain('Zed O. Other') // staff see every officer
+    // the public sees the entire card and registry (same rows as staff), only the names of other lines blanked
+    expect(pub.tabs.card.rows.length).toBe(staff.tabs.card.rows.length)
+    expect(pub.tabs.card.header.propertyNoLast).toBe(staff.tabs.card.header.propertyNoLast)
+    expect(pub.tabs.registry.rows.length).toBe(staff.tabs.registry.rows.length)
+    expect(pub.tabs.registry.rows.map((r: { reference: string }) => r.reference)).toContain('ICS 2026-04TEST-001')
+    const mine = pub.tabs.registry.rows.find((r: { id: string }) => r.id === pub.tabs.registry.highlightRowId)
+    expect(mine.issuedTo).toBeTruthy()
+    expect(pub.tabs.registry.rows.filter((r: { issuedTo: string | null }) => r.issuedTo).length).toBe(1)
+    const hl = new Set(pub.tabs.card.highlightRowIds)
+    expect(pub.tabs.card.rows.filter((r: { id: string; officer: string | null }) => !hl.has(r.id) && (r.officer || (r as { officerFullName?: string }).officerFullName))).toEqual([])
+    expect(text).not.toMatch(/[0-9a-f]{8}-[0-9a-f]{4}-/) // still no UUID
     expect(ics.doc.id).toBeTruthy()
   })
 })

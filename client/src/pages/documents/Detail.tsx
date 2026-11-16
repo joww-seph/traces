@@ -186,8 +186,8 @@ export default function DocumentDetail() {
   const signer = (label: string, oid: string, position: string) => (
     <div className="min-w-0">
       <dt className="text-xs text-muted-foreground">{label}</dt>
-      <dd className="mt-0.5 truncate text-sm font-medium">{officer(oid)?.fullName ?? ' '}</dd>
-      <dd className="truncate text-xs text-muted-foreground">{position}</dd>
+      <dd className="mt-0.5 text-sm font-medium">{officer(oid)?.fullName ?? ' '}</dd>
+      <dd className="text-xs text-muted-foreground">{position}</dd>
     </div>
   )
 

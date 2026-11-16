@@ -16,10 +16,10 @@ const RECORDS: Item[] = [
   { to: '/registry', label: 'Registry', Icon: BookOpen },
   { to: '/reports', label: 'Reports', Icon: ClipboardList },
   { to: '/stickers', label: 'Stickers', Icon: QrCode },
-  { to: '/officers', label: 'Officers', Icon: Users },
-  { to: '/property-types', label: 'Property types', Icon: FolderTree },
 ]
 const ADMIN: Item[] = [
+  { to: '/officers', label: 'Officers', Icon: Users },
+  { to: '/property-types', label: 'Property types', Icon: FolderTree },
   { to: '/admin/users', label: 'User accounts', Icon: UserCog },
   { to: '/admin/settings', label: 'Settings', Icon: Settings },
   { to: '/admin/audit', label: 'Audit log', Icon: History },
@@ -70,9 +70,9 @@ function SidebarContents({ onLogout, showBrand = true }: { onLogout: () => void;
 
       <div className="mt-auto grid gap-3 border-t border-sidebar-border pt-4">
         <div className="grid gap-0.5 px-3">
-          <span className="truncate text-sm font-medium text-white">{user?.displayName}</span>
-          <span className="truncate text-xs text-sidebar-foreground/80">{user && ROLE_LABEL[user.role]}</span>
-          <span className="truncate text-xs text-sidebar-foreground/80">{user?.email}</span>
+          <span className="break-words text-sm font-medium text-white">{user?.displayName}</span>
+          <span className="break-words text-xs text-sidebar-foreground/80">{user && ROLE_LABEL[user.role]}</span>
+          <span className="break-all text-xs text-sidebar-foreground/80">{user?.email}</span>
         </div>
         <div className="grid gap-0.5">
           <NavLink to="/account/password" className="flex items-center gap-3 rounded-md px-3 py-2 text-sm text-sidebar-foreground/85 hover:bg-sidebar-accent hover:text-white">

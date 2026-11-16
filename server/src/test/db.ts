@@ -7,7 +7,7 @@ export const testPool = new pg.Pool({ connectionString: url })
 
 const TABLES = [
   'audit_logs', 'movements', 'qr_tokens', 'properties', 'line_pdf_regions', 'lines', 'documents', 'items',
-  'property_types', 'officer_designations', 'report_signatories', 'officers', 'settings', 'session', 'users',
+  'property_types', 'units', 'officer_designations', 'report_signatories', 'officers', 'settings', 'session', 'users',
 ]
 
 export async function seedSettings() {

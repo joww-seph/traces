@@ -69,7 +69,7 @@ export function OfficerPicker({ id, officers, value, onChange, placeholder = 'Ty
               {o ? (
                 <span className="min-w-0">
                   <span className="font-medium">{o.fullName}</span> <span className="text-muted-foreground">({o.shortName}){o.active ? '' : ', inactive'}</span>
-                  <span className="block truncate text-xs text-muted-foreground">{[o.position, o.designations[0]].filter(Boolean).join(' · ')}</span>
+                  <span className="block text-xs text-muted-foreground">{[o.position, o.designations[0]].filter(Boolean).join(' · ')}</span>
                 </span>
               ) : <span className="text-muted-foreground">{noneLabel}</span>}
             </li>

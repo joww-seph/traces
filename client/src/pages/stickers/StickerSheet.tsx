@@ -132,7 +132,7 @@ export default function StickerSheet() {
             <ul className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
               {data.map((st) => (
                 <li key={st.propertyNo} className="flex items-center justify-between gap-3 text-sm">
-                  <label htmlFor={`copies-${st.propertyNo}`} className="figures truncate">{st.propertyNo}</label>
+                  <label htmlFor={`copies-${st.propertyNo}`} className="figures break-all">{st.propertyNo}</label>
                   <input id={`copies-${st.propertyNo}`} type="number" min={1} max={20} className="h-8 w-16 rounded-lg border border-input bg-transparent px-2 text-right"
                     value={copies[st.propertyNo] ?? 1}
                     onChange={(e) => setCopies({ ...copies, [st.propertyNo]: Math.min(20, Math.max(1, Math.floor(Number(e.target.value)) || 1)) })} />

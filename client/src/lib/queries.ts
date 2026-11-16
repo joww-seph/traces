@@ -30,4 +30,6 @@ export const useReceivers = (q = '', includeInactive = false) =>
 
 export const useSettings = () => useQuery({ queryKey: ['settings'], queryFn: () => api.get<Settings>('/api/settings') })
 
+export type Unit = { code: string; name: string; active: boolean }
+export const useUnits = () => useQuery({ queryKey: ['units'], queryFn: () => api.get<Unit[]>('/api/units') })
 export const usePropertyTypes = () => useQuery({ queryKey: ['property-types'], queryFn: () => api.get<PropertyType[]>('/api/property-types') })

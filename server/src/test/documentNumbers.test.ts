@@ -14,33 +14,53 @@ async function withDocs(docs: { type: 'ICS' | 'PAR'; docNo: string }[]) {
   return agent
 }
 
-describe('ICS/PAR number suggestion (office style: ICS YYYY-MM-NNN, PAR YYYY-RO-NN)', () => {
-  it('starts at 001 and 01 when the year has none', async () => {
+describe('ICS/PAR number suggestion: YYYY-MM{UNIT}-NNN, one counter per year + unit + form type', () => {
+  it('starts at 001 when the unit has none this year', async () => {
     const { agent } = await loginAs('supply_admin')
-    const res = await next(agent, 'issuedDate=2026-11-15')
+    const res = await next(agent, 'issuedDate=2026-11-15&unit=SARAi')
     expect(res.status).toBe(200)
-    expect(res.body).toEqual({ icsNo: '2026-11-001', parNo: '2026-RO-01' })
+    expect(res.body).toEqual({ icsNo: '2026-11SARAi-001', parNo: '2026-11SARAi-001' })
   })
-  it('continues the highest number of the year, whatever the month; other styles and types are ignored', async () => {
+  it('continues the unit’s highest number of the year, whatever the month; other units and the other form type are ignored', async () => {
     const agent = await withDocs([
-      { type: 'ICS', docNo: '2026-03-007' }, { type: 'ICS', docNo: '2026-09-012' }, { type: 'ICS', docNo: '2026-03SARAi-005' },
-      { type: 'ICS', docNo: '2026-RO-90' }, { type: 'PAR', docNo: '2026-RO-68' }, { type: 'PAR', docNo: '2025-RO-99' },
+      { type: 'ICS', docNo: '2026-03SARAi-005' }, { type: 'ICS', docNo: '2026-09SARAi-012' }, { type: 'ICS', docNo: '2026-09IT-040' },
+      { type: 'ICS', docNo: '2026-09SARAi-012a' }, { type: 'PAR', docNo: '2026-05SARAi-001' }, { type: 'PAR', docNo: '2025-12SARAi-099' },
     ])
-    expect((await next(agent, 'issuedDate=2026-11-15')).body).toEqual({ icsNo: '2026-11-013', parNo: '2026-RO-69' })
+    expect((await next(agent, 'issuedDate=2026-11-15&unit=SARAi')).body).toEqual({ icsNo: '2026-11SARAi-013', parNo: '2026-11SARAi-002' })
+    expect((await next(agent, 'issuedDate=2026-11-15&unit=IT')).body).toEqual({ icsNo: '2026-11IT-041', parNo: '2026-11IT-001' })
   })
   it('a new year starts again', async () => {
-    const agent = await withDocs([{ type: 'ICS', docNo: '2026-09-012' }, { type: 'PAR', docNo: '2026-RO-68' }])
-    expect((await next(agent, 'issuedDate=2027-01-05')).body).toEqual({ icsNo: '2027-01-001', parNo: '2027-RO-01' })
+    const agent = await withDocs([{ type: 'ICS', docNo: '2026-09SARAi-012' }])
+    expect((await next(agent, 'issuedDate=2027-01-05&unit=SARAi')).body.icsNo).toBe('2027-01SARAi-001')
   })
   it('a deleted form keeps its number used', async () => {
     const { agent } = await loginAs('supply_admin')
-    const { doc } = await makeDocument(agent, { docNo: '2026-03-020' })
+    const { doc } = await makeDocument(agent, { docNo: '2026-03SARAi-020' })
     expect((await agent.delete(`/api/documents/${doc.id}`)).status).toBe(200)
-    expect((await next(agent, 'issuedDate=2026-04-01')).body.icsNo).toBe('2026-04-021')
+    expect((await next(agent, 'issuedDate=2026-04-01&unit=SARAi')).body.icsNo).toBe('2026-04SARAi-021')
   })
-  it('bad date -> 400, anonymous -> 401', async () => {
+  it('bad date or unit -> 400, anonymous -> 401', async () => {
     const { agent } = await loginAs('supply_admin')
-    expect((await next(agent, 'issuedDate=2026-13-01')).status).toBe(400)
-    expect((await next(agentFor(), 'issuedDate=2026-11-15')).status).toBe(401)
+    expect((await next(agent, 'issuedDate=2026-13-01&unit=SARAi')).status).toBe(400)
+    expect((await next(agent, 'issuedDate=2026-11-15')).status).toBe(400)
+    expect((await next(agent, 'issuedDate=2026-11-15&unit=SA.*')).status).toBe(400)
+    expect((await next(agentFor(), 'issuedDate=2026-11-15&unit=SARAi')).status).toBe(401)
+  })
+})
+
+describe('units (the IT officer keeps the list)', () => {
+  it('superadmin adds and renames or deactivates a unit; both roles read the list; the code is checked and unique', async () => {
+    const { agent: it_ } = await loginAs('superadmin')
+    const add = await it_.post('/api/units').send({ code: 'SARAi', name: 'SARAi project' })
+    expect(add.status).toBe(201)
+    expect((await it_.post('/api/units').send({ code: 'sarai', name: 'Again' })).status).toBe(409)
+    expect((await it_.post('/api/units').send({ code: 'SA RAi', name: 'Bad' })).status).toBe(400)
+    expect((await it_.patch('/api/units/SARAi').send({ active: false })).body.active).toBe(false)
+    const { agent } = await loginAs('supply_admin')
+    expect((await agent.get('/api/units')).body).toEqual([{ code: 'SARAi', name: 'SARAi project', active: false }])
+    expect((await agent.post('/api/units').send({ code: 'IT', name: 'IT' })).status).toBe(403)
+    expect((await agent.patch('/api/units/SARAi').send({ active: true })).status).toBe(403)
+    const log = await testPool.query(`SELECT action FROM audit_logs WHERE entity = 'units' ORDER BY id`)
+    expect(log.rows.map((r) => r.action)).toEqual(['unit.create', 'unit.update'])
   })
 })

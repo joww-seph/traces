@@ -1,6 +1,8 @@
 import { PDFDocument } from 'pdf-lib'
+import { officerInput } from '@traces/shared'
 import request from 'supertest'
 import { createApp } from '../app.js'
+import { createOfficer } from '../services/officers.js'
 import { createUser } from '../services/users.js'
 
 // the made-up people of these tests; their short names are made from these names (MSantos, JDelaCruz, ...)
@@ -35,14 +37,18 @@ export async function samplePdf(pages = 1) {
   return Buffer.from(await d.save())
 }
 
+// Officers are kept by the IT officer (superadmin) only, so tests acting as a supply admin add them directly.
+export async function makeOfficer(o: { fullName: string; position: string; canReceive?: boolean }) {
+  return createOfficer(officerInput.parse(o), { actorId: null, ip: null })
+}
+
 // Two officers + one ICS (or PAR) document, created through the API. No PDF yet: a document with an uploaded
 // (signed) copy is locked, so tests add their lines first and call signDocument() when they need the PDF.
 export async function makeDocument(
   agent: ReturnType<typeof agentFor>,
   over: { type?: 'ICS' | 'PAR'; docNo?: string; issuedDate?: string } = {},
 ) {
-  const mk = async (shortName: string, position: string) =>
-    (await agent.post('/api/officers').send({ fullName: FULL_NAME[shortName] ?? shortName, position, canReceive: true })).body
+  const mk = (shortName: string, position: string) => makeOfficer({ fullName: FULL_NAME[shortName] ?? shortName, position, canReceive: true })
   const existing = (await agent.get('/api/officers')).body as { id: string; shortName: string }[]
   const issuer = existing.find((o) => o.shortName === 'JDelaCruz') ?? (await mk('JDelaCruz', 'Supply Officer IV'))
   const receiver = existing.find((o) => o.shortName === 'MSantos') ?? (await mk('MSantos', 'Engineer II'))

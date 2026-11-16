@@ -65,11 +65,12 @@ export function PdfViewer({ url, page, onPageChange, onPageRender, children }: P
         {error ? (
           <p className="p-6 text-center text-sm text-destructive">Could not load the PDF.</p>
         ) : (
-          <Document file={file} loading={<PageSkeleton width={width} />}
+          // suspense off: react-pdf 11 otherwise throws a failed load (429, dropped connection) to the route's error page and the whole scan page dies
+          <Document file={file} suspense={false} loading={<PageSkeleton width={width} />}
             onLoadSuccess={(d) => setPages(d.numPages)} onLoadError={() => setError(true)}>
             {width > 0 && (
               <div className="relative" style={{ width, minHeight: shown ? undefined : width * A4 }}>
-                <Page pageNumber={page} width={width} renderTextLayer={false} renderAnnotationLayer={false} loading={null}
+                <Page pageNumber={page} width={width} suspense={false} renderTextLayer={false} renderAnnotationLayer={false} loading={null}
                   onRenderSuccess={() => { setDrawn(`${url}#${page}`); onPageRender?.() }} />
                 {!shown && <div className="absolute inset-0"><PageSkeleton width={width} /></div>}
                 {children && shown && <div className="absolute inset-0">{children}</div>}

@@ -10,7 +10,7 @@ const officer = { fullName: 'Maria Santos', position: 'Supply Officer III', offi
 
 describe('officers', () => {
   it('create, list, patch and deactivate', async () => {
-    const { agent } = await loginAs('supply_admin')
+    const { agent } = await loginAs('superadmin')
     const created = await agent.post('/api/officers').send(officer)
     expect(created.status).toBe(201)
     expect(created.body).toMatchObject({ shortName: 'MSantos', active: true })
@@ -31,7 +31,7 @@ describe('officers', () => {
   })
 
   it('the short name is made from the full name, never typed; names in capitals are written with capital initials only', async () => {
-    const { agent } = await loginAs('supply_admin')
+    const { agent } = await loginAs('superadmin')
     const a = await agent.post('/api/officers').send({ ...officer, fullName: 'ANA MARIE B. DELA CRUZ', shortName: 'Typed' })
     expect(a.body).toMatchObject({ fullName: 'Ana Marie B. Dela Cruz', shortName: 'ABDelaCruz' })
     // the same initials and surname get a number instead of being refused
@@ -43,7 +43,7 @@ describe('officers', () => {
   })
 
   it('invalid body -> 400; unknown id -> 404; anonymous -> 401', async () => {
-    const { agent } = await loginAs('supply_admin')
+    const { agent } = await loginAs('superadmin')
     expect((await agent.post('/api/officers').send({ fullName: '' })).status).toBe(400)
     expect((await agent.patch('/api/officers/00000000-0000-4000-8000-000000000000').send({ office: 'x' })).status).toBe(404)
     expect((await agent.patch('/api/officers/not-a-uuid').send({ office: 'x' })).status).toBe(400)
@@ -81,7 +81,7 @@ describe('accountable officers (update 01 U-06)', () => {
   const mk = (agent: Awaited<ReturnType<typeof loginAs>>['agent'], o: object) => agent.post('/api/officers').send({ ...officer, ...o })
 
   it('canReceive defaults to false; the list filters by it', async () => {
-    const { agent } = await loginAs('supply_admin')
+    const { agent } = await loginAs('superadmin')
     const a = await mk(agent, { fullName: 'Ana Receiver', canReceive: true })
     const b = await mk(agent, { fullName: 'Ben Staff' })
     expect(a.body.canReceive).toBe(true)
@@ -91,7 +91,7 @@ describe('accountable officers (update 01 U-06)', () => {
   })
 
   it('designations are stored in order, replaced on patch, and searched by q together with the names', async () => {
-    const { agent } = await loginAs('supply_admin')
+    const { agent } = await loginAs('superadmin')
     const a = await mk(agent, { fullName: 'Ana One', designations: ['SARAi CENTRO, Focal Person', 'Records, Custodian'] })
     await mk(agent, { fullName: 'Ben Two', designations: ['SARAi, Coordinator'] })
     await mk(agent, { fullName: 'Cy Three' })
@@ -107,7 +107,7 @@ describe('accountable officers (update 01 U-06)', () => {
   })
 
   it('a document cannot be received by an officer who may not receive (400 OFFICER_CANNOT_RECEIVE)', async () => {
-    const { agent } = await loginAs('supply_admin')
+    const { agent } = await loginAs('superadmin')
     const issuer = await mk(agent, { fullName: 'Issuer One', canReceive: true })
     const staff = await mk(agent, { fullName: 'Staff One' })
     const res = await agent.post('/api/documents')
@@ -145,5 +145,21 @@ describe('seed-officers script', () => {
     expect(rows.find((r) => r.short_name === 'CDiaz')).toMatchObject({ full_name: 'Cy "CJ" Diaz', position: 'Science Research Specialist II' }) // SRS written out
     const des = (await testPool.query(`SELECT d.designation FROM officer_designations d JOIN officers o ON o.id=d.officer_id WHERE lower(o.short_name)='arreyes' ORDER BY d.sort_order`)).rows
     expect(des.map((d) => d.designation)).toEqual(['ORD, Regional Director', 'SARAi CENTRO, Focal Person'])
+  })
+})
+
+describe('officers and property types are kept by the IT officer (superadmin) only', () => {
+  it('supply_admin can read both lists but cannot add, change or deactivate -> 403', async () => {
+    const { agent: it_ } = await loginAs('superadmin')
+    const officer = (await it_.post('/api/officers').send({ fullName: 'Ann Bell', position: 'Clerk' })).body
+    const { agent } = await loginAs('supply_admin')
+    expect((await agent.get('/api/officers')).status).toBe(200)
+    expect((await agent.get('/api/property-types')).status).toBe(200)
+    expect((await agent.post('/api/officers').send({ fullName: 'Bo Clerk', position: 'Clerk' })).status).toBe(403)
+    expect((await agent.patch(`/api/officers/${officer.id}`).send({ position: 'Chief' })).status).toBe(403)
+    expect((await agent.delete(`/api/officers/${officer.id}`)).status).toBe(403)
+    expect((await agent.post('/api/property-types').send({ code: 'MV', name: 'Motor Vehicles' })).status).toBe(403)
+    expect((await agent.patch('/api/property-types/1').send({ name: 'x' })).status).toBe(403)
+    expect((await it_.patch(`/api/officers/${officer.id}`).send({ position: 'Chief' })).status).toBe(200)
   })
 })

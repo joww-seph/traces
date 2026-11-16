@@ -584,7 +584,7 @@ Sources: photos of a signed ICS (Appendix 59) and PAR (Appendix 71), a filled RP
 ### Decisions log, 2026-11-15
 | Topic | Decision |
 |---|---|
-| ICS/PAR number format | Suggested automatically in the office's style, editable (decision 2026-11-15): ICS `YYYY-MM-NNN`, PAR `YYYY-RO-NN`, from the issue date, one counter per year and form type (deleted forms still count). `GET /api/document-numbers/next?issuedDate=`. Nothing is reserved; the unique `(type, doc_no)` is the guard. |
+| ICS/PAR number format | Superseded on 2026-11-16 (see below). Was: suggested in the office's style, editable (decision 2026-11-15): ICS `YYYY-MM-NNN`, PAR `YYYY-RO-NN`, from the issue date, one counter per year and form type (deleted forms still count). `GET /api/document-numbers/next?issuedDate=`. Nothing is reserved; the unique `(type, doc_no)` is the guard. |
 | Mixed purchase | Confirmed: rows under the threshold go on one ICS, the rest on one PAR, in one save (Update 02 V-02). |
 | Stock received before issue | Unknown. Default kept: every ICS/PAR line records its own receipt. |
 | Property type codes | Pending; only ICT, FF and OE exist. |
@@ -596,3 +596,13 @@ Sources: photos of a signed ICS (Appendix 59) and PAR (Appendix 71), a filled RP
 | Short names | First letter of the first given name + middle initial + surname; a second given name does not count. Account email = short name in lowercase @region1.dost.gov.ph. |
 | Scope (confirmed) | Out of scope and not planned: transfers (PTR/ITR), returns (RRSP), re-issue and disposal screens; importing old Excel data; pasting rows from Excel into the issuance form. The RETURN / REISSUE / DISPOSE movement types and the official Returned / Re-issued / Disposed columns stay (the official forms print them; they stay 0). |
 | Delete form | `/documents/:id` gets a **Delete form** button for unsigned forms (soft delete, audited). A form with an uploaded or signed copy is refused with 409 `DOCUMENT_SIGNED` until that copy is removed with a reason. The form number and its property numbers stay used. |
+
+### Decisions log, 2026-11-16
+| Topic | Decision |
+|---|---|
+| ICS/PAR number format | Suggested as `YYYY-MM{UNIT}-NNN` (e.g. `2026-11SARAi-001`) from the issue date and the office unit chosen on the form; NNN counts per year + unit + form type from 001 (deleted forms still count). Editable; the unique `(type, doc_no)` is the guard. `GET /api/document-numbers/next?issuedDate=&unit=`. |
+| Office units | Table `units` (code 1–12 letters/digits, unique ignoring case; name; active). Kept by the IT officer on the Settings page; the office's list is still to be provided. |
+| Officers and property types | Only the IT officer (superadmin) opens these pages and changes them (403 otherwise); supply admins still read both lists to fill in forms. |
+| Registry "Issued, Office/Officer" | Confirmed: it is the ICS/PAR's Received by, derived from the document (nothing stored). |
+| Public scan view (revises BR-12 / SEC-10) | The Card, Report and Registry tabs show the entire form with the scanned item's row highlighted. Other lines' officer names are blanked; still no UUIDs or user data. |
+| PDF that fails to load | The scan page shows "Could not load the PDF." and keeps working (react-pdf suspense mode off). |

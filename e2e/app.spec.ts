@@ -62,7 +62,7 @@ test.describe('sign in', () => {
 
 test.describe('records flow', () => {
   test('officers: the short name is made from the name, a clash gets a number', async ({ page }) => {
-    await login(page)
+    await login(page, E2E.superadmin) // the IT officer keeps the officer list
     await addOfficer(page, 'JUAN DELA CRUZ', 'Administrative Officer V')
     await expect(page.getByRole('row', { name: /Juan Dela Cruz/ })).toContainText('JDelaCruz')
     await addOfficer(page, 'Maria Santos', 'ARD for Field Operations')
@@ -163,13 +163,23 @@ test.describe('records flow', () => {
     await expect(page.getByRole('group', { name: 'Row 5' }).getByLabel('Row 5, unit 1, property number')).toHaveAttribute('placeholder', '2026-05ICT-0006')
   })
 
-  test('the ICS number is suggested; a number already on file cannot be used twice, and a missing number is asked for', async ({ page }) => {
+  test('the ICS number is suggested from the unit; a number already on file cannot be used twice, and a missing number is asked for', async ({ page, browser }) => {
+    const it = await browser.newContext() // the IT officer adds the unit on the Settings page
+    const itPage = await it.newPage()
+    await login(itPage, E2E.superadmin)
+    await itPage.goto('/admin/settings')
+    await itPage.locator('#u-code').fill('ADM')
+    await itPage.locator('#u-name').fill('Administrative Unit')
+    await itPage.getByRole('button', { name: 'Add unit' }).click()
+    await expect(itPage.getByText('Unit ADM added')).toBeVisible()
+    await it.close()
     await login(page)
     await page.goto('/issue')
     await fillRow(page, 1, { type: FF, article: 'Steel cabinet', model: 'Steel filing cabinet, 4-drawer', unit: 'unit', description: 'Steel cabinet', cost: '8,800.00', date: '2026-05-02' })
     await chooseHeader(page)
     await page.getByLabel('Date issued').fill('2026-05-12')
-    await expect(page.locator('#icsNo')).toHaveValue(/^2026-05-\d{3}$/) // office style, for the issue date
+    await page.getByLabel('Office unit').selectOption('ADM')
+    await expect(page.locator('#icsNo')).toHaveValue('2026-05ADM-001') // YYYY-MM{UNIT}-NNN for the issue date
     await page.locator('#icsNo').fill('')
     await page.getByRole('button', { name: 'Save and generate ICS/PAR' }).click() // no ICS number
     await expect(page.getByText(/Enter the ICS number/).first()).toBeVisible()
@@ -263,7 +273,7 @@ test.describe('phone width (360 px)', () => {
 
   test('nothing scrolls sideways and the menu opens', async ({ page }) => {
     await login(page)
-    for (const p of ['/', '/documents', '/issue', '/cards', '/reports', '/officers', '/property-types', '/account/password']) {
+    for (const p of ['/', '/documents', '/issue', '/cards', '/reports', '/account/password']) {
       await page.goto(p)
       await page.waitForLoadState('networkidle')
       expect(await noHorizontalScroll(page), p).toBe(0)
@@ -284,7 +294,7 @@ test.describe('accessibility (WCAG 2.1 A and AA)', () => {
 
   test('signed-in pages', async ({ page }) => {
     await login(page)
-    for (const p of ['/', '/documents', '/issue', '/cards', '/reports', '/officers', '/property-types', '/account/password']) {
+    for (const p of ['/', '/documents', '/issue', '/cards', '/reports', '/account/password']) {
       await page.goto(p)
       await page.waitForLoadState('networkidle')
       expect(await a11y(page), p).toEqual([])

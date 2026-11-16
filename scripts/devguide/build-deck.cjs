@@ -242,8 +242,8 @@ part('Part 1. What TRACES does', 'No code yet. If you understand this part, the 
 
 {
   const s = content('Who uses TRACES')
-  box(s, { x: 0.5, y: 1.5, w: 3.9, h: 2.4, title: 'Supply admin', body: 'Staff of the Supply Unit. Enters issuances, uploads signed copies, prints stickers and reports, manages officers.\nrole: supply_admin', valign: 'top', align: 'left' })
-  box(s, { x: 4.7, y: 1.5, w: 3.9, h: 2.4, title: 'Superadmin', body: 'Everything a supply admin can do, plus user accounts, settings and the audit log (/admin/...).\nrole: superadmin', valign: 'top', align: 'left' })
+  box(s, { x: 0.5, y: 1.5, w: 3.9, h: 2.4, title: 'Supply admin', body: 'Staff of the Supply Unit. Enters issuances, uploads signed copies, prints stickers and reports. Reads (does not change) officers and property types.\nrole: supply_admin', valign: 'top', align: 'left' })
+  box(s, { x: 4.7, y: 1.5, w: 3.9, h: 2.4, title: 'Superadmin', body: 'Everything a supply admin can do, plus officers, property types, office units, user accounts, settings and the audit log.\nrole: superadmin', valign: 'top', align: 'left' })
   box(s, { x: 8.9, y: 1.5, w: 3.9, h: 2.4, title: 'Anyone with a phone', body: 'Scans a sticker and opens /q/<token>. No login. Sees only the public fields of that one item (BR-12).', valign: 'top', align: 'left' })
   bullets(s, [
     ['Officers do not log in.', 'They are records (the officers table), not users. Only Supply staff have accounts.'],
@@ -467,6 +467,7 @@ part('Part 4. The database', 'Where the truth lives. Learn this part well: the r
     ['movements', 'one event in a property\'s life: RECEIPT, ISSUE, RETURN, REISSUE or DISPOSE, with a date'],
     ['document_files', 'a PDF of a document: kind generated (TRACES drew it) or uploaded (the signed scan)'],
     ['settings', 'the one row of office settings: PPE threshold, default fund cluster, public address, form codes'],
+    ['units', 'office units whose code goes inside ICS/PAR numbers (2026-11SARAi-001); kept by the IT officer'],
     ['audit_logs', 'one change anyone made: who, what, before, after, IP address, when'],
   ], { colW: [2.3, 10.0], size: 13, monoCols: [0] })
 }
@@ -579,7 +580,7 @@ part('Part 5. The server', 'What happens between a click and a saved row.')
   bullets(s, [
     'Opens one transaction. Everything below is saved together or not at all.',
     'Sorts every row: below the PPE threshold -> ICS, at or above -> PAR (BR-01).',
-    'Needs the ICS number if any row is semi, the PAR number if any row is PPE (else 400 DOC_NO_REQUIRED). The form fills both in from GET /api/document-numbers/next (ICS YYYY-MM-NNN, PAR YYYY-RO-NN); the user can change them.',
+    'Needs the ICS number if any row is semi, the PAR number if any row is PPE (else 400 DOC_NO_REQUIRED). The form fills both in from GET /api/document-numbers/next for the chosen office unit (YYYY-MM{UNIT}-NNN, e.g. 2026-11SARAi-001); the user can change them.',
     'Checks the receiver may receive (officers.can_receive).',
     'Checks every property number of the whole form before writing anything (409 DUPLICATE_PROPERTY_NO lists them all).',
     'Inserts the document(s), then each row with insertLineTx (next slide), plus audit rows.',

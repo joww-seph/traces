@@ -1,4 +1,4 @@
-import { isoDate } from '@traces/shared'
+import { isoDate, unitCode } from '@traces/shared'
 import { Router } from 'express'
 import { z } from 'zod'
 import { requireRole } from '../middleware/auth.js'
@@ -20,8 +20,8 @@ export function propertyNumbersRouter() {
   })
   r.use('/document-numbers', requireRole('supply_admin', 'superadmin'))
   r.get('/document-numbers/next', async (req, res) => {
-    const q = z.object({ issuedDate: isoDate }).parse(req.query)
-    res.json(await suggestDocumentNumbers(q.issuedDate))
+    const q = z.object({ issuedDate: isoDate, unit: unitCode }).parse(req.query)
+    res.json(await suggestDocumentNumbers(q.issuedDate, q.unit))
   })
   return r
 }

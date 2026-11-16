@@ -9,8 +9,8 @@ afterAll(async () => { await pool.end(); await testPool.end() })
 const card = { propertyTypeId: 1, category: 'ppe', article: 'Laptop', description: 'Lenovo ThinkPad E14 Gen 5', unit: 'unit' }
 
 describe('property types', () => {
-  it('lists the seeded types and both roles can create and patch', async () => {
-    const { agent } = await loginAs('supply_admin')
+  it('lists the seeded types; the IT officer can create and patch', async () => {
+    const { agent } = await loginAs('superadmin')
     const list = await agent.get('/api/property-types')
     expect(list.status).toBe(200)
     expect(list.body.map((t: { code: string }) => t.code)).toEqual(['FF', 'ICT', 'OE'])

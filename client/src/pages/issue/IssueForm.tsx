@@ -13,16 +13,18 @@ import { Button, buttonVariants } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { useOfficers, usePropertyTypes, useReceivers, useSettings } from '@/lib/queries'
+import { useOfficers, usePropertyTypes, useReceivers, useSettings, useUnits } from '@/lib/queries'
 import type { DocDetail } from '@/pages/documents/Detail'
 import { CardPicker } from '@/pages/issue/CardPicker'
 import { articleOf, blankEntry, categoryOf, centavosOf, duplicate, numbersOf, slotsOf, unitOf, withQty, type Entry } from '@/pages/issue/model'
 import { PageSkeleton } from '@/components/Loading'
 import { OfficerPicker } from '@/components/OfficerPicker'
+import { NativeSelect } from '@/components/NativeSelect'
+import { useAuth } from '@/auth/AuthProvider'
 
 type Header = {
   receivedBy: string; receivedByPosition: string; issuedBy: string; issuedByPosition: string
-  issuedDate: string; fundCluster: string; purpose: string; icsNo: string; parNo: string
+  issuedDate: string; fundCluster: string; purpose: string; unit: string; icsNo: string; parNo: string
 }
 type Result = { documents: { id: string; type: 'ICS' | 'PAR'; docNo: string; lineIds: string[] }[]; warnings: string[]; generated?: boolean }
 type RowErrors = Record<number, string[]>
@@ -47,8 +49,10 @@ export default function IssueForm() {
   const navigate = useNavigate()
   const qc = useQueryClient()
   const draftKey = documentId ? `${DRAFT_KEY}:${documentId}` : DRAFT_KEY
+  const { user } = useAuth()
   const { data: settings } = useSettings()
   const { data: types = [] } = usePropertyTypes()
+  const { data: units = [] } = useUnits()
   const { data: allOfficers = [] } = useOfficers(true)
   const { data: receivers = [] } = useReceivers()
 
@@ -57,7 +61,7 @@ export default function IssueForm() {
   const [draft, setDraft] = useState(() => readDraft(draftKey))
   const [entries, setEntries] = useState<Entry[]>(() => draft?.entries ?? [blankEntry()])
   const [header, setHeader] = useState<Header>(() => ({
-    receivedBy: '', receivedByPosition: '', issuedBy: '', issuedByPosition: '', issuedDate: today(), fundCluster: '', purpose: '', icsNo: '', parNo: '', ...draft?.header,
+    receivedBy: '', receivedByPosition: '', issuedBy: '', issuedByPosition: '', issuedDate: today(), fundCluster: '', purpose: '', unit: '', icsNo: '', parNo: '', ...draft?.header,
   }))
   const [errors, setErrors] = useState<RowErrors>({})
   const [headerError, setHeaderError] = useState<{ ics?: string; parNo?: string; receiver?: string; general?: string }>({})
@@ -74,12 +78,12 @@ export default function IssueForm() {
     }))
   }, [settings, allOfficers])
 
-  // ICS/PAR numbers are suggested in the office's style (ICS YYYY-MM-NNN, PAR YYYY-RO-NN) for the issue date.
+  // ICS/PAR numbers are suggested as YYYY-MM{UNIT}-NNN for the issue date and the chosen unit.
   // A suggestion fills an empty box or replaces the previous suggestion; a number the user typed is kept.
   type DocNos = { icsNo: string; parNo: string }
   const nextDocNos = useQuery({
-    queryKey: ['next-doc-no', header.issuedDate], enabled: !documentId && isIsoDate(header.issuedDate), staleTime: 15_000,
-    queryFn: () => api.get<DocNos>(`/api/document-numbers/next?issuedDate=${header.issuedDate}`),
+    queryKey: ['next-doc-no', header.issuedDate, header.unit], enabled: !documentId && !!header.unit && isIsoDate(header.issuedDate), staleTime: 15_000,
+    queryFn: () => api.get<DocNos>(`/api/document-numbers/next?issuedDate=${header.issuedDate}&unit=${encodeURIComponent(header.unit)}`),
   })
   const suggestedNos = useRef<DocNos | null>(null)
   useEffect(() => {
@@ -111,7 +115,7 @@ export default function IssueForm() {
     setHeaderError({})
     const issuerId = settings?.defaultIssuedByOfficerId ?? ''
     setHeader({
-      receivedBy: '', receivedByPosition: '', issuedDate: today(), fundCluster: settings?.defaultFundCluster ?? '', purpose: '', icsNo: suggestedNos.current?.icsNo ?? '', parNo: suggestedNos.current?.parNo ?? '',
+      receivedBy: '', receivedByPosition: '', issuedDate: today(), fundCluster: settings?.defaultFundCluster ?? '', purpose: '', unit: '', icsNo: suggestedNos.current?.icsNo ?? '', parNo: suggestedNos.current?.parNo ?? '',
       issuedBy: issuerId, issuedByPosition: allOfficers.find((o) => o.id === issuerId)?.position ?? '',
     })
     toast.success('Draft discarded')
@@ -320,7 +324,7 @@ export default function IssueForm() {
       <form onSubmit={submit(true)} noValidate className="rounded-xl border bg-card px-5 py-6 sm:px-8">
         {/* 1. Property card */}
         <section aria-labelledby="s1" className="border-b pb-6">
-          <h2 id="s1" className="text-base font-semibold">1. Property card</h2>
+          <h2 id="s1" className="text-2xl font-bold sm:text-[1.75rem]">1. Property card</h2>
           <div className="grid gap-4">
             {entries.map((e, i) => {
               const cat = categoryOf(e, threshold)
@@ -412,7 +416,7 @@ export default function IssueForm() {
                 <OfficerPicker id="rcv" officers={receivers} value={header.receivedBy} invalid={!!headerError.receiver}
                   onChange={(o) => setHeader({ ...header, receivedBy: o?.id ?? '', receivedByPosition: o?.position ?? header.receivedByPosition })} />
                 {headerError.receiver && <p role="alert" className="text-sm text-destructive">{headerError.receiver}</p>}
-                {!receivers.length && <p className="text-xs text-muted-foreground">No officer can receive property yet. Officers who may receive property are set up on the <Link to="/officers" className="underline">Officers</Link> page.</p>}
+                {!receivers.length && <p className="text-xs text-muted-foreground">No officer can receive property yet. {user?.role === 'superadmin' ? <>Mark who may receive property on the <Link to="/officers" className="underline">Officers</Link> page.</> : 'Ask the IT officer to mark who may receive property.'}</p>}
               </div>
               <div className="grid content-start gap-1.5"><Label htmlFor="date">Date issued</Label>
                 <Input id="date" type="date" className="h-9" value={header.issuedDate} onChange={(ev) => setHeader({ ...header, issuedDate: ev.target.value })} />
@@ -428,7 +432,7 @@ export default function IssueForm() {
         {/* 3. Report preview */}
         <section aria-labelledby="s3" className="grid gap-3 border-b py-6">
           <div>
-            <h2 id="s3" className="text-base font-semibold">3. Report</h2>
+            <h2 id="s3" className="text-2xl font-bold sm:text-[1.75rem]">3. Report</h2>
             <p className="mt-1 text-sm text-muted-foreground">How these rows will appear on {receiver ? `${receiver.fullName}'s` : "the receiver's"} RPCSP or RPCPPE.</p>
           </div>
           <div className="overflow-x-auto rounded-lg border">
@@ -464,6 +468,14 @@ export default function IssueForm() {
             {icsRows + parRows === 0 ? 'Enter a cost on each row to see which forms this makes.'
               : `This creates ${[icsRows ? `${icsRows} ICS (${icsRows} ${icsRows === 1 ? 'row' : 'rows'})` : '', parRows ? `${parRows} PAR (${parRows} ${parRows === 1 ? 'row' : 'rows'})` : ''].filter(Boolean).join(' and ')}.`}
           </p>
+          {!documentId && icsRows + parRows > 0 && (
+            <div className="grid content-start gap-1.5 sm:col-span-2"><Label htmlFor="doc-unit">Office unit</Label>
+              <NativeSelect id="doc-unit" className="h-9 sm:max-w-xs" value={header.unit} onChange={(ev) => setHeader({ ...header, unit: ev.target.value })}>
+                <option value="">Choose the office unit</option>
+                {units.filter((u) => u.active || u.code === header.unit).map((u) => <option key={u.code} value={u.code}>{u.code} · {u.name}</option>)}
+              </NativeSelect>
+              {!units.some((u) => u.active) && <p className="text-xs text-muted-foreground">No office units yet. {user?.role === 'superadmin' ? <>Add them on the <Link to="/admin/settings" className="underline">Settings</Link> page.</> : 'Ask the IT officer to add them.'}</p>}</div>
+          )}
           {!documentId && icsRows > 0 && (
             <div className="grid content-start gap-1.5"><Label htmlFor="icsNo">ICS No.</Label>
               <Input id="icsNo" className="figures h-9" aria-invalid={!!headerError.ics} value={header.icsNo} onChange={(ev) => setHeader({ ...header, icsNo: ev.target.value })} />

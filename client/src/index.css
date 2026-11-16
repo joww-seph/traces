@@ -114,6 +114,7 @@
     body {
         @apply bg-background text-foreground;
         font-weight: 500; /* Medium is the base weight, as with Gotham Medium */
+        overflow-wrap: break-word; /* a long name, number or address wraps instead of running out of its box */
     }
     h1, h2, h3 {
         font-family: var(--font-heading);

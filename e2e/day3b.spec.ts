@@ -55,6 +55,12 @@ test('a supply admin does not see the admin pages', async ({ page }) => {
   await expect(page.getByRole('link', { name: 'User accounts' })).toHaveCount(0)
   await page.goto('/admin/users')
   await expect(page.getByRole('heading', { name: 'User accounts' })).toHaveCount(0)
+  // officers and property types are kept by the IT officer
+  await expect(page.getByRole('link', { name: 'Officers' })).toHaveCount(0)
+  for (const url of ['/officers', '/property-types']) {
+    await page.goto(url)
+    await expect(page.getByRole('button', { name: /Add (officer|type)/ })).toHaveCount(0)
+  }
 })
 
 test('users: add shows a one-time temporary password, which works once', async ({ page, browser }) => {
@@ -148,7 +154,7 @@ test('audit log: shows the changes with before and after, and filters', async ({
 test('admin pages fit a phone', async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 800 })
   await login(page, E2E.superadmin)
-  for (const url of ['/admin/users', '/admin/settings', '/admin/audit']) {
+  for (const url of ['/admin/users', '/admin/settings', '/admin/audit', '/officers', '/property-types']) {
     await page.goto(url)
     await expect(page.getByRole('main').getByRole('heading').first()).toBeVisible()
     expect(await noHorizontalScroll(page), url).toBe(0)

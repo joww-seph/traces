@@ -63,6 +63,16 @@ export const settings = pgTable('settings', {
   check('settings_threshold_positive', sql`${t.ppeThresholdCentavos} > 0`),
 ])
 
+// office units / projects whose code goes inside ICS/PAR numbers (YYYY-MM{code}-NNN); kept by the IT officer
+export const units = pgTable('units', {
+  code: text('code').primaryKey(), // never renamed: the numbers already issued carry it
+  name: text('name').notNull(),
+  active: boolean('active').notNull().default(true),
+}, (t) => [
+  check('units_code_check', sql`${t.code} ~ '^[A-Za-z0-9]{1,12}$'`),
+  uniqueIndex('units_code_lower_uq').on(sql`lower(${t.code})`),
+])
+
 // ───────────── People ─────────────
 export const officers = pgTable('officers', {
   id: uuid('id').primaryKey().defaultRandom(),

@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { E2E } from '../playwright.config'
 import { a11y, apiSeed, apiSign, login, noHorizontalScroll } from './helpers'
 
 // Runs after app.spec.ts in the same database: officers JDelaCruz and MSantos already exist.
@@ -70,6 +71,18 @@ test('a form with no PDF at all shows the structured table with the row highligh
   await expect(anon.getByText('Signed copy not yet uploaded')).toBeVisible()
   await expect(anon.locator('.traces-highlight')).toHaveCount(1)
   await expect(anon.getByTestId('region-highlight')).toHaveCount(0)
+  await ctx.close()
+})
+
+test('a PDF that fails to load (e.g. too many scans) leaves the scan page working', async ({ browser }) => {
+  const ctx = await browser.newContext()
+  const anon = await ctx.newPage()
+  await anon.route('**/api/public/q/*/pdf', (r) => r.fulfill({ status: 429, contentType: 'application/json', body: '{"code":"RATE_LIMITED"}' }))
+  await anon.goto(`/q/${tokens.semi}`)
+  await expect(anon.getByText('Could not load the PDF.')).toBeVisible()
+  await expect(anon.getByRole('heading', { name: 'Office chair', level: 1 })).toBeVisible()
+  await anon.getByRole('tab', { name: 'Card' }).click()
+  await expect(anon.getByRole('tabpanel')).toBeVisible()
   await ctx.close()
 })
 
@@ -172,7 +185,7 @@ test('sticker sheet: QR images for every active number, copies per property, bot
 })
 
 test('property types: the three starting types, add one, a bad code is refused', async ({ page }) => {
-  await login(page)
+  await login(page, E2E.superadmin)
   await page.goto('/property-types')
   await expect(page.getByRole('cell', { name: 'ICT', exact: true })).toBeVisible()
   await expect(page.getByRole('cell', { name: 'Furniture and Fixtures' })).toBeVisible()

@@ -19,8 +19,11 @@ test('reports: one row per line, balance per card filled, the count columns blan
   await login(page)
   // a program on the officer makes them findable by it
   const { receiver } = await officerIds(page)
-  const patched = await page.request.patch(`/api/officers/${receiver.id}`, { headers: { Origin: `http://localhost:${E2E.webPort}` }, data: { designations: ['SARAi CENTRO, Focal Person'] } })
+  const it = await page.context().browser()!.newContext()
+  await login(await it.newPage(), E2E.superadmin) // the IT officer keeps the officer list
+  const patched = await it.request.patch(`/api/officers/${receiver.id}`, { headers: { Origin: `http://localhost:${E2E.webPort}` }, data: { designations: ['SARAi CENTRO, Focal Person'] } })
   expect(patched.status()).toBe(200)
+  await it.close()
 
   await page.goto('/reports')
   await expect(page.getByText('Choose an accountable officer')).toBeVisible()

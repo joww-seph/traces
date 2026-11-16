@@ -60,15 +60,18 @@ describe('GET /api/public/q/:token', () => {
     }
   })
 
-  it('registry is limited to the same document', async () => {
+  it('registry shows the whole registry, this line highlighted, other lines without the officer name', async () => {
     const { agent, token } = await seed()
     const other = await makeDocument(agent, { type: 'PAR', docNo: '2025-RO-68', issuedDate: '2025-05-31' })
     await agent.post(`/api/documents/${other.doc.id}/lines`).send({
       line: { qty: 1, unitCostCentavos: 9200000, description: 'Fume hood', dateAcquired: '2025-01-01' }, item: itemFor(9200000), properties: [{ propertyNo: 'P-1' }],
     })
     const reg = (await anon().get(`/api/public/q/${await token('L-1')}`)).body.tabs.registry
-    expect(reg.rows).toHaveLength(1)
-    expect(reg.rows[0].propertyNos).toEqual(['L-1', 'L-1a'])
+    expect(reg.rows).toHaveLength(2)
+    const mine = reg.rows.find((r: { id: string }) => r.id === reg.highlightRowId)
+    expect(mine.propertyNos).toEqual(['L-1', 'L-1a'])
+    expect(mine.issuedTo).toBeTruthy()
+    expect(reg.rows.find((r: { id: string }) => r.id !== reg.highlightRowId).issuedTo).toBeNull()
   })
 
   it('a malformed token -> 404; an unknown well-formed token -> 404', async () => {

@@ -1,6 +1,6 @@
 // Pure: assembles the four-tab PropertyView (design §9, Update 01 U-09) from already-loaded data.
-// 'admin' sees real ids, the whole model card and the whole registry; 'public' gets opaque short row ids and only
-// this line's card rows and this document's registry/report rows, with no UUID anywhere (BR-12, SEC-10).
+// Both audiences see the entire card, report and registry with the scanned line highlighted. 'admin' sees real ids;
+// 'public' gets opaque short row ids, no UUID anywhere, and the officer names of other lines blanked (BR-12, SEC-10, revised 2026-11-16).
 import type { CardRow } from './card.js'
 
 export type Audience = 'admin' | 'public'
@@ -54,17 +54,15 @@ export function buildPropertyView(d: PropertyViewData, audience: Audience) {
   const regId = opaque('g', audience)
   const cardId = opaque('c', audience)
   const rptId = opaque('r', audience)
-  const docRef = `${d.document.type} ${d.document.docNo}`
   const isIcs = d.document.type === 'ICS'
   const lineAmount = d.line.qty * d.line.unitCostCentavos
 
-  const registryRows = audience === 'public' ? d.registry.filter((r) => r.reference === docRef) : d.registry
-  const reportRows = d.report && (audience === 'public' ? d.report.rows.filter((r) => r.reference === docRef) : d.report.rows)
-  // the whole model card for staff; only this line's rows for the public (other officers' issuances stay private)
-  const cardRows = audience === 'public' ? d.card.rows.filter((r) => r.lineId === d.line.id) : d.card.rows
-  // the card header's number range: the whole card for staff, only this line's main units for the public
-  const mine = d.docLines.find((l) => l.id === d.line.id)?.properties.filter((p) => !p.componentLabel).map((p) => p.propertyNo).sort() ?? []
-  const range = audience === 'public' ? { first: mine[0] ?? null, last: mine.at(-1) ?? null } : { first: d.card.propertyNoFirst, last: d.card.propertyNoLast }
+  const pub = audience === 'public'
+  // the public sees who holds the scanned item, never who holds the others
+  const registryRows = pub ? d.registry.map((r) => (r.id === d.line.id ? r : { ...r, issuedTo: null })) : d.registry
+  const reportRows = d.report?.rows // one officer's report: the holder of the scanned item
+  const cardRows = pub ? d.card.rows.map((r) => (r.lineId === d.line.id ? r : { ...r, officer: null, officerFullName: null })) : d.card.rows
+  const range = { first: d.card.propertyNoFirst, last: d.card.propertyNoLast }
   const highlightCard = cardRows.filter((r) => r.lineId === d.line.id).map((r) => cardId(r.id))
 
   return {

@@ -4,7 +4,7 @@ import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 import { pool } from '../db/client.js'
 import { withTokenRetry } from '../services/lines.js'
 import { testPool, resetDb } from './db.js'
-import { agentFor, DEFAULT_ITEM, itemFor, loginAs, makeDocument } from './helpers.js'
+import { agentFor, DEFAULT_ITEM, itemFor, loginAs, makeDocument, makeOfficer } from './helpers.js'
 
 const STORAGE = path.resolve(process.env.STORAGE_DIR!)
 beforeEach(async () => { await resetDb(); rmSync(STORAGE, { recursive: true, force: true }) })
@@ -346,7 +346,7 @@ describe('corrections reach the ledger (card, registry, report)', () => {
     const { post, agent, doc, receiver } = await setup()
     await post(laptop())
     expect(await holder('2026-09ICT-0199')).toBe(receiver.id)
-    const other = (await agent.post('/api/officers').send({ fullName: 'Otto Person', position: 'Clerk', canReceive: true })).body
+    const other = await makeOfficer({ fullName: 'Otto Person', position: 'Clerk', canReceive: true })
     expect((await agent.patch(`/api/documents/${doc.id}`).send({ receivedByOfficerId: other.id, issuedDate: '2026-03-05' })).status).toBe(200)
     expect(await holder('2026-09ICT-0199')).toBe(other.id)
     expect(await holder('2026-09ICT-0199a')).toBe(other.id)
