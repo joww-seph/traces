@@ -601,8 +601,8 @@ Sources: photos of a signed ICS (Appendix 59) and PAR (Appendix 71), a filled RP
 | Topic | Decision |
 |---|---|
 | ICS/PAR number format | Suggested as `YYYY-MM{UNIT}-NNN` (e.g. `2026-11SARAi-001`) from the issue date and the office unit chosen on the form; NNN counts per year + unit + form type from 001 (deleted forms still count). Editable; the unique `(type, doc_no)` is the guard. `GET /api/document-numbers/next?issuedDate=&unit=`. |
-| Office units | Table `units` (code 1–12 letters/digits, unique ignoring case; name; active). Kept by the IT officer on the Settings page; the office's list is still to be provided. |
-| Officers and property types | Only the IT officer (superadmin) opens these pages and changes them (403 otherwise); supply admins still read both lists to fill in forms. |
+| Office units | Table `units` (code 1–12 letters/digits, unique ignoring case; name; active). Kept by the IT officer on the Office units page (like property types); the office's list is still to be provided. |
+| Officers, property types and office units | Only the IT officer (superadmin) opens these pages and changes them (403 otherwise); supply admins still read both lists to fill in forms. |
 | Registry "Issued, Office/Officer" | Confirmed: it is the ICS/PAR's Received by, derived from the document (nothing stored). |
 | Public scan view (revises BR-12 / SEC-10) | The Card, Report and Registry tabs show the entire form with the scanned item's row highlighted. Other lines' officer names are blanked; still no UUIDs or user data. |
 | PDF that fails to load | The scan page shows "Could not load the PDF." and keeps working (react-pdf suspense mode off). |

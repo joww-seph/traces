@@ -12,6 +12,7 @@ import DocumentDetail from '@/pages/documents/Detail'
 import Documents from '@/pages/documents/List'
 import LineForm from '@/pages/lines/LineForm'
 import Officers from '@/pages/officers/List'
+import Units from '@/pages/units/Units'
 import Card from '@/pages/cards/Card'
 import Cards from '@/pages/cards/List'
 import IssueForm from '@/pages/issue/IssueForm'
@@ -56,6 +57,7 @@ export const router = createBrowserRouter([
           children: [
             { path: 'officers', element: <Officers /> }, // kept by the IT officer
             { path: 'property-types', element: <PropertyTypes /> },
+            { path: 'units', element: <Units /> },
             { path: 'admin/users', element: <Users /> },
             { path: 'admin/settings', element: <SettingsPage /> },
             { path: 'admin/audit', element: <Audit /> },

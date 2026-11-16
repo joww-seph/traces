@@ -164,14 +164,15 @@ test.describe('records flow', () => {
   })
 
   test('the ICS number is suggested from the unit; a number already on file cannot be used twice, and a missing number is asked for', async ({ page, browser }) => {
-    const it = await browser.newContext() // the IT officer adds the unit on the Settings page
+    const it = await browser.newContext() // the IT officer adds the unit on the Office units page
     const itPage = await it.newPage()
     await login(itPage, E2E.superadmin)
-    await itPage.goto('/admin/settings')
+    await itPage.goto('/units')
+    await itPage.getByRole('button', { name: 'Add unit' }).click()
     await itPage.locator('#u-code').fill('ADM')
     await itPage.locator('#u-name').fill('Administrative Unit')
-    await itPage.getByRole('button', { name: 'Add unit' }).click()
-    await expect(itPage.getByText('Unit ADM added')).toBeVisible()
+    await itPage.getByRole('dialog').getByRole('button', { name: 'Add unit' }).click()
+    await expect(itPage.getByRole('cell', { name: 'ADM', exact: true })).toBeVisible()
     await it.close()
     await login(page)
     await page.goto('/issue')

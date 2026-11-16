@@ -474,7 +474,7 @@ export default function IssueForm() {
                 <option value="">Choose the office unit</option>
                 {units.filter((u) => u.active || u.code === header.unit).map((u) => <option key={u.code} value={u.code}>{u.code} · {u.name}</option>)}
               </NativeSelect>
-              {!units.some((u) => u.active) && <p className="text-xs text-muted-foreground">No office units yet. {user?.role === 'superadmin' ? <>Add them on the <Link to="/admin/settings" className="underline">Settings</Link> page.</> : 'Ask the IT officer to add them.'}</p>}</div>
+              {!units.some((u) => u.active) && <p className="text-xs text-muted-foreground">No office units yet. {user?.role === 'superadmin' ? <>Add them on the <Link to="/units" className="underline">Office units</Link> page.</> : 'Ask the IT officer to add them.'}</p>}</div>
           )}
           {!documentId && icsRows > 0 && (
             <div className="grid content-start gap-1.5"><Label htmlFor="icsNo">ICS No.</Label>

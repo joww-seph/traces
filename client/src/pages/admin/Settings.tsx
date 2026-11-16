@@ -8,7 +8,7 @@ import { PageHeader } from '@/components/PageHeader'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { useOfficers, useSettings, useUnits, type Settings, type Unit } from '@/lib/queries'
+import { useOfficers, useSettings, type Settings } from '@/lib/queries'
 import { PageSkeleton } from '@/components/Loading'
 import { OfficerPicker } from '@/components/OfficerPicker'
 
@@ -90,50 +90,7 @@ export default function SettingsPage() {
         </section>
         <div><Button type="submit" disabled={save.isPending}>Save settings</Button></div>
       </form>
-      <UnitsSection />
     </>
   )
 }
 
-// The units whose code goes inside ICS/PAR numbers (2026-11SARAi-001). Saved at once, not with the form above.
-function UnitsSection() {
-  const qc = useQueryClient()
-  const { data: units = [] } = useUnits()
-  const [code, setCode] = useState('')
-  const [name, setName] = useState('')
-  const [error, setError] = useState('')
-  const done = () => qc.invalidateQueries({ queryKey: ['units'] })
-  const add = useMutation({
-    mutationFn: () => api.post<Unit>('/api/units', { code: code.trim(), name: name.trim() }),
-    onSuccess: (u) => { done(); setCode(''); setName(''); setError(''); toast.success(`Unit ${u.code} added`) },
-    onError: (e) => setError(e instanceof ApiError ? (e.status === 409 ? 'That unit code is already on the list.' : e.message) : 'Could not add the unit'),
-  })
-  const toggle = useMutation({
-    mutationFn: (u: Unit) => api.patch<Unit>(`/api/units/${u.code}`, { active: !u.active }),
-    onSuccess: (u) => { done(); toast.success(u.active ? `${u.code} is offered again` : `${u.code} is no longer offered`) },
-    onError: (e) => toast.error(e instanceof ApiError ? e.message : 'Could not save'),
-  })
-  return (
-    <section aria-labelledby="units-h" className="mt-5 grid max-w-2xl gap-3 rounded-xl border bg-card p-5">
-      <h2 id="units-h" className="font-medium">Units for ICS/PAR numbers</h2>
-      <p className="text-sm text-muted-foreground">The unit code goes inside the suggested number, for example 2026-11<b>SARAi</b>-001.</p>
-      {units.length > 0 && (
-        <ul className="divide-y rounded-md border">
-          {units.map((u) => (
-            <li key={u.code} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 text-sm">
-              <span className="figures font-semibold">{u.code}</span>
-              <span className="min-w-0 flex-1 break-words text-muted-foreground">{u.name}{!u.active && ' (not offered)'}</span>
-              <Button type="button" variant="ghost" size="sm" disabled={toggle.isPending} onClick={() => toggle.mutate(u)}>{u.active ? 'Stop offering' : 'Offer again'}</Button>
-            </li>
-          ))}
-        </ul>
-      )}
-      <form className="grid gap-3 sm:grid-cols-[10rem_1fr_auto] sm:items-end" onSubmit={(e) => { e.preventDefault(); add.mutate() }}>
-        <div className="grid gap-1.5"><Label htmlFor="u-code">Code</Label><Input id="u-code" className="figures" value={code} aria-invalid={!!error} onChange={(e) => setCode(e.target.value)} /></div>
-        <div className="grid gap-1.5"><Label htmlFor="u-name">Name</Label><Input id="u-name" value={name} onChange={(e) => setName(e.target.value)} /></div>
-        <Button type="submit" variant="outline" disabled={add.isPending || !code.trim() || !name.trim()}>Add unit</Button>
-        {error && <p role="alert" className="text-sm text-destructive sm:col-span-3">{error}</p>}
-      </form>
-    </section>
-  )
-}
