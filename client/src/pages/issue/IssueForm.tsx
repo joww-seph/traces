@@ -218,7 +218,7 @@ export default function IssueForm() {
       setHeaderError({ receiver: e.message }); toast.error(e.message)
     } else if (e.code === 'ITEM_EXISTS' && d.rowIndex !== undefined && d.itemId) {
       const c = entries[d.rowIndex]
-      setEntry(d.rowIndex, { cardMode: 'pick', itemId: d.itemId, itemLabel: `${c.newCard.article}, ${c.newCard.model}`, itemCategory: categoryOf(c, threshold) ?? undefined, itemTypeId: Number(c.newCard.typeId) || undefined, unit: c.newCard.unit })
+      setEntry(d.rowIndex, { cardMode: 'pick', itemId: d.itemId, itemLabel: `${c.newCard.article}, ${c.newCard.model}`, itemArticle: c.newCard.article, itemModel: c.newCard.model, itemCategory: categoryOf(c, threshold) ?? undefined, itemTypeId: Number(c.newCard.typeId) || undefined, unit: c.newCard.unit })
       toast.warning('That card already exists. The row now uses it; save again.')
     } else if ((e.code === 'CATEGORY_MISMATCH' || e.code === 'ITEM_INACTIVE' || e.code === 'ITEM_NOT_FOUND') && d.rowIndex !== undefined) {
       setErrors({ [d.rowIndex]: [e.message] }); toast.error(e.message)

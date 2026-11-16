@@ -84,6 +84,18 @@ export function put(ws: ExcelJS.Worksheet, addr: string, value: ExcelJS.CellValu
   return c
 }
 
+// Rules every cell of the table (header and rows) on all four sides, keeping a heavier line the template drew,
+// and prints "Page 1 of 2" at the foot of every page.
+export function ruleAndNumber(ws: ExcelJS.Worksheet, r1: number, c1: number, r2: number, c2: number) {
+  const thin = { style: 'thin' as const }
+  for (let r = r1; r <= r2; r++) for (let c = c1; c <= c2; c++) {
+    const cell = ws.getCell(r, c)
+    const b = cell.border ?? {}
+    cell.style = { ...cell.style, border: { top: b.top?.style ? b.top : thin, bottom: b.bottom?.style ? b.bottom : thin, left: b.left?.style ? b.left : thin, right: b.right?.style ? b.right : thin } }
+  }
+  ws.headerFooter = { ...ws.headerFooter, oddFooter: '&CPage &P of &N' }
+}
+
 export function wrap(ws: ExcelJS.Worksheet, addr: string, alignment: Partial<ExcelJS.Alignment> = {}) {
   const c = ws.getCell(addr)
   c.style = { ...c.style, alignment: { ...c.alignment, wrapText: true, vertical: 'middle', ...alignment } }

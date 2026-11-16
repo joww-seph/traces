@@ -606,3 +606,6 @@ Sources: photos of a signed ICS (Appendix 59) and PAR (Appendix 71), a filled RP
 | Registry "Issued, Office/Officer" | Confirmed: it is the ICS/PAR's Received by, derived from the document (nothing stored). |
 | Public scan view (revises BR-12 / SEC-10) | The Card, Report and Registry tabs show the entire form with the scanned item's row highlighted. Other lines' officer names are blanked; still no UUIDs or user data. |
 | PDF that fails to load | The scan page shows "Could not load the PDF." and keeps working (react-pdf suspense mode off). |
+| Card that does not fit the cost | On the issuance form, when the cost puts a row in the other category, the row switches to the same model's card of that category (same type, article and model); if there is none, one button turns the row into that new card, filled in. "Change card" reopens the search on the same model. The server's `CATEGORY_MISMATCH` stays the guard. |
+| Excel exports | Every export rules its table (header and rows) on all four sides and prints "Page N of M" at the foot of each page. |
+| Full screen | The card, registry and report tables (staff pages and the scan view) have a Full screen button; Escape or "Exit full screen" closes it. |

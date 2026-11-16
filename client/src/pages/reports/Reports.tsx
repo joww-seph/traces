@@ -117,7 +117,7 @@ export default function Reports() {
           </div>
           {!r.rows.length
             ? <EmptyState title="Nothing held on that date">This officer holds no {category === 'semi' ? 'semi-expendable' : 'PPE'} items{typeId ? ' of that type' : ''} as at {formatLongDate(r.asAt)}.</EmptyState>
-            : <FormGrid<ReportRow> columnDefs={reportColumns} rowData={r.rows} height={r.rows.length > 8 ? 460 : undefined} />}
+            : <FormGrid<ReportRow> fullscreenTitle={title} columnDefs={reportColumns} rowData={r.rows} height={r.rows.length > 8 ? 460 : undefined} />}
           {r.rows.length > 0 && <p className="figures mt-2 text-right text-sm">Total value per card <span className="font-semibold">{formatPeso(total)}</span></p>}
 
           <div className="mt-6 grid gap-4 md:grid-cols-3">

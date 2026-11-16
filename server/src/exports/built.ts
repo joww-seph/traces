@@ -1,7 +1,7 @@
 import { formatLongDate } from '@traces/shared'
 import ExcelJS from 'exceljs'
 import type { CardData, CountData } from './fill.js'
-import { MONEY, asDate, pesos, sizeRow, toBuffer } from './xlsx.js'
+import { MONEY, asDate, pesos, ruleAndNumber, sizeRow, toBuffer } from './xlsx.js'
 
 // SPC and RPCSP have no official Excel template, so they are drawn here to match the blank forms
 // (Semi-Expendable Property Card, Report on Physical Count of Semi-Expendable Property).
@@ -65,6 +65,7 @@ export async function buildSpc(entityName: string, d: CardData) {
     set('I', x.balanceQty); set('J', pesos(x.amountCentavos), MONEY); set('K', x.remarks ?? '')
     sizeRow(ws, r, ['B', 'K'], { perLine: 12.5 })
   })
+  ruleAndNumber(ws, 6, 1, last, 11)
   ws.pageSetup.printArea = `A1:K${last}`
   return toBuffer(wb)
 }
@@ -115,6 +116,7 @@ export async function buildRpcsp(entityName: string, d: CountData) {
   block('H', 'J', 'Witnessed by:', 'coa_representative', 'Signature over Printed Name of COA Representative')
   ws.getRow(sig + 2).height = Math.max(36, 15 * Math.max(1, names('committee').split('\n').length, names('head_of_agency').split('\n').length, names('coa_representative').split('\n').length))
   ws.getRow(sig + 3).height = 28
+  ruleAndNumber(ws, 9, 1, last, 10)
   ws.pageSetup.printArea = `A1:J${sig + 3}`
   return toBuffer(wb)
 }

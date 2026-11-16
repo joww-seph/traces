@@ -1,7 +1,9 @@
 import { AllCommunityModule, ModuleRegistry, themeQuartz, type ColDef, type ColGroupDef, type GridApi, type RowClickedEvent } from 'ag-grid-community'
 import { AgGridReact } from 'ag-grid-react'
 import { formatPeso } from '@traces/shared'
-import { useEffect, useRef } from 'react'
+import { Maximize2, Minimize2 } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { Button } from '@/components/ui/button'
 
 ModuleRegistry.registerModules([AllCommunityModule])
 
@@ -32,11 +34,16 @@ type Props<T> = {
   onRowClicked?: (row: T) => void
   /** Called after a cell is edited; the grid keeps the typed value until the rows are replaced. */
   onCellEdit?: (row: T, field: string, value: unknown) => void
+  /** Offers a "Full screen" button; the form's title heads the full-screen view. */
+  fullscreenTitle?: string
 }
 
 // Spreadsheet-style view: sort + filter on every column, fixed header, one highlighted row.
-export function FormGrid<T extends object>({ columnDefs, rowData, idKey = 'id' as keyof T & string, highlightRowId, highlightRowIds, height, onRowClicked, onCellEdit }: Props<T>) {
+export function FormGrid<T extends object>({ columnDefs, rowData, idKey = 'id' as keyof T & string, highlightRowId, highlightRowIds, height, onRowClicked, onCellEdit, fullscreenTitle }: Props<T>) {
   const api = useRef<GridApi<T> | null>(null)
+  const [full, setFull] = useState(false)
+  const openBtn = useRef<HTMLButtonElement>(null)
+  const exitBtn = useRef<HTMLButtonElement>(null)
 
   const marked = new Set([...(highlightRowIds ?? []), ...(highlightRowId == null ? [] : [String(highlightRowId)])])
   const reveal = () => {
@@ -50,13 +57,39 @@ export function FormGrid<T extends object>({ columnDefs, rowData, idKey = 'id' a
     reveal()
   }, [highlightRowId, highlightRowIds?.join('|'), rowData]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // full screen: the grid covers the page like a spreadsheet window; Escape or the button closes it
+  useEffect(() => {
+    if (!full) return
+    exitBtn.current?.focus()
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setFull(false) }
+    window.addEventListener('keydown', onKey)
+    const overflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    requestAnimationFrame(reveal)
+    return () => { window.removeEventListener('keydown', onKey); document.body.style.overflow = overflow; openBtn.current?.focus() }
+  }, [full]) // eslint-disable-line react-hooks/exhaustive-deps
+
   return (
-    <div style={height ? { height } : undefined} className="w-full">
+    <div className="w-full">
+      {fullscreenTitle && (
+        <div className="mb-2 flex justify-end">
+          <Button ref={openBtn} type="button" variant="outline" size="sm" onClick={() => setFull(true)}><Maximize2 /> Full screen</Button>
+        </div>
+      )}
+      <div role={full ? 'dialog' : undefined} aria-modal={full || undefined} aria-label={full ? fullscreenTitle : undefined}
+        className={full ? 'fixed inset-0 z-50 flex flex-col gap-2 bg-background p-2 sm:p-3' : 'w-full'}>
+        {full && (
+          <div className="flex items-center gap-2">
+            <h2 className="min-w-0 flex-1 text-sm font-bold sm:text-base">{fullscreenTitle}</h2>
+            <Button ref={exitBtn} type="button" variant="outline" size="sm" onClick={() => setFull(false)}><Minimize2 /> Exit full screen</Button>
+          </div>
+        )}
+        <div style={!full && height ? { height } : undefined} className={full ? 'min-h-0 flex-1' : 'w-full'}>
       <AgGridReact<T>
         theme={gridTheme}
         columnDefs={columnDefs}
         rowData={rowData}
-        domLayout={height ? 'normal' : 'autoHeight'}
+        domLayout={full || height ? 'normal' : 'autoHeight'}
         defaultColDef={{ sortable: true, filter: true, resizable: true, wrapText: true, autoHeight: true, wrapHeaderText: true, autoHeaderHeight: true }}
         getRowId={(p) => String(p.data[idKey])}
         rowClassRules={{ 'traces-highlight': (p) => p.data != null && marked.has(String(p.data[idKey])) }}
@@ -65,6 +98,8 @@ export function FormGrid<T extends object>({ columnDefs, rowData, idKey = 'id' a
         onRowClicked={onRowClicked ? (e: RowClickedEvent<T>) => e.data && onRowClicked(e.data) : undefined}
         overlayNoRowsTemplate="No rows"
       />
+        </div>
+      </div>
     </div>
   )
 }

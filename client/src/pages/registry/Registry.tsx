@@ -67,7 +67,7 @@ export default function Registry() {
       {isLoading ? <BlockSkeleton label="Loading the registry" lines={10} />
         : !data.length
         ? <EmptyState title="Nothing issued in this category">{from || to ? 'No lines were issued in that period. Clear the dates to see everything.' : 'Add lines to an ICS or PAR and they appear here.'}</EmptyState>
-        : <FormGrid<RegistryRow> columnDefs={registryColumns} rowData={data} height={Math.min(680, 170 + data.length * 96)}
+        : <FormGrid<RegistryRow> fullscreenTitle={title} columnDefs={registryColumns} rowData={data} height={Math.min(680, 170 + data.length * 96)}
             onRowClicked={(r) => navigate(`/properties/${encodeURIComponent(r.propertyNos[0])}`)} />}
     </>
   )

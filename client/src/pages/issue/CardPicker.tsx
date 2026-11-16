@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { api } from '@/api'
 import { NativeSelect } from '@/components/NativeSelect'
 import { Badge } from '@/components/ui/badge'
@@ -9,18 +9,43 @@ import { usePropertyTypes, type Card } from '@/lib/queries'
 import type { Entry } from '@/pages/issue/model'
 import { Skeleton } from '@/components/ui/skeleton'
 
+const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase()
+const label = (c: 'semi' | 'ppe') => (c === 'ppe' ? 'PC' : 'SPC')
+const pick = (c: Card): Partial<Entry> => ({
+  itemId: c.id, itemLabel: `${c.article}, ${c.description}`, itemArticle: c.article, itemModel: c.description,
+  itemCategory: c.category, itemTypeId: c.propertyTypeId, unit: c.unit,
+})
+
 // The card of a row: search the existing cards of this row's category, or make a new one inline.
+// When the cost puts the row in the other category, the row moves to the same model's card of that category,
+// or offers to create it, so the user never has to search again.
 export function CardPicker({ n, entry, category, onChange }: {
   n: number; entry: Entry; category: 'semi' | 'ppe' | null; onChange: (patch: Partial<Entry>) => void
 }) {
   const { data: types = [] } = usePropertyTypes()
   const [q, setQ] = useState('')
   const [open, setOpen] = useState(false)
+  const [note, setNote] = useState('')
   const results = useQuery({
     queryKey: ['items', q, category],
     enabled: open && entry.cardMode === 'pick',
     queryFn: () => api.get<Card[]>(`/api/items?active=true&q=${encodeURIComponent(q)}${category ? `&category=${category}` : ''}`),
   })
+
+  // rows saved in an older draft only have the label "Article, Model"
+  const article = entry.itemArticle ?? entry.itemLabel.split(', ')[0]
+  const model = entry.itemModel ?? entry.itemLabel.split(', ').slice(1).join(', ')
+  const wrong = !!(entry.itemId && category && entry.itemCategory && category !== entry.itemCategory)
+  const twin = useQuery({
+    queryKey: ['items', 'twin', model, category], enabled: wrong,
+    queryFn: () => api.get<Card[]>(`/api/items?active=true&category=${category}&q=${encodeURIComponent(model)}`),
+    select: (cards) => cards.find((c) => c.propertyTypeId === entry.itemTypeId && same(c.article, article) && same(c.description, model)) ?? null,
+  })
+  useEffect(() => {
+    if (!wrong || !twin.data) return
+    onChange(pick(twin.data))
+    setNote(`Switched to the ${label(twin.data.category)} card of this model.`)
+  }, [wrong, twin.data]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (entry.cardMode === 'new') {
     const c = entry.newCard
@@ -29,7 +54,7 @@ export function CardPicker({ n, entry, category, onChange }: {
       <div className="grid gap-2 rounded-lg border border-dashed p-3">
         <div className="flex items-center justify-between">
           <span className="text-sm font-medium">New card</span>
-          <Button type="button" variant="ghost" size="xs" onClick={() => onChange({ cardMode: 'pick' })}>Pick an existing card</Button>
+          <Button type="button" variant="ghost" size="xs" onClick={() => { setQ(c.model); onChange({ cardMode: 'pick' }) }}>Pick an existing card</Button>
         </div>
         <NativeSelect aria-label={`Row ${n}, property type`} className="h-8" value={c.typeId} onChange={(e) => set({ typeId: e.target.value })}>
           <option value="">Property type</option>
@@ -43,15 +68,29 @@ export function CardPicker({ n, entry, category, onChange }: {
   }
 
   if (entry.itemId) {
-    const wrong = category && entry.itemCategory && category !== entry.itemCategory
+    const want = category ? label(category) : ''
     return (
       <div className="grid gap-1.5">
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-sm font-medium">{entry.itemLabel}</span>
           <Badge variant="secondary">{entry.itemCategory === 'semi' ? 'SPC' : 'PC'}</Badge>
-          <Button type="button" variant="ghost" size="xs" onClick={() => onChange({ itemId: '', itemLabel: '', itemCategory: undefined, itemTypeId: undefined })}>Change card</Button>
+          {/* the search opens on the same model, so picking again is one click */}
+          <Button type="button" variant="ghost" size="xs" onClick={() => { setNote(''); setQ(model); onChange({ itemId: '', itemLabel: '', itemArticle: undefined, itemModel: undefined, itemCategory: undefined, itemTypeId: undefined }) }}>Change card</Button>
         </div>
-        {wrong && <p role="alert" className="text-xs text-destructive">At this cost the row is {category === 'ppe' ? 'PPE' : 'semi-expendable'}, but this is {entry.itemCategory === 'ppe' ? 'a PC' : 'an SPC'} card. Pick or create a {category === 'ppe' ? 'PC' : 'SPC'} card.</p>}
+        {!wrong && note && <p role="status" className="text-xs text-muted-foreground">{note}</p>}
+        {wrong && twin.data !== null && !twin.isError && <p role="status" className="text-xs text-muted-foreground">Looking for the {want} card of this model…</p>}
+        {wrong && (twin.data === null || twin.isError) && (
+          <div role="alert" className="grid gap-1.5 text-xs text-destructive">
+            <p>At this cost the row is {category === 'ppe' ? 'PPE' : 'semi-expendable'}, but this is {entry.itemCategory === 'ppe' ? 'a PC' : 'an SPC'} card, and this model has no {want} card yet.</p>
+            <Button type="button" variant="outline" size="xs" className="justify-self-start"
+              onClick={() => onChange({
+                cardMode: 'new', itemId: '', itemLabel: '', itemArticle: undefined, itemModel: undefined, itemCategory: undefined, itemTypeId: undefined,
+                newCard: { typeId: entry.itemTypeId ? String(entry.itemTypeId) : '', article, model, unit: entry.unit || 'unit' },
+              })}>
+              Create the {want} card for this model
+            </Button>
+          </div>
+        )}
       </div>
     )
   }
@@ -69,7 +108,7 @@ export function CardPicker({ n, entry, category, onChange }: {
           {results.data?.map((c) => (
             <li key={c.id}>
               <button type="button" className="w-full rounded-md px-2 py-1.5 text-left hover:bg-accent focus-visible:bg-accent focus-visible:outline-none"
-                onClick={() => { onChange({ itemId: c.id, itemLabel: `${c.article}, ${c.description}`, itemCategory: c.category, itemTypeId: c.propertyTypeId, unit: c.unit }); setOpen(false) }}>
+                onClick={() => { onChange(pick(c)); setOpen(false) }}>
                 <span className="font-medium">{c.article}</span>, {c.description} <span className="text-xs text-muted-foreground">({c.propertyTypeCode}, {c.category === 'semi' ? 'SPC' : 'PC'})</span>
               </button>
             </li>

@@ -50,6 +50,36 @@ test('delete form: an unsigned ICS can be deleted after confirming; a signed PAR
   await expect(page.getByText('This item was removed')).toBeVisible()
 })
 
+test('a cost that does not fit the picked card: the row switches to the same model’s other card, or offers to create it', async ({ page }) => {
+  await login(page)
+  await apiSeed(page, '2026-05TWN-001', { main: '2026-05TWN-0001', part: '2026-05TWN-0001a', semi: '2026-05TWN-0002' }, { generate: false })
+  // the laptop model also has an SPC card; the chair model has no PC card
+  const twin = await page.request.post('/api/items', { headers: { Origin: `http://localhost:${E2E.webPort}` },
+    data: { propertyTypeId: 1, article: 'Laptop', description: 'MSI Katana 2026-05TWN-001', unit: 'set', category: 'semi' } })
+  expect(twin.status()).toBe(201)
+
+  await page.goto('/issue')
+  const r1 = page.getByRole('group', { name: 'Row 1' })
+  await r1.getByLabel('Row 1, search cards').fill('MSI Katana 2026-05TWN')
+  await r1.getByRole('button', { name: /MSI Katana 2026-05TWN-001 .*SPC/ }).click()
+  await r1.getByLabel('Unit cost (₱)').fill('96,450.00') // PPE by cost
+  await expect(r1.getByText('Switched to the PC card of this model.')).toBeVisible()
+  await expect(r1.getByText('PC', { exact: true })).toBeVisible()
+  await r1.getByRole('button', { name: 'Change card' }).click()
+  await expect(r1.getByLabel('Row 1, search cards')).toHaveValue('MSI Katana 2026-05TWN-001') // the search keeps the model
+
+  await page.getByRole('button', { name: 'Add a row' }).click()
+  const r2 = page.getByRole('group', { name: 'Row 2' })
+  await r2.getByLabel('Row 2, search cards').fill('Chair 2026-05TWN')
+  await r2.getByRole('button', { name: /Chair 2026-05TWN-001 .*SPC/ }).click()
+  await r2.getByLabel('Unit cost (₱)').fill('60,000.00')
+  await r2.getByRole('button', { name: 'Create the PC card for this model' }).click()
+  await expect(r2.getByLabel('Row 2, article', { exact: true })).toHaveValue('Office chair')
+  await expect(r2.getByLabel('Row 2, model', { exact: true })).toHaveValue('Chair 2026-05TWN-001')
+  await expect(r2.getByLabel('Unit cost (₱)')).toHaveValue('60,000.00') // nothing typed is lost
+  await page.evaluate(() => localStorage.clear()) // no draft left for later tests
+})
+
 test('a supply admin does not see the admin pages', async ({ page }) => {
   await login(page)
   await expect(page.getByRole('link', { name: 'User accounts' })).toHaveCount(0)

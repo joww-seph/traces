@@ -102,7 +102,7 @@ function ReportPanel({ view }: { view: PropertyView }) {
         h.typeLabel, `As at ${formatLongDate(h.asAt)}`, entityLine(h.entityName, h.fundCluster),
         `Accountable officer: ${h.officerName}, ${h.officerPosition}`,
       ]} />
-      <FormGrid<ReportRow> columnDefs={reportColumns} rowData={t.rows} highlightRowId={t.highlightRowId} height={t.rows.length > 8 ? 420 : undefined} />
+      <FormGrid<ReportRow> fullscreenTitle={h.title} columnDefs={reportColumns} rowData={t.rows} highlightRowId={t.highlightRowId} height={t.rows.length > 8 ? 420 : undefined} />
     </section>
   )
 }
@@ -112,7 +112,7 @@ function RegistryPanel({ view }: { view: PropertyView }) {
   return (
     <section aria-label={t.header.title}>
       <FormHead title={t.header.title} lines={[entityLine(t.header.entityName, t.header.fundCluster), t.header.typeName]} />
-      <FormGrid<RegistryRow> columnDefs={registryColumns} rowData={t.rows} highlightRowId={t.highlightRowId} height={t.rows.length > 8 ? 420 : undefined} />
+      <FormGrid<RegistryRow> fullscreenTitle={t.header.title} columnDefs={registryColumns} rowData={t.rows} highlightRowId={t.highlightRowId} height={t.rows.length > 8 ? 420 : undefined} />
     </section>
   )
 }
@@ -132,7 +132,7 @@ export function CardPanel({ card }: { card: CardData }) {
         `Description: ${h.description}`,
         `Property Number: ${range}`,
       ]} />
-      <FormGrid<CardRow> columnDefs={columns} rowData={card.rows} highlightRowIds={card.highlightRowIds} />
+      <FormGrid<CardRow> fullscreenTitle={h.title} columnDefs={columns} rowData={card.rows} highlightRowIds={card.highlightRowIds} />
     </section>
   )
 }

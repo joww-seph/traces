@@ -109,6 +109,30 @@ test('unknown code and malformed code show friendly pages', async ({ browser }) 
   await ctx.close()
 })
 
+test('full screen: the registry and a scanned card fill the screen like a spreadsheet; Escape or the button closes it', async ({ page, browser }) => {
+  await login(page)
+  await page.goto('/registry')
+  await page.getByRole('button', { name: 'Full screen' }).click()
+  const full = page.getByRole('dialog', { name: 'REGISTRY OF SEMI-EXPENDABLE PROPERTY ISSUED' })
+  await expect(full).toBeVisible()
+  const box = (await full.boundingBox())!
+  const vp = page.viewportSize()!
+  expect([Math.round(box.width), Math.round(box.height)]).toEqual([vp.width, vp.height])
+  await expect(full.getByRole('grid')).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(full).toHaveCount(0)
+
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } })
+  const anon = await ctx.newPage()
+  await anon.goto(`/q/${tokens.main}#card`)
+  await anon.getByRole('button', { name: 'Full screen' }).click()
+  const card = anon.getByRole('dialog', { name: 'PROPERTY CARD' })
+  await expect(card.locator('.traces-highlight').first()).toBeVisible()
+  await card.getByRole('button', { name: 'Exit full screen' }).click()
+  await expect(card).toHaveCount(0)
+  await ctx.close()
+})
+
 test('registry: category switch, the property type filter and its title, row opens the property', async ({ page }) => {
   await login(page)
   await page.goto('/registry')

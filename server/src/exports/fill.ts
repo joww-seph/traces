@@ -1,6 +1,6 @@
 import { formatLongDate } from '@traces/shared'
 import { PC, REGISTRY, RPCPPE } from './map.js'
-import { MONEY, asDate, insertRows, loadTemplate, pesos, put, shortDate, sizeRow, toBuffer, usedCols, wrap } from './xlsx.js'
+import { MONEY, asDate, insertRows, loadTemplate, pesos, put, ruleAndNumber, shortDate, sizeRow, toBuffer, usedCols, wrap } from './xlsx.js'
 
 // Each function fills one official form and returns the .xlsx bytes. Money is written in pesos, dates as
 // real Excel dates; every calculated figure (totals, balances, shortage) comes from the SQL views.
@@ -43,6 +43,7 @@ export async function buildPc(s: Settings, d: CardData) {
     put(ws, `${c.remarks}${r}`, x.remarks ?? '')
     sizeRow(ws, r, [c.reference, c.remarks], { perLine: 11.5, font: { name: 'Times New Roman', size: 9 } })
   })
+  ruleAndNumber(ws, 11, 2, last + extra, 10) // header rows 11-12, columns B-J
   return toBuffer(wb)
 }
 
@@ -84,6 +85,7 @@ export async function buildRegistry(s: Settings, d: RegistryData) {
     sizeRow(ws, r, [c.propertyNos, c.description, c.remarks, c.reference], { perLine: 11.5, charsPerWidth: 1.0, font: { name: 'Arial', size: 9 } })
   })
   if (!d.rows.length) ws.getRow(REGISTRY.firstRow).getCell(1).value = null
+  ruleAndNumber(ws, 9, 1, REGISTRY.firstRow + Math.max(1, d.rows.length) - 1, 15) // header rows 9-10, columns A-O
   return toBuffer(wb)
 }
 
@@ -130,6 +132,7 @@ export async function buildRpcppe(s: Settings, d: CountData) {
     put(ws, f(addr), namesOf(d, role))
     wrap(ws, f(addr), { horizontal: 'center', vertical: 'bottom' })
   }
+  ruleAndNumber(ws, 12, 3, RPCPPE.firstRow + RPCPPE.capacity - 1 + extra, 12) // header rows 12-14, columns C-L
   ws.getRow(38 + extra).height = Math.max(45.75, 15 * Math.max(1, ...['committee', 'head_of_agency', 'coa_representative'].map((r) => namesOf(d, r).split('\n').length)) + 4)
   return toBuffer(wb)
 }

@@ -165,3 +165,26 @@ describe('request checks', () => {
     expect((await testPool.query(`SELECT action FROM audit_logs WHERE action LIKE 'export.%'`)).rows).toEqual([{ action: 'export.regspi' }])
   })
 })
+
+describe('every export prints ruled and numbered', () => {
+  it('the table (header and every row) has all four borders, and each printed page says "Page N of M"', async () => {
+    const { agent, laptopItem, chairItem } = await seed()
+    const officerId = (await testPool.query(`SELECT id FROM officers WHERE short_name='MSantos'`)).rows[0].id
+    // [url, first table row, last table row, first column, last column]
+    const forms: [string, number, number, number, number][] = [
+      [`/api/exports/pc?itemId=${laptopItem}`, 11, 30, 2, 10],
+      [`/api/exports/spc?itemId=${chairItem}`, 6, 21, 1, 11],
+      ['/api/exports/regspi', 9, 11, 1, 15],
+      [`/api/exports/rpcppe?officerId=${officerId}&asAt=2026-12-31`, 12, 34, 3, 12],
+      [`/api/exports/rpcsp?officerId=${officerId}&asAt=2026-12-31`, 9, 22, 1, 10],
+    ]
+    for (const [url, r1, r2, c1, c2] of forms) {
+      const { ws } = await sheet(agent, url)
+      expect(ws.headerFooter.oddFooter, url).toBe('&CPage &P of &N')
+      for (let r = r1; r <= r2; r++) for (let c = c1; c <= c2; c++) {
+        const b = ws.getCell(r, c).border ?? {}
+        expect([b.top?.style, b.bottom?.style, b.left?.style, b.right?.style].every(Boolean), `${url} ${ws.getCell(r, c).address}`).toBe(true)
+      }
+    }
+  })
+})
