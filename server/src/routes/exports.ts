@@ -25,7 +25,7 @@ const XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
 // GET /api/exports/:form  spc|pc (?itemId) · regspi|regppe (?typeId&from&to) · rpcsp|rpcppe (?officerId&typeId&asAt&signatories)
 export function exportsRouter() {
   const r = Router()
-  r.use('/exports', requireRole('supply_admin', 'superadmin'))
+  r.use('/exports', requireRole('supply_admin'))
   r.get('/exports/:form', async (req, res) => {
     const form = String(req.params.form) as Form
     if (!FORMS.includes(form)) throw new AppError('NOT_FOUND', 404, `Unknown form "${form}"`)

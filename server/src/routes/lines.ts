@@ -8,7 +8,7 @@ import { ctx } from './ctx.js'
 
 export function linesRouter() {
   const r = Router()
-  r.use(['/lines', '/documents/:id/lines'], requireRole('supply_admin', 'superadmin'))
+  r.use(['/lines', '/documents/:id/lines'], requireRole('supply_admin'))
 
   r.post('/documents/:id/lines', validate(lineInput), async (req, res) =>
     res.status(201).json(await createLine(uuid.parse(req.params.id), req.body, ctx(req))))

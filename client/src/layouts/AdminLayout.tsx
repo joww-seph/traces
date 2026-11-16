@@ -65,7 +65,7 @@ function SidebarContents({ onLogout, showBrand = true }: { onLogout: () => void;
       </NavLink>}
 
       <nav aria-label="Main" className="grid gap-6">
-        <NavGroup title="Records" items={RECORDS} />
+        {user?.role === 'supply_admin' && <NavGroup title="Records" items={RECORDS} />}
         {user?.role === 'superadmin' && <NavGroup title="Administration" items={ADMIN} />}
       </nav>
 

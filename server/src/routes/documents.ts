@@ -29,7 +29,7 @@ function metaOf(req: Request): unknown {
 
 export function documentsRouter() {
   const r = Router()
-  r.use('/documents', requireRole('supply_admin', 'superadmin'))
+  r.use('/documents', requireRole('supply_admin'))
 
   r.get('/documents', async (req, res) => res.json(await listDocuments(listQuery.parse(req.query))))
 

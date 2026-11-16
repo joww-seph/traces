@@ -107,9 +107,10 @@ describe('accountable officers (update 01 U-06)', () => {
   })
 
   it('a document cannot be received by an officer who may not receive (400 OFFICER_CANNOT_RECEIVE)', async () => {
-    const { agent } = await loginAs('superadmin')
-    const issuer = await mk(agent, { fullName: 'Issuer One', canReceive: true })
-    const staff = await mk(agent, { fullName: 'Staff One' })
+    const { agent: it_ } = await loginAs('superadmin') // the IT officer keeps the officers; the supply admin issues
+    const issuer = await mk(it_, { fullName: 'Issuer One', canReceive: true })
+    const staff = await mk(it_, { fullName: 'Staff One' })
+    const { agent } = await loginAs('supply_admin')
     const res = await agent.post('/api/documents')
       .field('meta', JSON.stringify({ type: 'ICS', docNo: 'X-1', fundCluster: 'RAF', issuedDate: '2026-03-01', issuedByOfficerId: issuer.body.id, receivedByOfficerId: staff.body.id }))
       .attach('pdf', await samplePdf(), { filename: 'a.pdf', contentType: 'application/pdf' })

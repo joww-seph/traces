@@ -93,6 +93,18 @@ test('a supply admin does not see the admin pages', async ({ page }) => {
   }
 })
 
+test('the IT officer does not see the records pages', async ({ page }) => {
+  await login(page, E2E.superadmin)
+  await expect(page).toHaveURL(/\/admin\/users$/) // starts on the accounts page, not the dashboard
+  const nav = page.getByRole('navigation', { name: 'Main' })
+  for (const name of ['Dashboard', 'New issuance', 'ICS and PAR', 'Cards', 'Registry', 'Reports', 'Stickers']) await expect(nav.getByRole('link', { name })).toHaveCount(0)
+  await expect(nav.getByRole('link', { name: 'User accounts' })).toBeVisible()
+  for (const url of ['/issue', '/documents', '/cards', '/registry', '/reports', '/stickers', '/properties/2026-09ICT-0402']) {
+    await page.goto(url)
+    await expect(page.getByText('You do not have access to this page.')).toBeVisible()
+  }
+})
+
 test('users: add shows a one-time temporary password, which works once', async ({ page, browser }) => {
   await login(page, E2E.superadmin)
   await page.goto('/admin/users')

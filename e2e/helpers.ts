@@ -18,7 +18,8 @@ export async function login(page: Page, who: { email: string; password: string }
   await page.getByLabel('Email address').fill(who.email)
   await page.getByLabel('Password', { exact: true }).fill(who.password)
   await page.getByRole('button', { name: 'Sign in' }).click()
-  await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible()
+  // the IT officer starts on User accounts; a supply admin on the dashboard
+  await expect(page.getByRole('heading', { name: who === E2E.superadmin ? 'User accounts' : 'Dashboard' })).toBeVisible()
 }
 
 // A two-page signed-form stand-in, written to a temp file the upload field can take.

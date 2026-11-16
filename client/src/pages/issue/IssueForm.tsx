@@ -20,7 +20,6 @@ import { articleOf, blankEntry, categoryOf, centavosOf, duplicate, numbersOf, sl
 import { PageSkeleton } from '@/components/Loading'
 import { OfficerPicker } from '@/components/OfficerPicker'
 import { NativeSelect } from '@/components/NativeSelect'
-import { useAuth } from '@/auth/AuthProvider'
 
 type Header = {
   receivedBy: string; receivedByPosition: string; issuedBy: string; issuedByPosition: string
@@ -49,7 +48,6 @@ export default function IssueForm() {
   const navigate = useNavigate()
   const qc = useQueryClient()
   const draftKey = documentId ? `${DRAFT_KEY}:${documentId}` : DRAFT_KEY
-  const { user } = useAuth()
   const { data: settings } = useSettings()
   const { data: types = [] } = usePropertyTypes()
   const { data: units = [] } = useUnits()
@@ -416,7 +414,7 @@ export default function IssueForm() {
                 <OfficerPicker id="rcv" officers={receivers} value={header.receivedBy} invalid={!!headerError.receiver}
                   onChange={(o) => setHeader({ ...header, receivedBy: o?.id ?? '', receivedByPosition: o?.position ?? header.receivedByPosition })} />
                 {headerError.receiver && <p role="alert" className="text-sm text-destructive">{headerError.receiver}</p>}
-                {!receivers.length && <p className="text-xs text-muted-foreground">No officer can receive property yet. {user?.role === 'superadmin' ? <>Mark who may receive property on the <Link to="/officers" className="underline">Officers</Link> page.</> : 'Ask the IT officer to mark who may receive property.'}</p>}
+                {!receivers.length && <p className="text-xs text-muted-foreground">No officer can receive property yet. Ask the IT officer to mark who may receive property.</p>}
               </div>
               <div className="grid content-start gap-1.5"><Label htmlFor="date">Date issued</Label>
                 <Input id="date" type="date" className="h-9" value={header.issuedDate} onChange={(ev) => setHeader({ ...header, issuedDate: ev.target.value })} />
@@ -474,7 +472,7 @@ export default function IssueForm() {
                 <option value="">Choose the office unit</option>
                 {units.filter((u) => u.active || u.code === header.unit).map((u) => <option key={u.code} value={u.code}>{u.code} · {u.name}</option>)}
               </NativeSelect>
-              {!units.some((u) => u.active) && <p className="text-xs text-muted-foreground">No office units yet. {user?.role === 'superadmin' ? <>Add them on the <Link to="/units" className="underline">Office units</Link> page.</> : 'Ask the IT officer to add them.'}</p>}</div>
+              {!units.some((u) => u.active) && <p className="text-xs text-muted-foreground">No office units yet. Ask the IT officer to add them.</p>}</div>
           )}
           {!documentId && icsRows > 0 && (
             <div className="grid content-start gap-1.5"><Label htmlFor="icsNo">ICS No.</Label>

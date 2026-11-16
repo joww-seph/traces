@@ -6,7 +6,7 @@ import { stickers } from '../services/stickers.js'
 
 export function stickersRouter() {
   const r = Router()
-  r.use('/stickers', requireRole('supply_admin', 'superadmin'))
+  r.use('/stickers', requireRole('supply_admin'))
   // ?documentId=<uuid> or ?nos=A-1,A-2
   r.get('/stickers', async (req, res) => {
     const { documentId, nos } = req.query

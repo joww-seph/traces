@@ -13,12 +13,12 @@ const query = z.object({
 
 export function propertyNumbersRouter() {
   const r = Router()
-  r.use('/property-numbers', requireRole('supply_admin', 'superadmin'))
+  r.use('/property-numbers', requireRole('supply_admin'))
   r.get('/property-numbers/next', async (req, res) => {
     const q = query.parse(req.query)
     res.json({ suggestions: await suggestPropertyNumbers(q.typeId, q.dateAcquired, q.count) })
   })
-  r.use('/document-numbers', requireRole('supply_admin', 'superadmin'))
+  r.use('/document-numbers', requireRole('supply_admin'))
   r.get('/document-numbers/next', async (req, res) => {
     const q = z.object({ issuedDate: isoDate, unit: unitCode }).parse(req.query)
     res.json(await suggestDocumentNumbers(q.issuedDate, q.unit))

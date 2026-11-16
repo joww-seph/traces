@@ -1,4 +1,5 @@
 import { createBrowserRouter, Navigate, useParams } from 'react-router'
+import { useAuth } from '@/auth/AuthProvider'
 import { RequireRole } from '@/auth/RequireRole'
 import AdminLayout from '@/layouts/AdminLayout'
 import Dashboard from '@/pages/Dashboard'
@@ -29,6 +30,11 @@ function ToIssue() {
   return <Navigate to={id ? `/issue?documentId=${id}` : '/issue'} replace />
 }
 
+// the IT officer starts on the accounts page; the dashboard is about the records
+function Home() {
+  return useAuth().user?.role === 'superadmin' ? <Navigate to="/admin/users" replace /> : <Dashboard />
+}
+
 export const router = createBrowserRouter([
   { path: '/q/:token', element: <QrView /> }, // public, no login
   { path: '/login', element: <Login /> },
@@ -37,21 +43,26 @@ export const router = createBrowserRouter([
     children: [{
       element: <AdminLayout />,
       children: [
-        { index: true, element: <Dashboard /> },
-        { path: 'documents', element: <Documents /> },
-        { path: 'issue', element: <IssueForm /> },
-        { path: 'documents/new', element: <Navigate to="/issue" replace /> },
-        { path: 'documents/:id', element: <DocumentDetail /> },
-        { path: 'documents/:id/entry', element: <ToIssue /> },
-        { path: 'documents/:id/lines/new', element: <ToIssue /> },
-        { path: 'lines/:lineId/edit', element: <LineForm /> },
-        { path: 'properties/:no', element: <PropertyDetail /> },
-        { path: 'registry', element: <Registry /> },
-        { path: 'cards', element: <Cards /> },
-        { path: 'cards/:itemId', element: <Card /> },
-        { path: 'reports', element: <Reports /> },
-        { path: 'stickers', element: <StickerSheet /> },
+        { index: true, element: <Home /> },
         { path: 'account/password', element: <Password /> },
+        {
+          element: <RequireRole roles={['supply_admin']} />, // least privilege: the IT officer does not touch the records
+          children: [
+            { path: 'documents', element: <Documents /> },
+            { path: 'issue', element: <IssueForm /> },
+            { path: 'documents/new', element: <Navigate to="/issue" replace /> },
+            { path: 'documents/:id', element: <DocumentDetail /> },
+            { path: 'documents/:id/entry', element: <ToIssue /> },
+            { path: 'documents/:id/lines/new', element: <ToIssue /> },
+            { path: 'lines/:lineId/edit', element: <LineForm /> },
+            { path: 'properties/:no', element: <PropertyDetail /> },
+            { path: 'registry', element: <Registry /> },
+            { path: 'cards', element: <Cards /> },
+            { path: 'cards/:itemId', element: <Card /> },
+            { path: 'reports', element: <Reports /> },
+            { path: 'stickers', element: <StickerSheet /> },
+          ],
+        },
         {
           element: <RequireRole roles={['superadmin']} />,
           children: [

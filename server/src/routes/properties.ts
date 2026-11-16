@@ -10,8 +10,8 @@ import { ctx } from './ctx.js'
 
 export function propertiesRouter() {
   const r = Router()
-  r.use('/properties', requireRole('supply_admin', 'superadmin'))
-  r.use('/dashboard', requireRole('supply_admin', 'superadmin'))
+  r.use('/properties', requireRole('supply_admin'))
+  r.use('/dashboard', requireRole('supply_admin'))
 
   r.get('/dashboard', async (_req, res) => res.json(await dashboard()))
   r.get('/properties/:no/view', async (req, res) => res.json(await adminPropertyView(String(req.params.no))))

@@ -77,3 +77,30 @@ describe('the public view never carries staff data', () => {
     expect(pdf.headers['content-type']).toContain('application/pdf')
   })
 })
+
+// Least privilege: the IT officer keeps accounts, settings and the lists, but does not touch the records (as a supply admin does not touch accounts).
+const RECORDS: R[] = [
+  ['get', '/api/dashboard'], ['get', '/api/documents'], ['post', '/api/documents'], ['get', `/api/documents/${ID}`], ['patch', `/api/documents/${ID}`],
+  ['post', `/api/documents/${ID}/generate`], ['put', `/api/documents/${ID}/pdf`], ['delete', `/api/documents/${ID}/pdf`], ['delete', `/api/documents/${ID}`],
+  ['get', `/api/documents/${ID}/pdf`], ['get', `/api/exports/spc?itemId=${ID}`], ['post', '/api/issuances'],
+  ['get', '/api/items'], ['post', '/api/items'], ['patch', `/api/items/${ID}`],
+  ['post', `/api/documents/${ID}/lines`], ['post', `/api/documents/${ID}/lines/batch`], ['get', `/api/lines/${ID}`], ['patch', `/api/lines/${ID}`],
+  ['put', `/api/lines/${ID}/region`], ['delete', `/api/lines/${ID}`],
+  ['get', '/api/properties/X-1/view'], ['post', '/api/properties/X-1/qr/rotate'], ['get', '/api/properties/X-1'], ['patch', '/api/properties/X-1'],
+  ['get', '/api/property-numbers/next?typeId=1&dateAcquired=2026-01-01'], ['get', '/api/document-numbers/next?issuedDate=2026-01-01&unit=ADM'],
+  ['get', '/api/stickers'], ['get', '/api/views/registry?category=semi'], ['get', '/api/views/cards'], ['get', `/api/views/card/${ID}`],
+  ['get', `/api/reports/rpc?officerId=${ID}&category=ppe`], ['get', '/api/report-signatories'], ['put', '/api/report-signatories'],
+]
+
+describe('the IT officer has no access to the records', () => {
+  it.each(RECORDS)('%s %s -> 403 for the superadmin', async (method, path) => {
+    const { agent } = await loginAs('superadmin')
+    expect((await agent[method](path).send({})).status).toBe(403)
+  })
+  it('the supply admin still opens them; the IT officer still reads the lists it keeps', async () => {
+    const { agent } = await loginAs('supply_admin')
+    for (const path of ['/api/dashboard', '/api/documents', '/api/items', '/api/views/cards', '/api/report-signatories']) expect((await agent.get(path)).status, path).toBe(200)
+    const { agent: it_ } = await loginAs('superadmin')
+    for (const path of ['/api/officers', '/api/property-types', '/api/units', '/api/settings']) expect((await it_.get(path)).status, path).toBe(200)
+  })
+})

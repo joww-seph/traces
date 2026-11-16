@@ -15,7 +15,7 @@ const cardQuery = z.object({ highlightLineId: uuid.optional() })
 
 export function viewsRouter() {
   const r = Router()
-  r.use(['/views', '/reports', '/report-signatories'], requireRole('supply_admin', 'superadmin'))
+  r.use(['/views', '/reports', '/report-signatories'], requireRole('supply_admin'))
 
   r.get('/views/registry', async (req, res) => {
     const { category, ...f } = registryQuery.parse(req.query)
