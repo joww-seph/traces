@@ -64,16 +64,14 @@ export async function apiSeed(page: Page, docNo: string, nos: { main: string; pa
   const res = await page.request.post('/api/issuances', {
     headers: headers(),
     data: {
-      header: { receivedByOfficerId: receiver.id, issuedByOfficerId: issuer.id, issuedDate: '2026-05-12', fundCluster: 'RAF', purpose: 'ICT equipment', icsNo: docNo, parNo: `${docNo}-P` },
+      header: { receivedByOfficerId: receiver.id, issuedByOfficerId: issuer.id, issuedDate: '2026-05-12', fundCluster: 'RAF', purpose: 'ICT equipment', icsNo: docNo, parNos: [`${docNo}-P`] },
       rows: [
         {
-          line: { qty: 1, unitCostCentavos: 9645000, description: 'Laptop Unit\nSpecification:\n- Memory: 16GB', estUsefulLifeYears: 5, dateAcquired: '2026-05-01' },
-          item: { new: { propertyTypeId: 1, article: 'Laptop', description: model, unit: 'set' } },
+          line: { propertyTypeId: 1, article: 'Laptop', unit: 'set', qty: 1, unitCostCentavos: 9645000, description: `${model}\nSpecification:\n- Memory: 16GB`, estUsefulLifeYears: 5, dateAcquired: '2026-05-01' },
           properties: [{ propertyNo: nos.main, serialNo: 'SN-0199' }, { propertyNo: nos.part, componentLabel: 'Mouse' }],
         },
         {
-          line: { qty: 1, unitCostCentavos: 450000, description: 'Ergonomic chair', dateAcquired: '2026-05-01' },
-          item: { new: { propertyTypeId: 2, article: 'Office chair', description: `Chair ${docNo}`, unit: 'unit' } },
+          line: { propertyTypeId: 2, article: 'Office chair', unit: 'unit', qty: 1, unitCostCentavos: 450000, description: `Chair ${docNo}, ergonomic`, dateAcquired: '2026-05-01' },
           properties: [{ propertyNo: nos.semi }],
         },
       ],
@@ -84,8 +82,9 @@ export async function apiSeed(page: Page, docNo: string, nos: { main: string; pa
   if (res.status() !== 201) throw new Error(`issuance: ${res.status()} ${JSON.stringify(body)}`)
   const docs = body.documents as { id: string; type: 'ICS' | 'PAR'; docNo: string }[]
   const token = async (no: string) => ((await (await page.request.get(`/api/properties/${no}`)).json()) as { token: string }).token.trim()
-  const itemId = async (no: string) => ((await (await page.request.get(`/api/properties/${no}/view`)).json()) as { line: { itemId: string } }).line.itemId
-  return { icsId: docs.find((d) => d.type === 'ICS')!.id, parId: docs.find((d) => d.type === 'PAR')!.id, token, itemId }
+  // the card of a property (one card per property): a part opens its unit's card
+  const cardId = async (no: string) => ((await (await page.request.get(`/api/properties/${no}/view`)).json()) as { line: { cardId: string } }).line.cardId
+  return { icsId: docs.find((d) => d.type === 'ICS')!.id, parId: docs.find((d) => d.type === 'PAR')!.id, token, cardId }
 }
 
 // Attaches a signed copy through the API (locks the document's entries).

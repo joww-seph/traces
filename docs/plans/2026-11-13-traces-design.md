@@ -610,3 +610,17 @@ Sources: photos of a signed ICS (Appendix 59) and PAR (Appendix 71), a filled RP
 | Excel exports | Every export rules its table (header and rows) on all four sides and prints "Page N of M" at the foot of each page. |
 | Full screen | The card, registry and report tables (staff pages and the scan view) have a Full screen button; Escape or "Exit full screen" closes it. |
 | Least privilege (IT officer) | The superadmin keeps accounts, settings, the audit log, officers, property types and office units, and nothing else: the records pages (dashboard, issuance, ICS/PAR, cards, registry, reports, stickers, property pages) and their APIs are supply admin only (403 for the superadmin). The superadmin signs in to User accounts. The public scan page is unchanged. |
+
+### Decisions log, 2026-11-18
+| Topic | Decision |
+|---|---|
+| Card | One card per property (main unit), PC and SPC alike; its parts are listed on it and have no card of their own. View `v_property_card` replaces `v_item_card`. The card's date is the ICS/PAR date issued (the receipt movement carries it), the same date as the registry; the date acquired stays on the line for the RPCSP/RPCPPE. |
+| Item on the line | The `items` table (card per model) is gone. A line carries property type, category (from the cost, then frozen), article and unit, and one description (model and specifications). The issuance form's step 1 asks for these; there is no card to pick. Dev data was reset. |
+| Serial numbers | Entered per property number (main unit and each part), default N/A; shown after the description in brackets, e.g. "Laptop MSI Katana (S/N: ABC123)", on screen, in Excel and on the generated ICS/PAR. |
+| ICS / PAR | One ICS per purchase: every semi-expendable row of a save goes on one ICS. One PAR per property: every PPE unit (with its parts) gets its own PAR; numbers are suggested consecutively (`parNos`, `GET /api/document-numbers/next?parCount=`). A row with parts has exactly one main unit; a PAR holds one property (400 `PAR_ONE_PROPERTY`). |
+| Transfers | Not built. Each card row has a Remarks cell a supply admin can edit (audited, `card.remarks`), for later transfers. |
+| Clickable rows | On staff pages, rows of the registry, the officer report and the card list open their ICS/PAR. The public scan view is unchanged. |
+| History | The ICS/PAR page lists every audit entry about the form, its lines, properties and card rows (`GET /api/documents/:id/history`). |
+| Officer's forms | The report page lists the ICS/PAR of which the officer holds a property and downloads them as one PDF (signed copy, else generated; forms with no PDF are named and left out). |
+| Paging and numbering | Registry, report, card list and ICS/PAR list show 20 rows per page. Each list has a No. column (registry: per category + type in issue order; report: per officer; ICS/PAR: per form type), never renumbered by filters. Excel prints 20 rows per sheet with repeated headers; the registry adds Sheet No. The ICS/PAR list has its own Excel export. |
+| Issuance form bug | Saved rows no longer come back as a draft (a refreshed number suggestion after a save used to re-save them). |

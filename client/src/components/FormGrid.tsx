@@ -36,10 +36,12 @@ type Props<T> = {
   onCellEdit?: (row: T, field: string, value: unknown) => void
   /** Offers a "Full screen" button; the form's title heads the full-screen view. */
   fullscreenTitle?: string
+  /** Rows per page (decision 2026-11-18: 20, the printed sheet); omit for one long table. */
+  pageSize?: number
 }
 
 // Spreadsheet-style view: sort + filter on every column, fixed header, one highlighted row.
-export function FormGrid<T extends object>({ columnDefs, rowData, idKey = 'id' as keyof T & string, highlightRowId, highlightRowIds, height, onRowClicked, onCellEdit, fullscreenTitle }: Props<T>) {
+export function FormGrid<T extends object>({ columnDefs, rowData, idKey = 'id' as keyof T & string, highlightRowId, highlightRowIds, height, onRowClicked, onCellEdit, fullscreenTitle, pageSize }: Props<T>) {
   const api = useRef<GridApi<T> | null>(null)
   const [full, setFull] = useState(false)
   const openBtn = useRef<HTMLButtonElement>(null)
@@ -50,7 +52,9 @@ export function FormGrid<T extends object>({ columnDefs, rowData, idKey = 'id' a
     const first = [...marked][0]
     if (first === undefined || !api.current) return
     const node = api.current.getRowNode(first)
-    if (node) api.current.ensureNodeVisible(node, 'middle')
+    if (!node) return
+    if (pageSize && node.rowIndex != null) api.current.paginationGoToPage(Math.floor(node.rowIndex / pageSize)) // the page that holds the scanned row
+    api.current.ensureNodeVisible(node, 'middle')
   }
   useEffect(() => {
     api.current?.redrawRows()
@@ -97,6 +101,8 @@ export function FormGrid<T extends object>({ columnDefs, rowData, idKey = 'id' a
         onGridReady={(e) => { api.current = e.api; reveal() }}
         onRowClicked={onRowClicked ? (e: RowClickedEvent<T>) => e.data && onRowClicked(e.data) : undefined}
         overlayNoRowsTemplate="No rows"
+        {...(pageSize ? { pagination: true, paginationPageSize: pageSize, paginationPageSizeSelector: false } : {})}
+        rowStyle={onRowClicked ? { cursor: 'pointer' } : undefined}
       />
         </div>
       </div>

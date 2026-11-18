@@ -276,8 +276,47 @@ export default function DocumentDetail() {
           )}
         </section>
       </div>
+      <DocumentHistory id={doc.id} />
       <RemoveSignedDialog doc={doc} open={removing} onClose={() => setRemoving(false)} />
       <DeleteFormDialog doc={doc} open={deleting} onClose={() => setDeleting(false)} />
     </>
+  )
+}
+
+type HistoryEntry = { id: number; at: string; action: string; entity: string; actor: string; before: unknown; after: unknown }
+const ACTION: Record<string, string> = {
+  'issuance.create': 'Saved on the issuance form', 'document.create': 'Form created', 'document.update': 'Header changed',
+  'document.generate': 'Form generated', 'document.upload': 'Signed copy attached', 'document.unsign': 'Signed copy removed',
+  'document.delete': 'Form deleted', 'line.create': 'Line added', 'line.update': 'Line changed', 'line.delete': 'Line removed',
+  'line.region': 'Highlight box moved', 'property.update': 'Property changed', 'qr.rotate': 'QR code replaced', 'card.remarks': 'Card remarks changed',
+}
+// what changed: the fields whose value differs, before -> after
+function changes(before: unknown, after: unknown) {
+  if (!before || !after || typeof before !== 'object' || typeof after !== 'object') return []
+  const b = before as Record<string, unknown>, a = after as Record<string, unknown>
+  const show = (v: unknown) => (v === null || v === undefined || v === '' ? '(blank)' : typeof v === 'object' ? JSON.stringify(v) : String(v))
+  return Object.keys(a).filter((k) => k in b && JSON.stringify(a[k]) !== JSON.stringify(b[k]) && !/At$|Id$|^id$/.test(k)).map((k) => `${k}: ${show(b[k])} → ${show(a[k])}`)
+}
+
+// History of the form (decision 2026-11-18): every action on it, its lines, properties and card rows, newest first.
+function DocumentHistory({ id }: { id: string }) {
+  const { data = [], isLoading } = useQuery({ queryKey: ['document-history', id], queryFn: () => api.get<HistoryEntry[]>(`/api/documents/${id}/history`) })
+  return (
+    <section aria-labelledby="history-title" className="mt-8 grid gap-3">
+      <h2 id="history-title" className="text-base font-semibold">History</h2>
+      {isLoading ? <p className="text-sm text-muted-foreground">Loading</p> : !data.length ? <p className="text-sm text-muted-foreground">Nothing recorded yet.</p> : (
+        <ol className="grid gap-2 rounded-xl border bg-card p-4">
+          {data.map((h) => {
+            const diff = changes(h.before, h.after)
+            return (
+              <li key={h.id} className="grid gap-0.5 border-b pb-2 text-sm last:border-b-0 last:pb-0">
+                <span><span className="font-medium">{ACTION[h.action] ?? h.action}</span> <span className="text-muted-foreground">by {h.actor}, {new Date(h.at).toLocaleString('en-PH', { dateStyle: 'medium', timeStyle: 'short' })}</span></span>
+                {diff.length > 0 && <span className="text-xs break-words text-muted-foreground">{diff.join(' · ')}</span>}
+              </li>
+            )
+          })}
+        </ol>
+      )}
+    </section>
   )
 }

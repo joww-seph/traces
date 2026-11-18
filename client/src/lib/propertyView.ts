@@ -9,7 +9,7 @@ export type IcsParRow = {
   description: string; propertyNos: string[]; estUsefulLifeYears: number | null; dateAcquired: string | null
 }
 export type RegistryRow = {
-  id: string; date: string; docType: 'ICS' | 'PAR'; reference: string; propertyNos: string[]; article: string; description: string
+  id: string; rowNo: number; documentId?: string; date: string; docType: 'ICS' | 'PAR'; reference: string; propertyNos: string[]; article: string; description: string
   estUsefulLifeYears: number | null; issuedTo: string | null; issuedQty: number; returnedQty: number; reissuedQty: number
   disposedQty: number; balanceQty: number; amountCentavos: number; remarks: string | null; fundCluster: string
 }
@@ -20,14 +20,14 @@ export type CardRow = {
 }
 // RPCSP / RPCPPE row: On Hand per Count and Shortage/Overage are printed blank, so they are not in the data.
 export type ReportRow = {
-  id: string; article: string; description: string; propertyNos: string[]; unit: string; unitValueCentavos: number
+  id: string; rowNo: number; documentId?: string; article: string; description: string; propertyNos: string[]; unit: string; unitValueCentavos: number
   balancePerCard: number; reference: string; remarks: string | null
 }
 type Tab<H, R> = { header: H; rows: R[]; highlightRowId: string | null }
 export type PropertyView = {
   property: { propertyNo: string; serialNo: string | null; oldPropertyNo: string | null; componentLabel: string | null; partOfSetNo: string | null
     condition: 'serviceable' | 'unserviceable'; category: 'semi' | 'ppe'; token?: string | null }
-  line: { itemId?: string; article: string; description: string; qty: number; unit: string; unitCostCentavos: number; totalCostCentavos: number
+  line: { cardId?: string; article: string; description: string; qty: number; unit: string; unitCostCentavos: number; totalCostCentavos: number
     estUsefulLifeYears: number | null; dateAcquired: string | null }
   document: { type: 'ICS' | 'PAR'; docNo: string; fundCluster: string; issuedDate: string
     issuedBy: { name: string; position: string }; receivedBy: { name: string; position: string }
@@ -40,7 +40,7 @@ export type PropertyView = {
     registry: Tab<{ title: string; category: 'semi' | 'ppe'; typeName: string; entityName: string; fundCluster: string }, RegistryRow>
     card: {
       header: { title: string; category: 'semi' | 'ppe'; entityName: string; fundCluster: string; article: string; description: string; typeName: string
-        propertyNoFirst: string | null; propertyNoLast: string | null }
+        propertyNo: string }
       rows: CardRow[]; highlightRowIds: string[]
     }
   }
@@ -50,6 +50,10 @@ type Cols<T> = (ColDef<T> | ColGroupDef<T>)[]
 const dash = (v: unknown) => (v === null || v === undefined || v === '' ? '' : String(v))
 const num = (headerName: string, field: string, extra: ColDef = {}): ColDef => ({ headerName, field, type: 'rightAligned', width: 96, ...extra })
 const date = (field: string): ColDef => ({ headerName: 'Date', field, width: 130, valueFormatter: (p) => (p.value ? formatLongDate(p.value) : '') })
+// No.: the row's number in its register or report, the same on screen and on the printed sheet (decision 2026-11-18)
+export const ROWS_PER_SHEET = 20
+const rowNoCol = (): ColDef => ({ headerName: 'No.', field: 'rowNo', width: 76, type: 'rightAligned', pinned: 'left' })
+const sheetCol = (): ColDef => ({ headerName: 'Sheet No.', width: 96, type: 'rightAligned', valueGetter: (p) => (p.data?.rowNo ? Math.floor((p.data.rowNo - 1) / ROWS_PER_SHEET) + 1 : '') })
 
 // Column maps from design §4: they must match the official forms exactly.
 export const icsParColumns = (type: 'ICS' | 'PAR'): Cols<IcsParRow> =>
@@ -72,6 +76,7 @@ export const icsParColumns = (type: 'ICS' | 'PAR'): Cols<IcsParRow> =>
 // RegSPI (Annex A.4) and the PPE registry share one layout.
 // Date and reference stay pinned on the left so a row is still identifiable when the wide form is scrolled sideways.
 export const registryColumns: Cols<RegistryRow> = [
+  rowNoCol() as ColDef<RegistryRow>,
   { ...date('date'), pinned: 'left' } as ColDef<RegistryRow>,
   { headerName: 'Reference (ICS/RRSP No.)', field: 'reference', width: 190, pinned: 'left' },
   { headerName: 'Property No.', valueGetter: (p) => p.data?.propertyNos.join('\n'), cellClass: 'traces-pre', minWidth: 170 },
@@ -84,10 +89,12 @@ export const registryColumns: Cols<RegistryRow> = [
   { headerName: 'Balance', children: [num('Qty.', 'balanceQty', { width: 110 })] },
   moneyCol('amountCentavos', 'Amount', { width: 140 }) as ColDef<RegistryRow>,
   { headerName: 'Remarks', field: 'remarks', minWidth: 180, flex: 1, cellClass: 'traces-pre' },
+  sheetCol() as ColDef<RegistryRow>,
 ]
 
 // SPC (semi-expendable) has an Item No. column in Issue/Transfer/Disposal; the PC (Appendix 69) does not.
-export const cardColumns = (category: 'semi' | 'ppe'): Cols<CardRow> => [
+// editRemarks: staff can type the Remarks of a row (for later transfers)
+export const cardColumns = (category: 'semi' | 'ppe', editRemarks = false): Cols<CardRow> => [
   { ...date('date'), pinned: 'left' } as ColDef<CardRow>,
   { headerName: category === 'semi' ? 'Reference' : 'Reference/PAR No.', field: 'reference', width: 190, cellClass: 'traces-pre', pinned: 'left' },
   {
@@ -105,11 +112,12 @@ export const cardColumns = (category: 'semi' | 'ppe'): Cols<CardRow> => [
   },
   { headerName: 'Balance', children: [num('Qty.', 'balanceQty', { width: 110 })] },
   moneyCol('amountCentavos', 'Amount', { width: 140 }) as ColDef<CardRow>,
-  { headerName: 'Remarks', field: 'remarks', minWidth: 160, flex: 1 },
+  { headerName: editRemarks ? 'Remarks (click to edit)' : 'Remarks', field: 'remarks', minWidth: 180, flex: 1, editable: editRemarks, cellClass: editRemarks ? 'traces-editable' : undefined },
 ] as Cols<CardRow>
 
 // The officer report (RPCSP / RPCPPE): "On Hand per Count" and "Shortage/Overage" stay empty, they are filled in by hand when printed.
 export const reportColumns: Cols<ReportRow> = [
+  rowNoCol() as ColDef<ReportRow>,
   { headerName: 'Article', field: 'article', width: 150 },
   { headerName: 'Description', field: 'description', flex: 2, minWidth: 220, cellClass: 'traces-pre' },
   { headerName: 'Property No.', valueGetter: (p) => p.data?.propertyNos.join('\n'), cellClass: 'traces-pre', minWidth: 190 },

@@ -16,7 +16,7 @@ test('seed: an issuance with a PPE laptop set and a semi chair, forms generated'
   const s = await apiSeed(page, '2026-05D2-001', nos)
   icsId = s.icsId
   parId = s.parId
-  cardId = await s.itemId(nos.main)
+  cardId = await s.cardId(nos.main)
   tokens = { main: await s.token(nos.main), part: await s.token(nos.part), semi: await s.token(nos.semi) }
   expect(tokens.main).toMatch(/^[0-9A-Za-z]{10}$/)
 })
@@ -37,7 +37,8 @@ test('a scan opens the property without signing in: the generated form with its 
   await expect(page.locator('.traces-highlight')).toHaveCount(1)
   await expect(page.getByText('REGISTRY OF PROPERTY, PLANT AND EQUIPMENT ISSUED')).toBeVisible()
   await page.getByRole('tab', { name: 'Card' }).click()
-  await expect(page.locator('.traces-highlight')).toHaveCount(2) // the receipt and the issue of this line
+  await expect(page.locator('.traces-highlight')).toHaveCount(1) // the property's own card: receipt and issue share the date issued
+  await expect(page.getByText('Property Number: 2026-09ICT-0301')).toBeVisible()
   await expect(page).toHaveURL(/#card$/)
   await ctx.close()
 })
@@ -147,34 +148,44 @@ test('full screen: the registry and a scanned card fill the screen like a spread
   await ctx.close()
 })
 
-test('registry: category switch, the property type filter and its title, row opens the property', async ({ page }) => {
+test('registry: category switch, the property type filter and its title, a No. per row, row opens its ICS/PAR', async ({ page }) => {
   await login(page)
   await page.goto('/registry')
   await expect(page.getByText('REGISTRY OF SEMI-EXPENDABLE PROPERTY ISSUED')).toBeVisible()
-  await expect(page.getByRole('gridcell', { name: /Ergonomic chair/ }).first()).toBeVisible()
+  await expect(page.getByRole('gridcell', { name: /Chair 2026-05D2-001, ergonomic \(S\/N: N\/A\)/ }).first()).toBeVisible() // serials in brackets
   await page.getByLabel('Property type').selectOption({ label: 'ICT · Information and Communications Technology Equipment' })
   await expect(page.getByRole('paragraph').filter({ hasText: 'Information and Communications Technology Equipment' })).toBeVisible()
   await expect(page.getByText('Nothing issued in this category')).toBeVisible() // no semi ICT yet
   await page.getByLabel('Property type').selectOption('')
   await page.getByRole('radio', { name: 'Property, plant and equipment' }).click()
   await expect(page.getByText('REGISTRY OF PROPERTY, PLANT AND EQUIPMENT ISSUED')).toBeVisible()
-  await expect(page.getByRole('gridcell', { name: /Laptop Unit/ }).first()).toBeVisible()
-  await page.locator('.ag-row').first().click()
-  await expect(page).toHaveURL(/\/properties\/2026-0\dICT-\d+/)
+  await expect(page.getByRole('gridcell', { name: /MSI Katana .*\(S\/N: SN-0199, N\/A\)/ }).first()).toBeVisible()
+  await expect(page.getByRole('columnheader', { name: 'No.', exact: true })).toBeVisible()
+  await expect(page.getByRole('columnheader', { name: 'Sheet No.', exact: true })).toBeVisible()
+  await page.locator('.ag-cell[col-id="description"]').first().click()
+  await expect(page).toHaveURL(/\/documents\/[0-9a-f-]{36}$/)
 })
 
-test('cards: one per model, the list shows balance and units issued, the card page has the SPC/PC rows', async ({ page }) => {
+test('cards: one per property, searchable by number or serial; the card page has its row, editable remarks and its ICS/PAR', async ({ page }) => {
   await login(page)
   await page.goto('/cards')
-  await expect(page.getByRole('row', { name: /Laptop.*MSI Katana 2026-05D2-001/ })).toBeVisible()
-  await page.getByRole('row', { name: /MSI Katana 2026-05D2-001/ }).getByRole('link', { name: 'Laptop' }).click()
+  await page.getByLabel('Search cards').fill('SN-0199')
+  await expect(page.getByRole('row', { name: /2026-09ICT-0301.*Laptop/ })).toBeVisible()
+  await expect(page.getByRole('link', { name: '2026-09ICT-0301a' })).toHaveCount(0) // a part has no card of its own
+  await page.getByRole('link', { name: '2026-09ICT-0301', exact: true }).click()
   await expect(page).toHaveURL(new RegExp(`/cards/${cardId}$`))
   await expect(page.getByRole('heading', { name: 'PROPERTY CARD', level: 1 })).toBeVisible()
-  await expect(page.getByRole('gridcell', { name: '₱96,450.00' }).first()).toBeVisible()
   await expect(page.getByText('Property Number: 2026-09ICT-0301')).toBeVisible()
-  await page.goto(`/cards`)
-  await page.getByLabel('Search cards').fill('chair')
-  await expect(page.getByRole('link', { name: 'Office chair' }).first()).toBeVisible()
+  await expect(page.getByRole('gridcell', { name: 'Maria Santos' }).first()).toBeVisible() // issued to the receiver
+  // remarks are typed in the card (for later transfers)
+  await page.locator('.ag-cell[col-id="remarks"]').first().dblclick()
+  await page.keyboard.type('Moved to the ARD office')
+  await page.keyboard.press('Enter')
+  await expect(page.getByText('Remarks saved')).toBeVisible()
+  await page.reload()
+  await expect(page.getByRole('gridcell', { name: 'Moved to the ARD office' })).toBeVisible()
+  await page.getByRole('link', { name: /Open PAR 2026-05D2-001-P/ }).click()
+  await expect(page).toHaveURL(new RegExp(`/documents/${parId}$`))
 })
 
 test('property page: edit, and replacing the QR code kills the old sticker', async ({ page, browser }) => {

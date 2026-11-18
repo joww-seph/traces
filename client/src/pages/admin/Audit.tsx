@@ -16,7 +16,7 @@ type Row = {
 type Page = { rows: Row[]; nextBefore: number | null }
 type User = { id: string; displayName: string }
 
-const ENTITIES = ['users', 'officers', 'documents', 'lines', 'properties', 'items', 'property_types', 'report_signatories', 'exports', 'settings']
+const ENTITIES = ['users', 'officers', 'documents', 'lines', 'properties', 'movements', 'property_types', 'units', 'report_signatories', 'exports', 'settings']
 
 export default function Audit() {
   const [f, setF] = useState({ entity: '', actorId: '', from: '', to: '' })

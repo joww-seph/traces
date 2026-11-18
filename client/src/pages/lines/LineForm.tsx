@@ -15,16 +15,16 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import type { DocDetail } from '@/pages/documents/Detail'
-import { CardPicker } from '@/pages/issue/CardPicker'
-import { blankEntry, type Entry } from '@/pages/issue/model'
+import { usePropertyTypes } from '@/lib/queries'
 
 type Condition = 'serviceable' | 'unserviceable'
 type Row = { propertyNo: string; kind: 'main' | 'component'; componentLabel: string; serialNo: string; oldPropertyNo: string; condition: Condition; existing: boolean }
 type Values = {
+  typeId: string; article: string; unit: string
   qty: string; unitCost: string; description: string; estUsefulLifeYears: string; dateAcquired: string; iarNo: string; iarDate: string; properties: Row[]
 }
 type LineDto = {
-  id: string; documentId: string; qty: number; unit: string; article: string; itemDescription: string; unitCostCentavos: number; description: string
+  id: string; documentId: string; propertyTypeId: number; qty: number; unit: string; article: string; unitCostCentavos: number; description: string
   estUsefulLifeYears: number | null; dateAcquired: string | null; iarNo: string | null; iarDate: string | null
   category: 'semi' | 'ppe'; region: Region | null
   properties: { propertyNo: string; componentLabel: string | null; serialNo: string | null; oldPropertyNo: string | null; condition: Condition }[]
@@ -32,7 +32,7 @@ type LineDto = {
 
 // form field behind each server-side line field name
 const FIELD: Record<string, keyof Values> = {
-  qty: 'qty', unitCostCentavos: 'unitCost', description: 'description', estUsefulLifeYears: 'estUsefulLifeYears',
+  propertyTypeId: 'typeId', article: 'article', unit: 'unit', qty: 'qty', unitCostCentavos: 'unitCost', description: 'description', estUsefulLifeYears: 'estUsefulLifeYears',
   dateAcquired: 'dateAcquired', iarNo: 'iarNo', iarDate: 'iarDate',
 }
 const opt = (s: string) => (s.trim() ? s.trim() : undefined)
@@ -55,12 +55,13 @@ export default function LineForm() {
   const rows = useFieldArray({ control, name: 'properties' })
   const [region, setRegion] = useState<Region | null>(null)
   const [removed, setRemoved] = useState<string[]>([])
-  const [card, setCard] = useState<Entry | null>(null) // set while the card is being changed
+  const { data: types = [] } = usePropertyTypes()
 
   useEffect(() => {
     const l = lineQ.data
     if (!l) return
     form.reset({
+      typeId: String(l.propertyTypeId), article: l.article, unit: l.unit,
       qty: String(l.qty), unitCost: (l.unitCostCentavos / 100).toFixed(2), description: l.description,
       estUsefulLifeYears: l.estUsefulLifeYears?.toString() ?? '', dateAcquired: l.dateAcquired ?? '', iarNo: l.iarNo ?? '', iarDate: l.iarDate ?? '',
       properties: l.properties.map((p) => ({ propertyNo: p.propertyNo, kind: p.componentLabel ? 'component' : 'main', componentLabel: p.componentLabel ?? '', serialNo: p.serialNo ?? '', oldPropertyNo: p.oldPropertyNo ?? '', condition: p.condition, existing: true })),
@@ -126,18 +127,12 @@ export default function LineForm() {
       serialNo: opt(r.serialNo), oldPropertyNo: opt(r.oldPropertyNo), condition: r.condition,
     }))
     const line = {
+      propertyTypeId: Number(values.typeId), article: values.article.trim(), unit: values.unit.trim(),
       qty: Number(values.qty), unitCostCentavos, description: values.description.trim(),
       estUsefulLifeYears: values.estUsefulLifeYears ? Number(values.estUsefulLifeYears) : undefined,
       dateAcquired: values.dateAcquired, iarNo: opt(values.iarNo), iarDate: opt(values.iarDate),
     }
-    let item: object | undefined
-    if (card?.cardMode === 'pick' && card.itemId) item = { itemId: card.itemId }
-    else if (card?.cardMode === 'new') {
-      const c = card.newCard
-      if (!c.typeId || !c.article.trim() || !c.model.trim() || !c.unit.trim()) return toast.error('Fill in the new card: type, article, model and unit.')
-      item = { new: { propertyTypeId: Number(c.typeId), article: c.article.trim(), description: c.model.trim(), unit: c.unit.trim() } }
-    }
-    const body = { line, ...(item ? { item } : {}), addProperties: props.filter((_, i) => !values.properties[i].existing), removePropertyNos: removed }
+    const body = { line, addProperties: props.filter((_, i) => !values.properties[i].existing), removePropertyNos: removed }
     const parsed = linePatch.safeParse(body)
     if (!parsed.success) {
       for (const issue of parsed.error.issues) {
@@ -187,17 +182,14 @@ export default function LineForm() {
         <Card>
           <CardHeader><CardTitle>Item</CardTitle></CardHeader>
           <CardContent className="grid gap-4 sm:grid-cols-2">
-            <div className="grid gap-1 sm:col-span-2">
-              <span className="text-sm text-muted-foreground">Card</span>
-              <p className="text-sm font-medium">{l ? `${l.article}, ${l.itemDescription} (${l.unit})` : ' '}</p>
-              {!signed && !card && <Button type="button" variant="outline" size="xs" className="justify-self-start" onClick={() => setCard(blankEntry())}>Change card</Button>}
-              {card && l && (
-                <div className="grid gap-1.5">
-                  <CardPicker n={1} entry={card} category={l.category} onChange={(p) => setCard({ ...card, ...p })} />
-                  <Button type="button" variant="ghost" size="xs" className="justify-self-start" onClick={() => setCard(null)}>Keep the current card</Button>
-                </div>
-              )}
+            <div className="grid gap-1.5 sm:col-span-2">
+              <Label htmlFor="typeId">Property type</Label>
+              <NativeSelect id="typeId" className="h-9" disabled={signed} {...register('typeId')}>
+                {types.filter((t) => t.active || String(t.id) === watch('typeId')).map((t) => <option key={t.id} value={t.id}>{t.code} · {t.name}</option>)}
+              </NativeSelect>
             </div>
+            {text('article', 'Article', { placeholder: 'Laptop' })}
+            {text('unit', 'Unit', { placeholder: 'unit' })}
             {text('qty', 'Quantity', { inputMode: 'numeric' })}
             {text('unitCost', 'Unit cost (₱)', { inputMode: 'decimal', placeholder: '96,450.00' })}
             <div className="grid content-center gap-1">

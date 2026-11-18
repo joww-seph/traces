@@ -15,15 +15,14 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { useOfficers, usePropertyTypes, useReceivers, useSettings, useUnits } from '@/lib/queries'
 import type { DocDetail } from '@/pages/documents/Detail'
-import { CardPicker } from '@/pages/issue/CardPicker'
-import { articleOf, blankEntry, categoryOf, centavosOf, duplicate, numbersOf, slotsOf, unitOf, withQty, type Entry } from '@/pages/issue/model'
+import { articleOf, blankEntry, categoryOf, centavosOf, duplicate, isBlank, NO_SERIAL, numbersOf, parCountOf, slotsOf, unitOf, withQty, type Entry } from '@/pages/issue/model'
 import { PageSkeleton } from '@/components/Loading'
 import { OfficerPicker } from '@/components/OfficerPicker'
 import { NativeSelect } from '@/components/NativeSelect'
 
 type Header = {
   receivedBy: string; receivedByPosition: string; issuedBy: string; issuedByPosition: string
-  issuedDate: string; fundCluster: string; purpose: string; unit: string; icsNo: string; parNo: string
+  issuedDate: string; fundCluster: string; purpose: string; unit: string; icsNo: string; parNos: string[] // one per PPE unit
 }
 type Result = { documents: { id: string; type: 'ICS' | 'PAR'; docNo: string; lineIds: string[] }[]; warnings: string[]; generated?: boolean }
 type RowErrors = Record<number, string[]>
@@ -31,12 +30,13 @@ type RowErrors = Record<number, string[]>
 const today = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' })
 const DRAFT_KEY = 'traces:draft:issue'
 
-// Reads a saved draft; anything unreadable is ignored (private windows, old formats).
+// Reads a saved draft; anything unreadable is ignored (private windows, old formats such as drafts made before
+// the card-per-property change, whose rows have no article).
 function readDraft(key: string): { entries: Entry[]; header: Partial<Header> } | null {
   try {
     const raw = localStorage.getItem(key)
     const d = raw && JSON.parse(raw)
-    return d && Array.isArray(d.entries) && d.entries.length ? d : null
+    return d && Array.isArray(d.entries) && d.entries.length && d.entries.every((e: Partial<Entry>) => typeof e.article === 'string' && Array.isArray(e.mains)) ? d : null
   } catch { return null }
 }
 
@@ -59,10 +59,10 @@ export default function IssueForm() {
   const [draft, setDraft] = useState(() => readDraft(draftKey))
   const [entries, setEntries] = useState<Entry[]>(() => draft?.entries ?? [blankEntry()])
   const [header, setHeader] = useState<Header>(() => ({
-    receivedBy: '', receivedByPosition: '', issuedBy: '', issuedByPosition: '', issuedDate: today(), fundCluster: '', purpose: '', unit: '', icsNo: '', parNo: '', ...draft?.header,
+    receivedBy: '', receivedByPosition: '', issuedBy: '', issuedByPosition: '', issuedDate: today(), fundCluster: '', purpose: '', unit: '', icsNo: '', parNos: [], ...draft?.header,
   }))
   const [errors, setErrors] = useState<RowErrors>({})
-  const [headerError, setHeaderError] = useState<{ ics?: string; parNo?: string; receiver?: string; general?: string }>({})
+  const [headerError, setHeaderError] = useState<{ ics?: string; par?: string; receiver?: string; general?: string }>({})
   const [result, setResult] = useState<Result | null>(null)
 
   // defaults that come from settings, once
@@ -76,12 +76,15 @@ export default function IssueForm() {
     }))
   }, [settings, allOfficers])
 
-  // ICS/PAR numbers are suggested as YYYY-MM{UNIT}-NNN for the issue date and the chosen unit.
+  const threshold = settings?.ppeThresholdCentavos
+  const parCount = parCountOf(entries, threshold) // one PAR per PPE unit (decision 2026-11-18)
+
+  // ICS/PAR numbers are suggested as YYYY-MM{UNIT}-NNN for the issue date and the chosen unit, one PAR number per PPE unit.
   // A suggestion fills an empty box or replaces the previous suggestion; a number the user typed is kept.
-  type DocNos = { icsNo: string; parNo: string }
+  type DocNos = { icsNo: string; parNos: string[] }
   const nextDocNos = useQuery({
-    queryKey: ['next-doc-no', header.issuedDate, header.unit], enabled: !documentId && !!header.unit && isIsoDate(header.issuedDate), staleTime: 15_000,
-    queryFn: () => api.get<DocNos>(`/api/document-numbers/next?issuedDate=${header.issuedDate}&unit=${encodeURIComponent(header.unit)}`),
+    queryKey: ['next-doc-no', header.issuedDate, header.unit, parCount], enabled: !documentId && !!header.unit && isIsoDate(header.issuedDate), staleTime: 15_000,
+    queryFn: () => api.get<DocNos>(`/api/document-numbers/next?issuedDate=${header.issuedDate}&unit=${encodeURIComponent(header.unit)}&parCount=${parCount}`),
   })
   const suggestedNos = useRef<DocNos | null>(null)
   useEffect(() => {
@@ -90,19 +93,24 @@ export default function IssueForm() {
     const prev = suggestedNos.current
     suggestedNos.current = s
     setHeader((h) => ({
-      ...h, icsNo: !h.icsNo || h.icsNo === prev?.icsNo ? s.icsNo : h.icsNo, parNo: !h.parNo || h.parNo === prev?.parNo ? s.parNo : h.parNo,
+      ...h, icsNo: !h.icsNo || h.icsNo === prev?.icsNo ? s.icsNo : h.icsNo,
+      parNos: s.parNos.map((no, k) => (!h.parNos[k] || h.parNos[k] === prev?.parNos[k] ? no : h.parNos[k])),
     }))
   }, [nextDocNos.data])
+  // the PAR boxes follow the number of PPE units
+  useEffect(() => { setHeader((h) => (h.parNos.length === parCount ? h : { ...h, parNos: Array.from({ length: parCount }, (_, k) => h.parNos[k] ?? '') })) }, [parCount])
+  const isSuggested = (h: Header) => (!h.icsNo || h.icsNo === suggestedNos.current?.icsNo) && h.parNos.every((no, k) => !no || no === suggestedNos.current?.parNos[k])
 
   // the draft is kept on this computer so a closed tab or a power cut does not lose a long entry
   useEffect(() => {
+    if (result) return // saved: the old rows must never come back as a draft (fresh number suggestions after a save used to re-save them)
     // nothing typed yet = no draft, so an untouched form is never "restored"
-    const blank = entries.length === 1 && !entries[0].description && !entries[0].cost && !entries[0].itemId && !entries[0].newCard.article && !entries[0].newCard.model && (!header.icsNo || header.icsNo === suggestedNos.current?.icsNo) && (!header.parNo || header.parNo === suggestedNos.current?.parNo) && !header.purpose && !header.receivedBy
+    const blank = entries.length === 1 && isBlank(entries[0]) && isSuggested(header) && !header.purpose && !header.receivedBy
     const t = setTimeout(() => {
       try { if (blank) localStorage.removeItem(draftKey); else localStorage.setItem(draftKey, JSON.stringify({ entries, header })) } catch { /* storage unavailable: no draft */ }
     }, 400)
     return () => clearTimeout(t)
-  }, [entries, header, draftKey])
+  }, [entries, header, draftKey, result]) // eslint-disable-line react-hooks/exhaustive-deps
   const clearDraft = () => { try { localStorage.removeItem(draftKey) } catch { /* ignore */ } }
   // throws the unsaved entry away: the rows and the header go back to a new form, and the banner and button go
   const discardDraft = () => {
@@ -113,13 +121,12 @@ export default function IssueForm() {
     setHeaderError({})
     const issuerId = settings?.defaultIssuedByOfficerId ?? ''
     setHeader({
-      receivedBy: '', receivedByPosition: '', issuedDate: today(), fundCluster: settings?.defaultFundCluster ?? '', purpose: '', unit: '', icsNo: suggestedNos.current?.icsNo ?? '', parNo: suggestedNos.current?.parNo ?? '',
+      receivedBy: '', receivedByPosition: '', issuedDate: today(), fundCluster: settings?.defaultFundCluster ?? '', purpose: '', unit: '', icsNo: '', parNos: [],
       issuedBy: issuerId, issuedByPosition: allOfficers.find((o) => o.id === issuerId)?.position ?? '',
     })
     toast.success('Draft discarded')
   }
 
-  const threshold = settings?.ppeThresholdCentavos
   const codes = useMemo(() => Object.fromEntries(types.map((t) => [t.id, t.code])), [types])
   const slots = useMemo(() => slotsOf(entries, codes), [entries, codes])
 
@@ -145,6 +152,7 @@ export default function IssueForm() {
   const rowsBy = (cat: 'semi' | 'ppe') => entries.filter((e) => categoryOf(e, threshold) === cat).length
   const icsRows = documentId ? (doc.data?.type === 'ICS' ? entries.length : 0) : rowsBy('semi')
   const parRows = documentId ? (doc.data?.type === 'PAR' ? entries.length : 0) : rowsBy('ppe')
+  const parForms = documentId ? (doc.data?.type === 'PAR' ? 1 : 0) : parCount
   const issuer = allOfficers.find((o) => o.id === header.issuedBy)
   const receiver = (documentId ? allOfficers.find((o) => o.id === doc.data?.receivedByOfficerId) : receivers.find((o) => o.id === header.receivedBy)) ?? allOfficers.find((o) => o.id === header.receivedBy)
 
@@ -155,22 +163,24 @@ export default function IssueForm() {
     const rows = entries.map((e, i) => {
       const cents = centavosOf(e)
       if (cents === null) add(i, 'Enter the unit cost, like 96,450.00.')
-      if (e.cardMode === 'pick' && !e.itemId) add(i, 'Pick a card or create a new one.')
-      if (e.cardMode === 'new' && (!e.newCard.typeId || !e.newCard.article.trim() || !e.newCard.model.trim() || !e.newCard.unit.trim())) add(i, 'Fill in the new card: type, article, model and unit.')
+      if (!e.typeId || !e.article.trim() || !e.unit.trim()) add(i, 'Fill in the property type, article and unit.')
       if (!isIsoDate(e.dateAcquired)) add(i, 'Enter the date acquired.')
-      if (!e.description.trim()) add(i, 'Enter the description as printed on the form.')
-      const cat = categoryOf(e, threshold)
-      if (e.cardMode === 'pick' && e.itemCategory && cat && e.itemCategory !== cat) add(i, `This cost makes the row ${cat === 'ppe' ? 'PPE' : 'semi-expendable'}, but the card is ${e.itemCategory === 'ppe' ? 'a PC' : 'an SPC'}.`)
+      if (!e.description.trim()) add(i, 'Enter the description (model and specifications).')
       const mainNos = numbers.mains[i]
-      mainNos.forEach((no, u) => { if (!no) add(i, `Unit ${u + 1} has no property number: set the card type and date acquired, or type one.`) })
+      mainNos.forEach((no, u) => { if (!no) add(i, `Unit ${u + 1} has no property number: set the property type and date acquired, or type one.`) })
+      if (e.comps.length && e.mains.length !== 1) add(i, 'A row with parts must have quantity 1: enter each set as its own row.')
+      // "N/A" or blank = no serial (the server reads it the same way)
+      const serial = (v: string) => (v.trim() && v.trim().toUpperCase() !== NO_SERIAL ? { serialNo: v.trim() } : {})
       const props = [
-        ...e.mains.map((m, u) => ({ propertyNo: mainNos[u], ...(m.serial.trim() ? { serialNo: m.serial.trim() } : {}) })),
-        ...e.comps.map((c, k) => ({ propertyNo: numbers.comps[i][k], componentLabel: c.label.trim(), ...(c.serial.trim() ? { serialNo: c.serial.trim() } : {}) })),
+        ...e.mains.map((m, u) => ({ propertyNo: mainNos[u], ...serial(m.serial) })),
+        ...e.comps.map((c, k) => ({ propertyNo: numbers.comps[i][k], componentLabel: c.label.trim(), ...serial(c.serial) })),
       ]
       if (e.comps.some((c) => !c.label.trim())) add(i, 'Every component needs a label, like Mouse.')
       return {
-        line: { qty: Number(e.qty), unitCostCentavos: cents ?? 0, description: e.description.trim(), dateAcquired: e.dateAcquired, ...(e.life.trim() ? { estUsefulLifeYears: Number(e.life) } : {}) },
-        item: e.cardMode === 'pick' ? { itemId: e.itemId } : { new: { propertyTypeId: Number(e.newCard.typeId), article: e.newCard.article.trim(), description: e.newCard.model.trim(), unit: e.newCard.unit.trim() } },
+        line: {
+          propertyTypeId: Number(e.typeId), article: e.article.trim(), unit: e.unit.trim(),
+          qty: Number(e.qty), unitCostCentavos: cents ?? 0, description: e.description.trim(), dateAcquired: e.dateAcquired, ...(e.life.trim() ? { estUsefulLifeYears: Number(e.life) } : {}),
+        },
         properties: props,
       }
     })
@@ -183,7 +193,8 @@ export default function IssueForm() {
         header: {
           receivedByOfficerId: header.receivedBy, receivedByPosition: header.receivedByPosition.trim() || undefined, issuedByOfficerId: header.issuedBy,
           issuedByPosition: header.issuedByPosition.trim() || undefined, issuedDate: header.issuedDate, fundCluster: header.fundCluster.trim(),
-          purpose: header.purpose.trim() || undefined, icsNo: header.icsNo.trim() || undefined, parNo: header.parNo.trim() || undefined,
+          purpose: header.purpose.trim() || undefined, icsNo: header.icsNo.trim() || undefined,
+          parNos: parCount ? header.parNos.slice(0, parCount).map((no) => no.trim()) : undefined,
         },
         rows, generate: false,
       },
@@ -192,14 +203,15 @@ export default function IssueForm() {
 
   const finish = (r: Result) => {
     clearDraft()
-    for (const k of ['officers', 'documents', 'cards', 'registry', 'dashboard', 'items', 'next-no', 'next-doc-no', 'stickers']) qc.invalidateQueries({ queryKey: [k] })
+    setDraft(null)
+    for (const k of ['officers', 'documents', 'cards', 'card', 'registry', 'dashboard', 'next-no', 'next-doc-no', 'stickers']) qc.invalidateQueries({ queryKey: [k] })
     setResult(r)
     window.scrollTo({ top: 0 })
   }
 
   const onError = (e: unknown) => {
     if (!(e instanceof ApiError)) return toast.error('Could not save. Check your connection and try again.')
-    const d = (e.details ?? {}) as { rowIndex?: number; duplicates?: { rowIndex: number; propertyNo: string }[]; type?: string; itemId?: string }
+    const d = (e.details ?? {}) as { rowIndex?: number; duplicates?: { rowIndex: number; propertyNo: string }[]; type?: string }
     if (e.code === 'DUPLICATE_PROPERTY_NO' && d.duplicates) {
       const errs: RowErrors = {}
       for (const x of d.duplicates) (errs[x.rowIndex] ??= []).push(`Property number ${x.propertyNo} is already used or repeated on this form.`)
@@ -208,17 +220,13 @@ export default function IssueForm() {
       qc.invalidateQueries({ queryKey: ['next-no'] })
       toast.error('Nothing was saved. Some property numbers are already used.')
     } else if (e.code === 'DOC_NO_REQUIRED') {
-      setHeaderError(d.type === 'PAR' ? { parNo: e.message } : { ics: e.message }); toast.error(e.message)
+      setHeaderError(d.type === 'PAR' ? { par: e.message } : { ics: e.message }); toast.error(e.message)
     } else if (e.code === 'DUPLICATE_DOCUMENT_NO') {
       qc.invalidateQueries({ queryKey: ['next-doc-no'] }) // somebody else may have taken the suggested number
-      setHeaderError(String((e.details as { type?: string })?.type) === 'PAR' ? { parNo: e.message } : { ics: e.message }); toast.error(e.message)
+      setHeaderError(String((e.details as { type?: string })?.type) === 'PAR' ? { par: e.message } : { ics: e.message }); toast.error(e.message)
     } else if (e.code === 'OFFICER_CANNOT_RECEIVE') {
       setHeaderError({ receiver: e.message }); toast.error(e.message)
-    } else if (e.code === 'ITEM_EXISTS' && d.rowIndex !== undefined && d.itemId) {
-      const c = entries[d.rowIndex]
-      setEntry(d.rowIndex, { cardMode: 'pick', itemId: d.itemId, itemLabel: `${c.newCard.article}, ${c.newCard.model}`, itemArticle: c.newCard.article, itemModel: c.newCard.model, itemCategory: categoryOf(c, threshold) ?? undefined, itemTypeId: Number(c.newCard.typeId) || undefined, unit: c.newCard.unit })
-      toast.warning('That card already exists. The row now uses it; save again.')
-    } else if ((e.code === 'CATEGORY_MISMATCH' || e.code === 'ITEM_INACTIVE' || e.code === 'ITEM_NOT_FOUND') && d.rowIndex !== undefined) {
+    } else if (d.rowIndex !== undefined) {
       setErrors({ [d.rowIndex]: [e.message] }); toast.error(e.message)
     } else if (e.code === 'DOCUMENT_SIGNED') { toast.error(e.message); void doc.refetch() }
     else toast.error(e.message)
@@ -284,7 +292,7 @@ export default function IssueForm() {
           ))}
         </ul>
         <div className="mt-6 flex gap-2">
-          <Button onClick={() => { setResult(null); setEntries([blankEntry()]); setHeader((h) => ({ ...h, icsNo: suggestedNos.current?.icsNo ?? '', parNo: suggestedNos.current?.parNo ?? '', purpose: '' })); if (documentId) navigate('/issue') }}><FilePlus2 /> Enter another issuance</Button>
+          <Button onClick={() => { setResult(null); setEntries([blankEntry()]); setErrors({}); setHeader((h) => ({ ...h, icsNo: '', parNos: [], purpose: '', receivedBy: '', receivedByPosition: '' })); if (documentId) navigate('/issue') }}><FilePlus2 /> Enter another issuance</Button>
           <Link to="/documents" className={buttonVariants({ variant: 'outline' })}>All ICS and PAR</Link>
         </div>
       </>
@@ -314,15 +322,16 @@ export default function IssueForm() {
         title={documentId ? `Add rows to ${doc.data?.type} ${doc.data?.docNo}` : 'New issuance'}
         description={documentId
           ? 'These rows are added to the form that already exists. The receiver and the date stay as they are.'
-          : 'Fill in the four sections in order. One save writes the cards, the registry, the report and the ICS or PAR together.'}
+          : 'Fill in the four sections in order. One save writes the cards (one per property), the registry, the report and the ICS or PAR together.'}
         actions={draft && !documentId ? <Button variant="destructive" size="sm" onClick={discardDraft}>Discard draft</Button> : undefined}
       />
       {draft && <p role="status" className="mb-4 rounded-md border bg-muted/40 px-4 py-2.5 text-sm text-muted-foreground">Your unsaved entry was restored from this computer.</p>}
 
       <form onSubmit={submit(true)} noValidate className="rounded-xl border bg-card px-5 py-6 sm:px-8">
-        {/* 1. Property card */}
+        {/* 1. Property card: every unit gets its own card */}
         <section aria-labelledby="s1" className="border-b pb-6">
           <h2 id="s1" className="text-2xl font-bold sm:text-[1.75rem]">1. Property card</h2>
+          <p className="mt-1 mb-3 text-sm text-muted-foreground">Each unit gets its own card. Enter the item once per row; the serial number goes beside each property number.</p>
           <div className="grid gap-4">
             {entries.map((e, i) => {
               const cat = categoryOf(e, threshold)
@@ -343,20 +352,25 @@ export default function IssueForm() {
                     </span>
                   </div>
                   <div className="grid gap-4 lg:grid-cols-2">
-                    <div className="grid content-start gap-1.5">
-                      <Label>Card (the model)</Label>
-                      <CardPicker n={i + 1} entry={e} category={cat} onChange={(p) => setEntry(i, p)} />
+                    <div className="grid content-start gap-3 sm:grid-cols-2">
+                      <div className="grid gap-1.5 sm:col-span-2"><Label htmlFor={`type-${i}`}>Property type</Label>
+                        <NativeSelect id={`type-${i}`} aria-label={`Row ${i + 1}, property type`} className="h-9" value={e.typeId} onChange={(ev) => setEntry(i, { typeId: ev.target.value })}>
+                          <option value="">Choose the type</option>
+                          {types.filter((t) => t.active || String(t.id) === e.typeId).map((t) => <option key={t.id} value={t.id}>{t.code} · {t.name}</option>)}
+                        </NativeSelect></div>
+                      <div className="grid gap-1.5"><Label htmlFor={`article-${i}`}>Article</Label>
+                        <Input id={`article-${i}`} aria-label={`Row ${i + 1}, article`} className="h-9" placeholder="e.g. Laptop" value={e.article} onChange={(ev) => setEntry(i, { article: ev.target.value })} /></div>
+                      <div className="grid gap-1.5"><Label htmlFor={`unit-${i}`}>Unit</Label>
+                        <Input id={`unit-${i}`} aria-label={`Row ${i + 1}, unit`} className="h-9" placeholder="e.g. unit, set, pc" value={e.unit} onChange={(ev) => setEntry(i, { unit: ev.target.value })} /></div>
                     </div>
                     <div className="grid content-start gap-1.5">
-                      <Label htmlFor={`desc-${i}`}>Description as printed on the form</Label>
-                      <Textarea id={`desc-${i}`} rows={3} placeholder={'e.g. Laptop Unit\nSpecification:\n- Memory: 16GB'} value={e.description} onChange={(ev) => setEntry(i, { description: ev.target.value })} />
+                      <Label htmlFor={`desc-${i}`}>Description (model and specifications, as printed)</Label>
+                      <Textarea id={`desc-${i}`} rows={4} placeholder={'e.g. MSI Katana 15\nSpecification:\n- Memory: 16GB'} value={e.description} onChange={(ev) => setEntry(i, { description: ev.target.value })} />
                     </div>
                   </div>
-                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                     <div className="grid gap-1.5"><Label htmlFor={`qty-${i}`}>Quantity</Label>
                       <Input id={`qty-${i}`} inputMode="numeric" value={e.qty} onChange={(ev) => setEntries((es) => es.map((x, k) => (k === i ? withQty(x, ev.target.value) : x)))} /></div>
-                    <div className="grid gap-1.5"><Label htmlFor={`unit-${i}`}>Unit</Label>
-                      <Input id={`unit-${i}`} readOnly className="bg-muted" value={unitOf(e)} placeholder="from the card" /></div>
                     <div className="grid gap-1.5"><Label htmlFor={`cost-${i}`}>Unit cost (₱)</Label>
                       <Input id={`cost-${i}`} inputMode="decimal" placeholder="e.g. 37,092.00" value={e.cost} onChange={(ev) => setEntry(i, { cost: ev.target.value })} /></div>
                     <div className="grid gap-1.5"><Label htmlFor={`acq-${i}`}>Date acquired</Label>
@@ -371,9 +385,9 @@ export default function IssueForm() {
                     <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                       {e.mains.map((m, u) => (
                         <div key={u} className="grid gap-1 rounded-md bg-muted/40 p-2">
-                          <Input aria-label={`Row ${i + 1}, unit ${u + 1}, property number`} className="figures h-8" value={m.no} placeholder={mainNos[u] || 'needs card type and date'}
+                          <Input aria-label={`Row ${i + 1}, unit ${u + 1}, property number`} className="figures h-8" value={m.no} placeholder={mainNos[u] || 'needs type and date acquired'}
                             onChange={(ev) => setEntries((es) => es.map((x, k) => (k === i ? { ...x, mains: x.mains.map((y, z) => (z === u ? { ...y, no: ev.target.value } : y)) } : x)))} />
-                          <Input aria-label={`Row ${i + 1}, unit ${u + 1}, serial number`} className="h-7" placeholder="Serial no. (optional)" value={m.serial}
+                          <Input aria-label={`Row ${i + 1}, unit ${u + 1}, serial number`} className="h-7" placeholder="Serial no., N/A if none" value={m.serial}
                             onChange={(ev) => setEntries((es) => es.map((x, k) => (k === i ? { ...x, mains: x.mains.map((y, z) => (z === u ? { ...y, serial: ev.target.value } : y)) } : x)))} />
                         </div>
                       ))}
@@ -386,12 +400,14 @@ export default function IssueForm() {
                               onChange={(ev) => setEntries((es) => es.map((x, q) => (q === i ? { ...x, comps: x.comps.map((y, z) => (z === k ? { ...y, label: ev.target.value } : y)) } : x)))} />
                             <Input aria-label={`Row ${i + 1}, component ${k + 1}, property number`} className="figures h-8" value={c.no} placeholder={numbers.comps[i]?.[k] ?? ''}
                               onChange={(ev) => setEntries((es) => es.map((x, q) => (q === i ? { ...x, comps: x.comps.map((y, z) => (z === k ? { ...y, no: ev.target.value } : y)) } : x)))} />
+                            <Input aria-label={`Row ${i + 1}, component ${k + 1}, serial number`} className="h-7" placeholder="Serial no., N/A if none" value={c.serial}
+                              onChange={(ev) => setEntries((es) => es.map((x, q) => (q === i ? { ...x, comps: x.comps.map((y, z) => (z === k ? { ...y, serial: ev.target.value } : y)) } : x)))} />
                             <Button type="button" variant="destructive" size="xs" onClick={() => setEntries((es) => es.map((x, q) => (q === i ? { ...x, comps: x.comps.filter((_, z) => z !== k) } : x)))}>Remove component</Button>
                           </div>
                         ))}
                       </div>
                     )}
-                    <div><Button type="button" variant="outline" size="xs" onClick={() => setEntries((es) => es.map((x, q) => (q === i ? { ...x, comps: [...x.comps, { label: '', no: '', serial: '' }] } : x)))}><Plus /> Add component</Button></div>
+                    <div><Button type="button" variant="outline" size="xs" onClick={() => setEntries((es) => es.map((x, q) => (q === i ? { ...x, comps: [...x.comps, { label: '', no: '', serial: NO_SERIAL }] } : x)))}><Plus /> Add component</Button></div>
                   </div>
                   {errs && <ul role="alert" className="list-disc pl-5 text-sm text-destructive">{errs.map((m, k) => <li key={k}>{m}</li>)}</ul>}
                 </fieldset>
@@ -464,7 +480,8 @@ export default function IssueForm() {
         <FormSection title="4. ICS / PAR">
           <p role="status" className="rounded-md bg-muted/50 px-3 py-2 text-sm sm:col-span-2" data-testid="summary">
             {icsRows + parRows === 0 ? 'Enter a cost on each row to see which forms this makes.'
-              : `This creates ${[icsRows ? `${icsRows} ICS (${icsRows} ${icsRows === 1 ? 'row' : 'rows'})` : '', parRows ? `${parRows} PAR (${parRows} ${parRows === 1 ? 'row' : 'rows'})` : ''].filter(Boolean).join(' and ')}.`}
+              : documentId ? `These ${icsRows + parRows} ${icsRows + parRows === 1 ? 'row is' : 'rows are'} added to ${doc.data?.type} ${doc.data?.docNo}.`
+              : `This creates ${[icsRows ? `1 ICS (${icsRows} ${icsRows === 1 ? 'row' : 'rows'})` : '', parForms ? `${parForms} PAR (one per PPE unit)` : ''].filter(Boolean).join(' and ')}.`}
           </p>
           {!documentId && icsRows + parRows > 0 && (
             <div className="grid content-start gap-1.5 sm:col-span-2"><Label htmlFor="doc-unit">Office unit</Label>
@@ -479,10 +496,22 @@ export default function IssueForm() {
               <Input id="icsNo" className="figures h-9" aria-invalid={!!headerError.ics} value={header.icsNo} onChange={(ev) => setHeader({ ...header, icsNo: ev.target.value })} />
               {headerError.ics && <p role="alert" className="text-sm text-destructive">{headerError.ics}</p>}</div>
           )}
-          {!documentId && parRows > 0 && (
-            <div className="grid content-start gap-1.5"><Label htmlFor="parNo">PAR No.</Label>
-              <Input id="parNo" className="figures h-9" aria-invalid={!!headerError.parNo} value={header.parNo} onChange={(ev) => setHeader({ ...header, parNo: ev.target.value })} />
-              {headerError.parNo && <p role="alert" className="text-sm text-destructive">{headerError.parNo}</p>}</div>
+          {!documentId && parCount > 0 && (
+            <div className="grid content-start gap-1.5 sm:col-span-2">
+              <p className="text-sm font-medium">PAR No., one per PPE unit</p>
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {header.parNos.map((no, k) => {
+                  const unitNo = entries.flatMap((e, i) => (categoryOf(e, threshold) === 'ppe' ? (numbers.mains[i] ?? []) : []))[k]
+                  return (
+                    <div key={k} className="grid gap-1">
+                      <Label htmlFor={`parNo-${k}`} className="text-xs text-muted-foreground">{`For ${unitNo || `PPE unit ${k + 1}`}`}</Label>
+                      <Input id={`parNo-${k}`} aria-label={`PAR No. ${k + 1}`} className="figures h-9" aria-invalid={!!headerError.par} value={no}
+                        onChange={(ev) => setHeader({ ...header, parNos: header.parNos.map((x, z) => (z === k ? ev.target.value : x)) })} />
+                    </div>
+                  )
+                })}
+              </div>
+              {headerError.par && <p role="alert" className="text-sm text-destructive">{headerError.par}</p>}</div>
           )}
           {!documentId && (
             <>

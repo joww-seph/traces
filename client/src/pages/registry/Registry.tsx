@@ -8,7 +8,7 @@ import { FormGrid } from '@/components/FormGrid'
 import { EmptyState, PageHeader } from '@/components/PageHeader'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { registryColumns, type RegistryRow } from '@/lib/propertyView'
+import { registryColumns, ROWS_PER_SHEET, type RegistryRow } from '@/lib/propertyView'
 import { NativeSelect } from '@/components/NativeSelect'
 import { usePropertyTypes, useSettings } from '@/lib/queries'
 import { cn } from '@/lib/utils'
@@ -67,8 +67,8 @@ export default function Registry() {
       {isLoading ? <BlockSkeleton label="Loading the registry" lines={10} />
         : !data.length
         ? <EmptyState title="Nothing issued in this category">{from || to ? 'No lines were issued in that period. Clear the dates to see everything.' : 'Add lines to an ICS or PAR and they appear here.'}</EmptyState>
-        : <FormGrid<RegistryRow> fullscreenTitle={title} columnDefs={registryColumns} rowData={data} height={Math.min(680, 170 + data.length * 96)}
-            onRowClicked={(r) => navigate(`/properties/${encodeURIComponent(r.propertyNos[0])}`)} />}
+        : <FormGrid<RegistryRow> fullscreenTitle={title} columnDefs={registryColumns} rowData={data} pageSize={ROWS_PER_SHEET}
+            onRowClicked={(r) => r.documentId && navigate(`/documents/${r.documentId}`)} />}
     </>
   )
 }

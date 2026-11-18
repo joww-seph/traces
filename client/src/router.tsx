@@ -58,7 +58,7 @@ export const router = createBrowserRouter([
             { path: 'properties/:no', element: <PropertyDetail /> },
             { path: 'registry', element: <Registry /> },
             { path: 'cards', element: <Cards /> },
-            { path: 'cards/:itemId', element: <Card /> },
+            { path: 'cards/:propertyId', element: <Card /> }, // one card per property
             { path: 'reports', element: <Reports /> },
             { path: 'stickers', element: <StickerSheet /> },
           ],

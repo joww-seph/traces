@@ -33,7 +33,7 @@ test('reports: one row per line, balance per card filled, the count columns blan
   await expect(page.locator('#r-officer')).toHaveValue('Maria Santos (MSantos)')
   await page.locator('#r-asat').fill('2026-12-31')
   await expect(page.getByText('REPORT ON THE PHYSICAL COUNT OF PROPERTY, PLANT AND EQUIPMENT')).toBeVisible()
-  await expect(page.locator('.ag-row')).toHaveCount(4) // four laptop sets (app, day2 x2, day3), one row each
+  await expect(page.locator('.ag-cell[col-id="article"]')).toHaveCount(4) // four laptop sets (app, day2 x2, day3), one row each
   await expect(page.getByRole('gridcell', { name: nos.main })).toBeVisible()
   await expect(page.locator('.ag-cell[col-id]').filter({ hasText: /^$/ }).first()).toBeVisible()
   await expect(page.getByRole('columnheader', { name: 'On Hand per Count' })).toBeVisible()
@@ -46,7 +46,19 @@ test('reports: one row per line, balance per card filled, the count columns blan
   await page.locator('#r-asat').fill('2026-05-11') // before the first issuance
   await expect(page.getByText('Nothing held on that date')).toBeVisible()
   await page.locator('#r-asat').fill('2026-12-31')
-  await expect(page.locator('.ag-row')).toHaveCount(4)
+  await expect(page.locator('.ag-cell[col-id="article"]')).toHaveCount(4)
+  await expect(page.getByRole('columnheader', { name: 'No.', exact: true })).toBeVisible()
+
+  // the officer's ICS and PAR: listed, and downloadable as one PDF
+  const forms = page.getByRole('region', { name: /ICS and PAR held by Maria Santos/ })
+  await expect(forms.getByRole('link', { name: 'Download all as one PDF' })).toHaveAttribute('href', `/api/reports/forms.pdf?officerId=${receiver.id}`)
+  await expect(forms.getByRole('listitem').first()).toBeVisible()
+  const pdf = await page.request.get(`/api/reports/forms.pdf?officerId=${receiver.id}`)
+  expect(pdf.headers()['content-type']).toContain('application/pdf')
+
+  // a report row opens its ICS/PAR
+  await page.locator('.ag-cell[col-id="article"]').first().click()
+  await expect(page).toHaveURL(/\/documents\/[0-9a-f-]{36}$/)
 })
 
 test('reports: the footer names are used for printing and saved only as a default; the Excel export downloads', async ({ page }) => {

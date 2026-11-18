@@ -2,7 +2,7 @@ import { formatLongDate, formatPeso } from '@traces/shared'
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { FormGrid } from '@/components/FormGrid'
 import { PdfViewer } from '@/components/PdfViewer'
-import { cardColumns, icsParColumns, registryColumns, reportColumns, type CardRow, type IcsParRow, type PropertyView, type RegistryRow, type ReportRow } from '@/lib/propertyView'
+import { ROWS_PER_SHEET, cardColumns, icsParColumns, registryColumns, reportColumns, type CardRow, type IcsParRow, type PropertyView, type RegistryRow, type ReportRow } from '@/lib/propertyView'
 import { cn } from '@/lib/utils'
 
 const TABS = [
@@ -102,7 +102,7 @@ function ReportPanel({ view }: { view: PropertyView }) {
         h.typeLabel, `As at ${formatLongDate(h.asAt)}`, entityLine(h.entityName, h.fundCluster),
         `Accountable officer: ${h.officerName}, ${h.officerPosition}`,
       ]} />
-      <FormGrid<ReportRow> fullscreenTitle={h.title} columnDefs={reportColumns} rowData={t.rows} highlightRowId={t.highlightRowId} height={t.rows.length > 8 ? 420 : undefined} />
+      <FormGrid<ReportRow> fullscreenTitle={h.title} columnDefs={reportColumns} rowData={t.rows} highlightRowId={t.highlightRowId} pageSize={ROWS_PER_SHEET} />
     </section>
   )
 }
@@ -112,27 +112,28 @@ function RegistryPanel({ view }: { view: PropertyView }) {
   return (
     <section aria-label={t.header.title}>
       <FormHead title={t.header.title} lines={[entityLine(t.header.entityName, t.header.fundCluster), t.header.typeName]} />
-      <FormGrid<RegistryRow> fullscreenTitle={t.header.title} columnDefs={registryColumns} rowData={t.rows} highlightRowId={t.highlightRowId} height={t.rows.length > 8 ? 420 : undefined} />
+      <FormGrid<RegistryRow> fullscreenTitle={t.header.title} columnDefs={registryColumns} rowData={t.rows} highlightRowId={t.highlightRowId} pageSize={ROWS_PER_SHEET} />
     </section>
   )
 }
 
 type CardData = PropertyView['tabs']['card']
 
-// The model card (SPC / PC): one card per model, every issuance of it a row. `highlightRowIds` marks the scanned line's rows.
-export function CardPanel({ card }: { card: CardData }) {
+// The property card (SPC / PC) of one property (decision 2026-11-18): its issuance, and later transfers, as rows.
+// `highlightRowIds` marks the scanned line's rows. Staff pages pass onRemarks to make Remarks editable.
+export function CardPanel({ card, onRemarks }: { card: CardData; onRemarks?: (rowId: string, remarks: string) => void }) {
   const h = card.header
-  const columns = useMemo(() => cardColumns(h.category), [h.category])
-  const range = h.propertyNoFirst && h.propertyNoLast ? (h.propertyNoFirst === h.propertyNoLast ? h.propertyNoFirst : `${h.propertyNoFirst} – ${h.propertyNoLast}`) : '—'
+  const columns = useMemo(() => cardColumns(h.category, !!onRemarks), [h.category, onRemarks])
   return (
     <section aria-label={h.title}>
       <FormHead title={h.title} lines={[
         entityLine(h.entityName, h.fundCluster),
         `${h.category === 'semi' ? 'Semi-expendable Property' : 'Property, Plant and Equipment'}: ${h.article}`,
         `Description: ${h.description}`,
-        `Property Number: ${range}`,
+        `Property Number: ${h.propertyNo}`,
       ]} />
-      <FormGrid<CardRow> fullscreenTitle={h.title} columnDefs={columns} rowData={card.rows} highlightRowIds={card.highlightRowIds} />
+      <FormGrid<CardRow> fullscreenTitle={h.title} columnDefs={columns} rowData={card.rows} highlightRowIds={card.highlightRowIds}
+        onCellEdit={onRemarks ? (row, field, value) => field === 'remarks' && onRemarks(row.id, String(value ?? '')) : undefined} />
     </section>
   )
 }

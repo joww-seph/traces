@@ -5,6 +5,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { api } from '@/api'
 import { NativeSelect } from '@/components/NativeSelect'
+import { ExportButton } from '@/components/ExportButton'
 import { EmptyState, PageHeader } from '@/components/PageHeader'
 import { TypeBadge } from '@/components/TypeBadge'
 import { Badge } from '@/components/ui/badge'
@@ -23,6 +24,7 @@ export function StatusBadge({ status }: { status: DocStatus }) {
 export type DocRow = {
   id: string; type: 'ICS' | 'PAR'; docNo: string; fundCluster: string; issuedDate: string
   receivedByName: string; status: DocStatus
+  rowNo: number // the form's number among its type in issue order (decision 2026-11-18)
 }
 type Page = { rows: DocRow[]; total: number; page: number; pageSize: number }
 
@@ -42,7 +44,10 @@ export default function Documents() {
       <PageHeader
         title="ICS and PAR"
         description="Issuance slips and receipts. Open one to print it, attach the signed copy or print stickers."
-        actions={<Link to="/issue" className={buttonVariants()}><FilePlus2 /> New issuance</Link>}
+        actions={<>
+          <ExportButton path={`/api/exports/icspar?${new URLSearchParams({ ...(type && { type }), ...(status && { status }), ...(q.trim() && { q: q.trim() }) }).toString()}`} />
+          <Link to="/issue" className={buttonVariants()}><FilePlus2 /> New issuance</Link>
+        </>}
       />
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
@@ -73,15 +78,16 @@ export default function Documents() {
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/50 hover:bg-muted/50">
-                <TableHead className="w-16 pl-5">Type</TableHead><TableHead>Number</TableHead><TableHead>Date issued</TableHead>
+                <TableHead className="w-14 pl-5 text-right">No.</TableHead><TableHead className="w-16">Type</TableHead><TableHead>Number</TableHead><TableHead>Date issued</TableHead>
                 <TableHead>Accountable officer</TableHead><TableHead>Fund cluster</TableHead><TableHead className="pr-5">PDF</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {isLoading && <TableSkeletonRows cols={6} label="Loading documents" />}
+              {isLoading && <TableSkeletonRows cols={7} label="Loading documents" />}
               {data?.rows.map((d) => (
                 <TableRow key={d.id} className="cursor-pointer" onClick={() => navigate(`/documents/${d.id}`)}>
-                  <TableCell className="pl-5"><TypeBadge type={d.type} /></TableCell>
+                  <TableCell className="figures pl-5 text-right text-muted-foreground">{d.rowNo}</TableCell>
+                  <TableCell><TypeBadge type={d.type} /></TableCell>
                   <TableCell className="figures font-medium"><Link to={`/documents/${d.id}`} className="hover:underline">{d.docNo}</Link></TableCell>
                   <TableCell>{formatLongDate(d.issuedDate)}</TableCell>
                   <TableCell>{d.receivedByName}</TableCell>

@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { E2E } from '../playwright.config'
-import { a11y, apiSeed, apiSign, login, noHorizontalScroll } from './helpers'
+import { a11y, apiSeed, apiSign, login, noHorizontalScroll, pickOfficer } from './helpers'
 
 // Files run in name order, so this runs after day3.spec.ts in the same database (the semi chair 2026-09ICT-0402 exists).
 test.describe.configure({ mode: 'serial' })
@@ -14,8 +14,8 @@ test('exports: registry and a model card download an .xlsx', async ({ page }) =>
   const [registry] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: /^Export/ }).first().click()])
   expect(registry.suggestedFilename()).toMatch(/\.xlsx$/)
   await page.goto('/cards')
-  await page.getByLabel('Search cards').fill('Chair')
-  await page.getByRole('link', { name: 'Office chair' }).first().click()
+  await page.getByLabel('Search cards').fill('2026-09ICT-0402')
+  await page.getByRole('link', { name: '2026-09ICT-0402' }).first().click()
   const [card] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Export SPC' }).click()])
   expect(card.suggestedFilename()).toMatch(/\.xlsx$/)
 })
@@ -50,33 +50,40 @@ test('delete form: an unsigned ICS can be deleted after confirming; a signed PAR
   await expect(page.getByText('This item was removed')).toBeVisible()
 })
 
-test('a cost that does not fit the picked card: the row switches to the same model’s other card, or offers to create it', async ({ page }) => {
+test('one PAR per PPE unit: two laptops in one row get two PAR numbers in a row; the history of a form shows what was done', async ({ page }) => {
   await login(page)
-  await apiSeed(page, '2026-05TWN-001', { main: '2026-05TWN-0001', part: '2026-05TWN-0001a', semi: '2026-05TWN-0002' }, { generate: false })
-  // the laptop model also has an SPC card; the chair model has no PC card
-  const twin = await page.request.post('/api/items', { headers: { Origin: `http://localhost:${E2E.webPort}` },
-    data: { propertyTypeId: 1, article: 'Laptop', description: 'MSI Katana 2026-05TWN-001', unit: 'set', category: 'semi' } })
-  expect(twin.status()).toBe(201)
-
   await page.goto('/issue')
   const r1 = page.getByRole('group', { name: 'Row 1' })
-  await r1.getByLabel('Row 1, search cards').fill('MSI Katana 2026-05TWN')
-  await r1.getByRole('button', { name: /MSI Katana 2026-05TWN-001 .*SPC/ }).click()
-  await r1.getByLabel('Unit cost (₱)').fill('96,450.00') // PPE by cost
-  await expect(r1.getByText('Switched to the PC card of this model.')).toBeVisible()
-  await expect(r1.getByText('PC', { exact: true })).toBeVisible()
-  await r1.getByRole('button', { name: 'Change card' }).click()
-  await expect(r1.getByLabel('Row 1, search cards')).toHaveValue('MSI Katana 2026-05TWN-001') // the search keeps the model
+  await r1.getByLabel('Row 1, property type', { exact: true }).selectOption({ label: 'ICT · Information and Communications Technology Equipment' })
+  await r1.getByLabel('Row 1, article', { exact: true }).fill('Laptop')
+  await r1.getByLabel('Row 1, unit', { exact: true }).fill('unit')
+  await r1.getByLabel('Description (model and specifications, as printed)').fill('Lenovo ThinkPad E14')
+  await r1.getByLabel('Quantity').fill('2')
+  await r1.getByLabel('Unit cost (₱)').fill('60,000.00')
+  await r1.getByLabel('Date acquired').fill('2026-05-03')
+  await r1.getByLabel('Row 1, unit 1, property number').fill('2026-05TWO-0001')
+  await r1.getByLabel('Row 1, unit 2, property number').fill('2026-05TWO-0002')
+  await r1.getByLabel('Row 1, unit 2, serial number').fill('PF-2')
+  await pickOfficer(page, 'rcv', 'Maria Santos')
+  await pickOfficer(page, 'issuer', 'Juan Dela Cruz')
+  await page.locator('#date').fill('2026-05-12')
+  await page.getByLabel('Office unit').selectOption('ADM')
+  await expect(page.getByTestId('summary')).toHaveText('This creates 2 PAR (one per PPE unit).')
+  const first = await page.locator('#parNo-0').inputValue()
+  expect(first).toMatch(/^2026-05ADM-\d{3}$/)
+  const next = `2026-05ADM-${String(Number(first.slice(-3)) + 1).padStart(3, '0')}`
+  await expect(page.locator('#parNo-1')).toHaveValue(next) // consecutive
+  await page.getByRole('button', { name: "Save, I'll upload the PDF" }).click()
+  await expect(page.getByRole('heading', { name: 'Saved' })).toBeVisible()
+  await expect(page.getByText(first)).toBeVisible()
+  await expect(page.getByText(next)).toBeVisible()
 
-  await page.getByRole('button', { name: 'Add a row' }).click()
-  const r2 = page.getByRole('group', { name: 'Row 2' })
-  await r2.getByLabel('Row 2, search cards').fill('Chair 2026-05TWN')
-  await r2.getByRole('button', { name: /Chair 2026-05TWN-001 .*SPC/ }).click()
-  await r2.getByLabel('Unit cost (₱)').fill('60,000.00')
-  await r2.getByRole('button', { name: 'Create the PC card for this model' }).click()
-  await expect(r2.getByLabel('Row 2, article', { exact: true })).toHaveValue('Office chair')
-  await expect(r2.getByLabel('Row 2, model', { exact: true })).toHaveValue('Chair 2026-05TWN-001')
-  await expect(r2.getByLabel('Unit cost (₱)')).toHaveValue('60,000.00') // nothing typed is lost
+  // the second PAR's page: its History lists the save
+  await page.getByRole('listitem').filter({ hasText: next }).getByRole('link', { name: 'Open' }).click()
+  await expect(page.getByRole('heading', { name: 'History' })).toBeVisible()
+  await expect(page.getByText('Form created')).toBeVisible()
+  await expect(page.getByText('Line added')).toBeVisible()
+  await expect(page.getByRole('gridcell', { name: '2026-05TWO-0002' })).toBeVisible() // this PAR holds the second laptop only
   await page.evaluate(() => localStorage.clear()) // no draft left for later tests
 })
 
