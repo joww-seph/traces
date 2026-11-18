@@ -4,7 +4,7 @@ import { PDFDocument } from 'pdf-lib'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { pool } from '../db/client.js'
 import { testPool, resetDb } from './db.js'
-import { agentFor, itemFor, loginAs, makeDocument, signDocument, makeOfficer } from './helpers.js'
+import { agentFor, ITEM, loginAs, makeDocument, signDocument, makeOfficer } from './helpers.js'
 
 // the made-up people of these tests; their short names are made from these names (MSantos, JDelaCruz, ...)
 const FULL_NAME: Record<string, string> = { JDelaCruz: 'Juan Dela Cruz', MSantos: 'Maria Santos', Staffer: 'Sam Staffer', Iss: 'Ivan Issuer', Rcv: 'Rita Receiver' }
@@ -254,7 +254,7 @@ describe('signed copy: attach, replace, remove (update 01 U-07, update 02 V-04..
       await testPool.query(`INSERT INTO document_files (document_id, kind, stored_name, size_bytes, page_count, created_by)
         VALUES ($1,'generated','g.pdf',10,$2,(SELECT id FROM users LIMIT 1))`, [docId, pages])
       const line = (await agent.post(`/api/documents/${docId}/lines`).send({
-        line: { qty: 1, unitCostCentavos: 100000, description: 'x', dateAcquired: '2026-02-01' }, item: itemFor(100000), properties: [{ propertyNo: `G-${pages}-${docId.slice(0, 4)}` }],
+        line: { ...ITEM, qty: 1, unitCostCentavos: 100000, description: 'x', dateAcquired: '2026-02-01' }, properties: [{ propertyNo: `G-${pages}-${docId.slice(0, 4)}` }],
       })).body
       await testPool.query(`INSERT INTO line_pdf_regions (line_id, kind, page, x, y, w, h) VALUES ($1,'generated',2,0.1,0.2,0.5,0.1)`, [line.lineId])
       return line.lineId as string
@@ -274,14 +274,14 @@ describe('signed copy: attach, replace, remove (update 01 U-07, update 02 V-04..
     const { agent, meta } = await setup()
     const doc = (await upload(agent, meta(), null)).body
     const line = (await agent.post(`/api/documents/${doc.id}/lines`).send({
-      line: { qty: 1, unitCostCentavos: 100000, description: 'x', dateAcquired: '2026-02-01' }, item: itemFor(100000), properties: [{ propertyNo: 'K-1' }],
+      line: { ...ITEM, qty: 1, unitCostCentavos: 100000, description: 'x', dateAcquired: '2026-02-01' }, properties: [{ propertyNo: 'K-1' }],
     })).body
     await att(agent, doc.id)
-    const add = { line: { qty: 1, unitCostCentavos: 100000, description: 'y', dateAcquired: '2026-02-01' }, item: itemFor(100000), properties: [{ propertyNo: 'K-2' }] }
+    const add = { line: { ...ITEM, qty: 1, unitCostCentavos: 100000, description: 'y', dateAcquired: '2026-02-01' }, properties: [{ propertyNo: 'K-2' }] }
     for (const res of [
       await agent.post(`/api/documents/${doc.id}/lines`).send(add),
       await agent.post(`/api/documents/${doc.id}/lines/batch`).send({ rows: [add] }),
-      await agent.patch(`/api/lines/${line.lineId}`).send({ line: { description: 'changed' } }),
+      await agent.patch(`/api/lines/${line.lineId}`).send({ line: { ...ITEM, description: 'changed' } }),
       await agent.patch(`/api/lines/${line.lineId}`).send({ addProperties: [{ propertyNo: 'K-3' }] }),
       await agent.delete(`/api/lines/${line.lineId}`),
     ]) {
@@ -298,7 +298,7 @@ describe('signed copy: attach, replace, remove (update 01 U-07, update 02 V-04..
     const { agent, meta } = await setup()
     const doc = (await upload(agent, meta(), null)).body
     const line = (await agent.post(`/api/documents/${doc.id}/lines`).send({
-      line: { qty: 1, unitCostCentavos: 100000, description: 'x', dateAcquired: '2026-02-01' }, item: itemFor(100000), properties: [{ propertyNo: 'R-1' }],
+      line: { ...ITEM, qty: 1, unitCostCentavos: 100000, description: 'x', dateAcquired: '2026-02-01' }, properties: [{ propertyNo: 'R-1' }],
     })).body
     await att(agent, doc.id)
     await agent.put(`/api/lines/${line.lineId}/region`).send({ kind: 'uploaded', page: 1, x: 0.1, y: 0.1, w: 0.5, h: 0.05 })
@@ -315,7 +315,7 @@ describe('signed copy: attach, replace, remove (update 01 U-07, update 02 V-04..
     const log = (await testPool.query(`SELECT after FROM audit_logs WHERE action='document.unsign'`)).rows
     expect(log).toHaveLength(1)
     expect(log[0].after.reason).toBe('Wrong receiver typed')
-    expect((await agent.patch(`/api/lines/${line.lineId}`).send({ line: { description: 'fixed' } })).status).toBe(200)
+    expect((await agent.patch(`/api/lines/${line.lineId}`).send({ line: { ...ITEM, description: 'fixed' } })).status).toBe(200)
     expect((await agent.delete(`/api/documents/${doc.id}/pdf`).send({ reason: 'again' })).status).toBe(404) // nothing left to remove
   })
 
@@ -340,5 +340,34 @@ describe('signed copy: attach, replace, remove (update 01 U-07, update 02 V-04..
     expect((await pdfBytes(agent.get(`/api/documents/${doc.id}/pdf?kind=uploaded`))).status).toBe(200)
     expect((await agent.get(`/api/documents/${doc.id}/pdf?kind=generated`)).status).toBe(404)
     expect((await agent.get(`/api/documents/${doc.id}/pdf?kind=bogus`)).status).toBe(400)
+  })
+})
+
+describe('ICS/PAR page history and list numbers (decision 2026-11-18)', () => {
+  it('History lists who did what to the form, its lines, properties and card rows, newest first; other forms stay out', async () => {
+    const { agent, user } = await loginAs('supply_admin')
+    const { doc } = await makeDocument(agent)
+    const other = await makeDocument(agent, { docNo: 'OTHER-1' })
+    const line = (await agent.post(`/api/documents/${doc.id}/lines`).send({ line: { ...ITEM, qty: 1, unitCostCentavos: 100000, description: 'x', dateAcquired: '2026-02-01' }, properties: [{ propertyNo: 'H-1' }] })).body
+    await agent.patch(`/api/documents/${doc.id}`).send({ purpose: 'For the lab' })
+    await agent.patch(`/api/lines/${line.lineId}`).send({ line: { description: 'y' } })
+    await agent.patch('/api/properties/H-1').send({ condition: 'unserviceable' })
+    const res = await agent.get(`/api/documents/${doc.id}/history`)
+    expect(res.status).toBe(200)
+    expect(res.body.map((h: { action: string }) => h.action)).toEqual(['property.update', 'line.update', 'document.update', 'line.create', 'document.create'])
+    expect(res.body[0]).toMatchObject({ actor: user.displayName })
+    expect(res.body.find((h: { action: string }) => h.action === 'document.update')).toMatchObject({ after: expect.objectContaining({ purpose: 'For the lab' }) })
+    expect((await agent.get(`/api/documents/${other.doc.id}/history`)).body.map((h: { action: string }) => h.action)).toEqual(['document.create'])
+    expect((await agent.get('/api/documents/00000000-0000-4000-8000-0000000000ff/history')).status).toBe(404)
+  })
+
+  it('the list numbers each form among its type in issue order (No.), whatever the filter; 20 per page', async () => {
+    const { agent } = await loginAs('supply_admin')
+    for (const [i, date] of ['2026-01-05', '2026-03-05', '2026-02-05'].entries()) await makeDocument(agent, { docNo: `N-${i}`, issuedDate: date })
+    await makeDocument(agent, { type: 'PAR', docNo: 'P-0', issuedDate: '2026-01-01' })
+    const all = (await agent.get('/api/documents')).body
+    expect(all.pageSize).toBe(20)
+    expect(all.rows.map((r: { docNo: string; rowNo: number }) => [r.docNo, r.rowNo])).toEqual([['N-1', 3], ['N-2', 2], ['N-0', 1], ['P-0', 1]])
+    expect((await agent.get('/api/documents?q=N-1')).body.rows[0].rowNo).toBe(3)
   })
 })

@@ -3,7 +3,7 @@ import path from 'node:path'
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 import { pool } from '../db/client.js'
 import { testPool, resetDb } from './db.js'
-import { agentFor, itemFor, loginAs, makeDocument, signDocument } from './helpers.js'
+import { agentFor, ITEM, loginAs, makeDocument, signDocument } from './helpers.js'
 
 const STORAGE = path.resolve(process.env.STORAGE_DIR!)
 const PDF_DIR = path.join(STORAGE, 'pdfs')
@@ -12,8 +12,7 @@ beforeEach(async () => { await resetDb(); rmSync(STORAGE, { recursive: true, for
 afterAll(async () => { rmSync(STORAGE, { recursive: true, force: true }); await pool.end(); await testPool.end() })
 
 const lineBody = (n: number, over: object = {}) => ({
-  line: { qty: 1, unitCostCentavos: 4870000, description: `Laptop ${n}\nSpecification:\n- Memory: 16GB`, dateAcquired: '2026-03-01', estUsefulLifeYears: 5, ...over },
-  item: itemFor(4870000), properties: [{ propertyNo: `2026-03ICT-${String(n).padStart(4, '0')}` }],
+  line: { ...ITEM, qty: 1, unitCostCentavos: 4870000, description: `Laptop ${n}\nSpecification:\n- Memory: 16GB`, dateAcquired: '2026-03-01', estUsefulLifeYears: 5, ...over }, properties: [{ propertyNo: `2026-03ICT-${String(n).padStart(4, '0')}` }],
 })
 
 async function seed(lines = 3) {

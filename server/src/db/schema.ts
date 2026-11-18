@@ -103,21 +103,6 @@ export const propertyTypes = pgTable('property_types', {
   uniqueIndex('property_types_name_uq').on(sql`lower(${t.name})`),
 ])
 
-// One card per model: SPC (semi) or PC (ppe)
-export const items = pgTable('items', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  propertyTypeId: smallint('property_type_id').notNull().references(() => propertyTypes.id),
-  category: itemCategory('category').notNull(),
-  article: text('article').notNull(), // general term: "Laptop"
-  description: text('description').notNull(), // the model: "Lenovo ThinkPad E14 Gen 5"
-  unit: text('unit').notNull(),
-  active: boolean('active').notNull().default(true),
-  createdAt: tstz('created_at').notNull().defaultNow(),
-}, (t) => [
-  uniqueIndex('items_identity_uq').on(t.category, t.propertyTypeId, sql`lower(${t.article})`, sql`lower(${t.description})`),
-  index('items_type_idx').on(t.propertyTypeId, t.category).where(sql`active`),
-])
-
 // ───────────── ICS / PAR ─────────────
 export const documents = pgTable('documents', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -160,10 +145,14 @@ export const lines = pgTable('lines', {
   id: uuid('id').primaryKey().defaultRandom(),
   documentId: uuid('document_id').notNull().references(() => documents.id),
   lineNo: integer('line_no').notNull(),
-  itemId: uuid('item_id').notNull().references(() => items.id), // the card; its category is the line's category (3NF)
+  // the item (decision 2026-11-18: one card per property, so the line carries what the model card used to)
+  propertyTypeId: smallint('property_type_id').notNull().references(() => propertyTypes.id),
+  category: itemCategory('category').notNull(), // from the cost when the line is entered (BR-01), then frozen
+  article: text('article').notNull(), // general term: "Laptop"
+  unit: text('unit').notNull(),
   qty: integer('qty').notNull(),
   unitCostCentavos: money('unit_cost_centavos').notNull(),
-  description: text('description').notNull(), // as printed on the ICS/PAR row (specs, serials)
+  description: text('description').notNull(), // the one description, as printed (model and specs); serials are added when shown
   estUsefulLifeYears: smallint('est_useful_life_years'),
   dateAcquired: day('date_acquired'),
   iarNo: text('iar_no'),
@@ -171,7 +160,9 @@ export const lines = pgTable('lines', {
   deletedAt: tstz('deleted_at'),
 }, (t) => [
   unique('lines_document_line_no_uq').on(t.documentId, t.lineNo),
-  index('lines_item_idx').on(t.itemId),
+  index('lines_type_category_idx').on(t.category, t.propertyTypeId).where(sql`deleted_at IS NULL`),
+  check('lines_article_not_blank', sql`btrim(${t.article}) <> ''`),
+  check('lines_unit_not_blank', sql`btrim(${t.unit}) <> ''`),
   check('lines_line_no_positive', sql`${t.lineNo} > 0`),
   check('lines_qty_positive', sql`${t.qty} > 0`),
   check('lines_unit_cost_nonneg', sql`${t.unitCostCentavos} >= 0`),

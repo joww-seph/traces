@@ -1,6 +1,6 @@
 import { and, eq, isNull } from 'drizzle-orm'
 import { db } from '../db/client.js'
-import { documents, items, linePdfRegions, lines, officers, properties, propertyTypes, qrTokens } from '../db/schema.js'
+import { documents, linePdfRegions, lines, officers, properties, propertyTypes, qrTokens } from '../db/schema.js'
 import { filesOf } from './documentFiles.js'
 import { vCustody } from '../db/views.js'
 import { AppError } from '../middleware/error.js'
@@ -8,7 +8,7 @@ import { buildPropertyView, type PropertyViewData } from '../projections/propert
 import { getDocument } from './documents.js'
 import { regionOut } from './lines.js'
 import { getSettings } from './settings.js'
-import { cardHeader, cardRows, findPropertyByNo, officerReportRows, registry } from './views.js'
+import { cardHeader, cardPropertyId, cardRows, findPropertyByNo, officerReportRows, registry } from './views.js'
 
 type Prop = typeof properties.$inferSelect
 
@@ -17,8 +17,8 @@ async function load(p: Prop, token: string | null): Promise<PropertyViewData> {
   const line = (await db.select().from(lines).where(and(eq(lines.id, p.lineId), isNull(lines.deletedAt))))[0]
   const doc = line && (await db.select().from(documents).where(and(eq(documents.id, line.documentId), isNull(documents.deletedAt))))[0]
   if (!line || !doc) throw new AppError('ITEM_REMOVED', 410, 'This item was removed')
-  const item = (await db.select({ category: items.category, article: items.article, description: items.description, unit: items.unit, typeId: items.propertyTypeId, typeName: propertyTypes.name })
-    .from(items).innerJoin(propertyTypes, eq(propertyTypes.id, items.propertyTypeId)).where(eq(items.id, line.itemId)))[0]
+  const typeName = (await db.select({ name: propertyTypes.name }).from(propertyTypes).where(eq(propertyTypes.id, line.propertyTypeId)))[0].name
+  const cardId = await cardPropertyId(p.id) // a component shows its unit's card
 
   const [issuer, receiver] = await Promise.all([
     db.select().from(officers).where(eq(officers.id, doc.issuedByOfficerId)),
@@ -34,8 +34,8 @@ async function load(p: Prop, token: string | null): Promise<PropertyViewData> {
     : null
 
   const [full, header, rows, registryRows, settings, report] = await Promise.all([
-    getDocument(doc.id), cardHeader(line.itemId), cardRows(line.itemId), registry(item.category, { typeId: item.typeId }), getSettings(),
-    holder ? officerReportRows({ officerId: holder, category: item.category, typeId: item.typeId }) : null,
+    getDocument(doc.id), cardHeader(cardId), cardRows(cardId), registry(line.category, { typeId: line.propertyTypeId }), getSettings(),
+    holder ? officerReportRows({ officerId: holder, category: line.category, typeId: line.propertyTypeId }) : null,
   ])
 
   return {
@@ -45,9 +45,9 @@ async function load(p: Prop, token: string | null): Promise<PropertyViewData> {
       condition: p.condition, partOfSetNo: mainNo,
     },
     line: {
-      id: line.id, itemId: line.itemId, category: item.category, article: item.article, description: line.description, itemDescription: item.description,
-      qty: line.qty, unit: item.unit, unitCostCentavos: line.unitCostCentavos, estUsefulLifeYears: line.estUsefulLifeYears,
-      dateAcquired: line.dateAcquired, propertyTypeName: item.typeName,
+      id: line.id, cardId, category: line.category, article: line.article, description: line.description, cardDescription: header.description,
+      qty: line.qty, unit: line.unit, unitCostCentavos: line.unitCostCentavos, estUsefulLifeYears: line.estUsefulLifeYears,
+      dateAcquired: line.dateAcquired, propertyTypeName: typeName,
     },
     region: regionOut(region),
     document: {
@@ -59,7 +59,7 @@ async function load(p: Prop, token: string | null): Promise<PropertyViewData> {
       id: l.id, lineNo: l.lineNo, qty: l.qty, unit: l.unit ?? '', unitCostCentavos: l.unitCostCentavos, description: l.description, article: l.article ?? '',
       estUsefulLifeYears: l.estUsefulLifeYears, dateAcquired: l.dateAcquired, properties: l.properties.map((x) => ({ propertyNo: x.propertyNo, componentLabel: x.componentLabel })),
     })),
-    card: { propertyNoFirst: header.propertyNoFirst, propertyNoLast: header.propertyNoLast, rows },
+    card: { propertyNo: header.propertyNo, rows },
     registry: registryRows,
     report: report ? { officerName: report.officer.fullName, officerPosition: report.officer.position, asAt: report.asAt, rows: report.rows } : null,
   }

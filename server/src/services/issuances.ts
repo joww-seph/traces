@@ -7,14 +7,15 @@ import { AppError } from '../middleware/error.js'
 import { audit, type Ctx } from './audit.js'
 import { duplicateNo } from './documents.js'
 import { generateDocument } from './generate.js'
-import { assertNoDuplicateNumbers, insertLineTx, withTokenRetry, type ItemCache } from './lines.js'
+import { assertNoDuplicateNumbers, insertLineTx, withTokenRetry, type LineInput } from './lines.js'
 import { assertCanReceive } from './officers.js'
 import { getSettings } from './settings.js'
 
 type Input = z.infer<typeof issuanceInput>
 type DocType = 'ICS' | 'PAR'
 
-// V-02: rows below the PPE threshold go on an ICS, the others on a PAR. Everything is written in one transaction;
+// Rows below the PPE threshold go on one ICS (one per purchase); every PPE unit gets its own PAR, numbered from
+// header.parNos in row order (decision 2026-11-18). Everything is written in one transaction;
 // the PDFs are rendered afterwards, so a rendering problem never loses the entries.
 export async function createIssuance(input: Input, ctx: Ctx, generate: typeof generateDocument = generateDocument) {
   if (!ctx.actorId) throw new AppError('FORBIDDEN', 403, 'A signed-in user is required')
@@ -23,11 +24,21 @@ export async function createIssuance(input: Input, ctx: Ctx, generate: typeof ge
 
   const created = await withTokenRetry(() => db.transaction(async (tx) => {
     const s = await getSettings(tx)
-    const typeOf = rows.map((r): DocType => (categorize(r.line.unitCostCentavos, s.ppeThresholdCentavos) === 'semi' ? 'ICS' : 'PAR'))
-    const types = (['ICS', 'PAR'] as const).filter((t) => typeOf.includes(t))
-    const docNo = { ICS: header.icsNo, PAR: header.parNo }
-    for (const t of types) {
-      if (!docNo[t]) throw new AppError('DOC_NO_REQUIRED', 400, `Enter the ${t} number: ${typeOf.filter((x) => x === t).length} row(s) belong on it`, { type: t })
+    const isPpe = rows.map((r) => categorize(r.line.unitCostCentavos, s.ppeThresholdCentavos) === 'ppe')
+    // a PPE row of n units becomes n one-unit rows, each on its own PAR (a row with parts has one unit)
+    const parts: { rowIndex: number; row: LineInput }[] = rows.flatMap((row, rowIndex) => {
+      if (!isPpe[rowIndex]) return []
+      const mains = row.properties.filter((p) => !p.componentLabel)
+      if (mains.length === 1) return [{ rowIndex, row: { ...row, line: { ...row.line, qty: 1 } } }]
+      return mains.map((m) => ({ rowIndex, row: { line: { ...row.line, qty: 1 }, properties: [m] } }))
+    })
+    const semiRows = rows.map((row, rowIndex) => ({ rowIndex, row })).filter((r) => !isPpe[r.rowIndex])
+    if (semiRows.length && !header.icsNo) {
+      throw new AppError('DOC_NO_REQUIRED', 400, `Enter the ICS number: ${semiRows.length} row(s) belong on it`, { type: 'ICS' })
+    }
+    const parNos = header.parNos ?? []
+    if (parNos.length < parts.length) { // extra numbers (e.g. suggestions for rows later removed) are ignored
+      throw new AppError('DOC_NO_REQUIRED', 400, `Enter ${parts.length} PAR number(s), one for each PPE unit (${parNos.length} given)`, { type: 'PAR', needed: parts.length })
     }
 
     await assertCanReceive(tx, header.receivedByOfficerId)
@@ -43,35 +54,40 @@ export async function createIssuance(input: Input, ctx: Ctx, generate: typeof ge
     // every duplicate property number of the whole form, with its row, before anything is written (BR-14)
     await assertNoDuplicateNumbers(tx, rows.map((r) => r.properties))
 
-    const docs = new Map<DocType, typeof documents.$inferSelect>()
-    for (const t of types) {
+    const newDoc = async (type: DocType, docNo: string) => {
       try {
         const [d] = await tx.insert(documents).values({
-          type: t, docNo: docNo[t]!, fundCluster: header.fundCluster, issuedDate: header.issuedDate,
+          type, docNo, fundCluster: header.fundCluster, issuedDate: header.issuedDate,
           issuedByOfficerId: header.issuedByOfficerId, issuedByPosition, receivedByOfficerId: header.receivedByOfficerId, receivedByPosition,
           purpose: header.purpose || null, createdBy: userId,
         }).returning()
-        docs.set(t, d)
-        await audit(tx, ctx, 'document.create', 'documents', d.id, null, { type: t, docNo: d.docNo, via: 'issuance' })
-      } catch (e) { duplicateNo(e, t, docNo[t]!) }
+        await audit(tx, ctx, 'document.create', 'documents', d.id, null, { type, docNo: d.docNo, via: 'issuance' })
+        return d
+      } catch (e) { duplicateNo(e, type, docNo) }
     }
-
-    const cache: ItemCache = new Map()
-    const nextNo = { ICS: 1, PAR: 1 }
-    const lineIds: Record<DocType, string[]> = { ICS: [], PAR: [] }
-    for (const [rowIndex, row] of rows.entries()) {
-      const t = typeOf[rowIndex]
+    const addLine = async (doc: typeof documents.$inferSelect, rowIndex: number, row: LineInput, lineNo: number) => {
       try {
-        const r = await insertLineTx(tx, docs.get(t)!, row, { lineNo: nextNo[t]++, cache, thresholdCentavos: s.ppeThresholdCentavos, ctx })
-        lineIds[t].push(r.lineId)
+        return (await insertLineTx(tx, doc, row, { lineNo, thresholdCentavos: s.ppeThresholdCentavos, ctx })).lineId
       } catch (e) {
         if (e instanceof AppError) throw new AppError(e.code, e.status, e.message, { ...(e.details as object | undefined), rowIndex })
         throw e
       }
     }
-    await audit(tx, ctx, 'issuance.create', 'documents', [...docs.values()].map((d) => d.id).join(','), null,
-      { documents: types.map((t) => ({ type: t, docNo: docNo[t], rows: lineIds[t].length })), receivedByOfficerId: header.receivedByOfficerId, issuedDate: header.issuedDate })
-    return types.map((t) => ({ id: docs.get(t)!.id, type: t, docNo: docNo[t]!, lineIds: lineIds[t] }))
+
+    const out: { id: string; type: DocType; docNo: string; lineIds: string[] }[] = []
+    if (semiRows.length) {
+      const d = await newDoc('ICS', header.icsNo!)
+      const lineIds = []
+      for (const [i, r] of semiRows.entries()) lineIds.push(await addLine(d, r.rowIndex, r.row, i + 1))
+      out.push({ id: d.id, type: 'ICS', docNo: d.docNo, lineIds })
+    }
+    for (const [i, p] of parts.entries()) {
+      const d = await newDoc('PAR', parNos[i])
+      out.push({ id: d.id, type: 'PAR', docNo: d.docNo, lineIds: [await addLine(d, p.rowIndex, p.row, 1)] })
+    }
+    await audit(tx, ctx, 'issuance.create', 'documents', out.map((d) => d.id).join(','), null,
+      { documents: out.map((d) => ({ type: d.type, docNo: d.docNo, rows: d.lineIds.length })), receivedByOfficerId: header.receivedByOfficerId, issuedDate: header.issuedDate })
+    return out
   }))
 
   // after commit: render the PDFs; a failure is reported, never undone

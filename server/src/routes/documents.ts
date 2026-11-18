@@ -4,7 +4,7 @@ import { z } from 'zod'
 import { requireRole } from '../middleware/auth.js'
 import { AppError } from '../middleware/error.js'
 import { cleanupOnError, uploadPdf } from '../middleware/upload.js'
-import { createDocument, getDocument, listDocuments, patchDocument, softDeleteDocument } from '../services/documents.js'
+import { createDocument, documentHistory, getDocument, listDocuments, patchDocument, softDeleteDocument } from '../services/documents.js'
 import { attachUploaded, readPdfMeta, removeUploaded } from '../services/documentFiles.js'
 import { generateDocument } from '../services/generate.js'
 import { ctx } from './ctx.js'
@@ -40,6 +40,7 @@ export function documentsRouter() {
   }))
 
   r.get('/documents/:id', async (req, res) => res.json(await getDocument(uuid.parse(req.params.id))))
+  r.get('/documents/:id/history', async (req, res) => res.json(await documentHistory(uuid.parse(req.params.id))))
 
   r.patch('/documents/:id', async (req, res) => res.json(await patchDocument(uuid.parse(req.params.id), documentPatch.parse(req.body ?? {}), ctx(req))))
 

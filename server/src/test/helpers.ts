@@ -66,6 +66,5 @@ export async function signDocument(agent: ReturnType<typeof agentFor>, documentI
   if (res.status !== 200) throw new Error(`signDocument failed: ${res.status} ${JSON.stringify(res.body)}`)
 }
 
-// Two default cards (one per category) that resetDb() creates, so a test body can say item: itemFor(cost).
-export const DEFAULT_ITEM = { semi: '00000000-0000-4000-8000-0000000000a1', ppe: '00000000-0000-4000-8000-0000000000a2' }
-export const itemFor = (costCentavos: number) => ({ itemId: costCentavos >= 5000000 ? DEFAULT_ITEM.ppe : DEFAULT_ITEM.semi })
+// The item a test line carries when it does not care which (decision 2026-11-18: the line holds the item; no cards to pick)
+export const ITEM = { propertyTypeId: 1, article: 'Article', unit: 'unit' }

@@ -16,3 +16,6 @@ export const signatory = z.object({
   position: z.string().trim().transform(spellOutPosition).optional(),
 })
 export const signatoriesInput = z.array(signatory).max(30)
+
+// a card row's Remarks (for later transfers); blank clears it
+export const cardRemarksInput = z.strictObject({ remarks: z.string().trim().max(500).nullable().transform((v) => v || null) })

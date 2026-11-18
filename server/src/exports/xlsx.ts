@@ -96,6 +96,37 @@ export function ruleAndNumber(ws: ExcelJS.Worksheet, r1: number, c1: number, r2:
   ws.headerFooter = { ...ws.headerFooter, oddFooter: '&CPage &P of &N' }
 }
 
+// 20 rows per printed sheet (decision 2026-11-18): the table's header rows repeat on every sheet, and a sheet ends
+// after every 20th row number. `rowNos[i]` is the number of data row firstRow + i.
+export const ROWS_PER_SHEET = 20
+export const sheetOf = (rowNo: number) => Math.floor((rowNo - 1) / ROWS_PER_SHEET) + 1
+export function pageEvery(ws: ExcelJS.Worksheet, titleRows: [number, number], firstRow: number, rowNos: number[]) {
+  ws.pageSetup = { ...ws.pageSetup, printTitlesRow: `${titleRows[0]}:${titleRows[1]}` }
+  rowNos.forEach((n, i) => { if (i < rowNos.length - 1 && n % ROWS_PER_SHEET === 0) ws.getRow(firstRow + i).addPageBreak() })
+}
+
+// a "No." column (and optionally "Sheet No.") beside the table, so a printed row can be found on screen
+export function numberColumns(ws: ExcelJS.Worksheet, headRows: [number, number], firstRow: number, col: number, rowNos: number[], withSheet: boolean) {
+  const head = (c: number, text: string) => {
+    ws.mergeCells(headRows[0], c, headRows[1], c)
+    const h = ws.getCell(headRows[0], c)
+    h.value = text
+    h.style = { font: { name: 'Arial', size: 9, bold: true }, alignment: { horizontal: 'center', vertical: 'middle', wrapText: true } }
+    ws.getColumn(c).width = 7
+  }
+  head(col, 'No.')
+  if (withSheet) head(col + 1, 'Sheet No.')
+  rowNos.forEach((n, i) => {
+    const put1 = (c: number, v: number) => {
+      const cell = ws.getCell(firstRow + i, c)
+      cell.value = v
+      cell.style = { font: { name: 'Arial', size: 9 }, alignment: { horizontal: 'center', vertical: 'middle' } }
+    }
+    put1(col, n)
+    if (withSheet) put1(col + 1, sheetOf(n))
+  })
+}
+
 export function wrap(ws: ExcelJS.Worksheet, addr: string, alignment: Partial<ExcelJS.Alignment> = {}) {
   const c = ws.getCell(addr)
   c.style = { ...c.style, alignment: { ...c.alignment, wrapText: true, vertical: 'middle', ...alignment } }

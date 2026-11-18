@@ -13,7 +13,6 @@ import { documentsRouter } from './routes/documents.js'
 import { exportsRouter } from './routes/exports.js'
 import { linesRouter } from './routes/lines.js'
 import { issuancesRouter } from './routes/issuances.js'
-import { itemsRouter } from './routes/items.js'
 import { officersRouter } from './routes/officers.js'
 import { propertiesRouter } from './routes/properties.js'
 import { propertyNumbersRouter } from './routes/propertyNumbers.js'
@@ -39,7 +38,7 @@ export function createApp() {
     res.json({ ok: true, db: true })
   })
 
-  app.use('/api', authRouter(), settingsRouter(), officersRouter(), propertyTypesRouter(), unitsRouter(), itemsRouter(), propertyNumbersRouter(), documentsRouter(), issuancesRouter(), linesRouter(), exportsRouter(), propertiesRouter(), viewsRouter(), stickersRouter(), publicRouter(), adminSettingsRouter(), adminUsersRouter(), adminAuditRouter())
+  app.use('/api', authRouter(), settingsRouter(), officersRouter(), propertyTypesRouter(), unitsRouter(), propertyNumbersRouter(), documentsRouter(), issuancesRouter(), linesRouter(), exportsRouter(), propertiesRouter(), viewsRouter(), stickersRouter(), publicRouter(), adminSettingsRouter(), adminUsersRouter(), adminAuditRouter())
   // routers mount here as they are built
   app.use('/api', notFound)
 

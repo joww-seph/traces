@@ -2,7 +2,7 @@ import type { documentMeta, documentPatch } from '@traces/shared'
 import { and, asc, count, desc, eq, gte, ilike, inArray, isNull, lte, sql } from 'drizzle-orm'
 import type { z } from 'zod'
 import { db } from '../db/client.js'
-import { documentFiles, documents, items, linePdfRegions, lines, movements, officers, properties, propertyTypes } from '../db/schema.js'
+import { auditLogs, documentFiles, documents, linePdfRegions, lines, movements, officers, properties, propertyTypes, users } from '../db/schema.js'
 import { AppError, pgErrorOf } from '../middleware/error.js'
 import { audit, type Ctx } from './audit.js'
 import { assertNotSigned, filesOf, filesSummary, type DocFile, type DocStatus } from './documentFiles.js'
@@ -54,13 +54,14 @@ export async function createDocument(meta: z.infer<typeof documentMeta>, file: D
 }
 
 export type ListFilter = { type?: 'ICS' | 'PAR'; from?: string; to?: string; officerId?: string; q?: string; status?: DocStatus | 'unsigned'; page: number }
-const PAGE_SIZE = 25
+const PAGE_SIZE = 20 // rows per page on screen and per printed sheet (decision 2026-11-18)
 
 // none = no PDF · generated = only the TRACES copy · signed = an uploaded copy exists · unsigned = none + generated
 const hasFile = (kind: 'generated' | 'uploaded') =>
   sql`exists (select 1 from ${documentFiles} f where f.document_id = ${documents.id} and f.kind = ${kind})`
 
-export async function listDocuments(f: ListFilter) {
+// all: every matching form (the Excel export), not one page
+export async function listDocuments(f: ListFilter, all = false) {
   const status = {
     none: sql`not exists (select 1 from ${documentFiles} f where f.document_id = ${documents.id})`,
     generated: sql`${hasFile('generated')} and not ${hasFile('uploaded')}`,
@@ -77,12 +78,15 @@ export async function listDocuments(f: ListFilter) {
     f.status ? status[f.status] : undefined,
   )
   const [{ total }] = await db.select({ total: count() }).from(documents).where(where)
-  const rows = await db.select({ doc: documents, receivedByShort: officers.shortName, receivedByName: officers.fullName })
+  // No.: the form's place among all live forms of its type in issue order; filters never renumber it
+  const rowNo = sql<number>`(select count(*) from ${documents} d2 where d2.type = ${documents.type} and d2.deleted_at is null
+    and (d2.issued_date, d2.created_at, d2.id) <= (${documents.issuedDate}, ${documents.createdAt}, ${documents.id}))::int`
+  const rows = await db.select({ doc: documents, receivedByShort: officers.shortName, receivedByName: officers.fullName, rowNo })
     .from(documents).innerJoin(officers, eq(officers.id, documents.receivedByOfficerId))
     .where(where).orderBy(desc(documents.issuedDate), desc(documents.createdAt))
-    .limit(PAGE_SIZE).offset((f.page - 1) * PAGE_SIZE)
+    .limit(all ? 1_000_000 : PAGE_SIZE).offset(all ? 0 : (f.page - 1) * PAGE_SIZE)
   const files = await filesOf(rows.map((r) => r.doc.id))
-  return { rows: rows.map((r) => ({ ...present(r.doc, files.get(r.doc.id)), receivedByShort: r.receivedByShort, receivedByName: r.receivedByName })), total, page: f.page, pageSize: PAGE_SIZE }
+  return { rows: rows.map((r) => ({ ...present(r.doc, files.get(r.doc.id)), receivedByShort: r.receivedByShort, receivedByName: r.receivedByName, rowNo: r.rowNo })), total, page: f.page, pageSize: PAGE_SIZE }
 }
 
 async function findLive(tx: Pick<typeof db, 'select'>, id: string) {
@@ -99,11 +103,7 @@ export async function getDocument(id: string) {
   const props = ids.length
     ? await db.select().from(properties).where(and(inArray(properties.lineId, ids), isNull(properties.voidedAt))).orderBy(asc(properties.propertyNo))
     : []
-  const itemIds = [...new Set(lineRows.map((l) => l.itemId))]
-  const cards = itemIds.length
-    ? await db.select({ id: items.id, category: items.category, article: items.article, unit: items.unit, itemDescription: items.description, propertyTypeCode: propertyTypes.code })
-      .from(items).innerJoin(propertyTypes, eq(propertyTypes.id, items.propertyTypeId)).where(inArray(items.id, itemIds))
-    : []
+  const types = await db.select({ id: propertyTypes.id, code: propertyTypes.code }).from(propertyTypes)
   const region = (lineId: string, kind: 'generated' | 'uploaded') => regionOut(regions.find((r) => r.lineId === lineId && r.kind === kind))
   const files = (await filesOf([id])).get(id)!
   // the generated form no longer matches the entries once a line or the header changed after it was made
@@ -116,8 +116,7 @@ export async function getDocument(id: string) {
     ...present(doc, files), generatedOutdated,
     lines: lineRows.map((l) => ({
       ...l,
-      ...cards.find((c) => c.id === l.itemId),
-      id: l.id,
+      propertyTypeCode: types.find((t) => t.id === l.propertyTypeId)?.code ?? '',
       region: region(l.id, 'uploaded'), // the box drawn on the uploaded (signed) copy
       generatedRegion: region(l.id, 'generated'), // computed from the layout of the TRACES copy
       properties: props.filter((p) => p.lineId === l.id),
@@ -144,6 +143,11 @@ export async function patchDocument(id: string, patch: z.infer<typeof documentPa
         await tx.update(movements).set({ officerId: after.receivedByOfficerId, date: after.issuedDate })
           .where(and(eq(movements.referenceDocumentId, id), eq(movements.type, 'ISSUE')))
       }
+      // the card's date is the date issued (decision 2026-11-18), so the receipts of its properties follow it
+      if (patch.issuedDate) {
+        await tx.update(movements).set({ date: after.issuedDate }).where(and(eq(movements.type, 'RECEIPT'), inArray(movements.propertyId,
+          tx.select({ id: properties.id }).from(properties).innerJoin(lines, eq(lines.id, properties.lineId)).where(eq(lines.documentId, id)))))
+      }
       const files = (await filesOf([id], tx)).get(id)
       await audit(tx, ctx, 'document.update', 'documents', id, present(before, files), present(after, files))
       return present(after, files)
@@ -164,4 +168,19 @@ export async function softDeleteDocument(id: string, ctx: Ctx) {
     await tx.update(documents).set({ deletedAt: new Date() }).where(eq(documents.id, id))
     await audit(tx, ctx, 'document.delete', 'documents', id, present(doc, (await filesOf([id], tx)).get(id)), null)
   })
+}
+
+// The ICS/PAR page's History (decision 2026-11-18): every audit entry about the form, its lines, its properties and their card rows.
+export async function documentHistory(id: string) {
+  await findLive(db, id)
+  const rows = await db.select({
+    id: auditLogs.id, at: auditLogs.at, action: auditLogs.action, entity: auditLogs.entity, entityId: auditLogs.entityId,
+    before: auditLogs.before, after: auditLogs.after, actor: users.displayName,
+  }).from(auditLogs).leftJoin(users, eq(users.id, auditLogs.actorId))
+    .where(sql`(${auditLogs.entity} = 'documents' and ${id} = any(string_to_array(${auditLogs.entityId}, ',')))
+      or (${auditLogs.entity} = 'lines' and ${auditLogs.entityId} in (select l.id::text from ${lines} l where l.document_id = ${id}))
+      or (${auditLogs.entity} = 'properties' and ${auditLogs.entityId} in (select p.id::text from ${properties} p join ${lines} l on l.id = p.line_id where l.document_id = ${id}))
+      or (${auditLogs.entity} = 'movements' and ${auditLogs.entityId} in (select m.id::text from ${movements} m join ${properties} p on p.id = m.property_id join ${lines} l on l.id = p.line_id where l.document_id = ${id}))`)
+    .orderBy(desc(auditLogs.at), desc(auditLogs.id))
+  return rows.map((r) => ({ ...r, at: r.at.toISOString(), actor: r.actor ?? 'System' }))
 }

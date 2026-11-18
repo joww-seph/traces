@@ -3,9 +3,10 @@ import { existsSync, readFileSync } from 'node:fs'
 import { chmod, mkdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { withSerials } from '@traces/shared'
 import { and, asc, eq, inArray, isNull } from 'drizzle-orm'
 import { db } from '../db/client.js'
-import { documentFiles, documents, items, linePdfRegions, lines, officers, properties } from '../db/schema.js'
+import { documentFiles, documents, linePdfRegions, lines, officers, properties } from '../db/schema.js'
 import { renderIcsPar, type FormFonts } from '../forms/icsPar.js'
 import { AppError } from '../middleware/error.js'
 import { pdfDir, removePdf } from '../middleware/upload.js'
@@ -36,8 +37,8 @@ export async function generateDocument(documentId: string, ctx: Ctx, render: typ
   await assertNotSigned(db, documentId)
 
   const s = await getSettings()
-  const lineRows = await db.select({ line: lines, unit: items.unit }).from(lines).innerJoin(items, eq(items.id, lines.itemId))
-    .where(and(eq(lines.documentId, documentId), isNull(lines.deletedAt))).orderBy(asc(lines.lineNo))
+  const lineRows = (await db.select().from(lines)
+    .where(and(eq(lines.documentId, documentId), isNull(lines.deletedAt))).orderBy(asc(lines.lineNo))).map((line) => ({ line, unit: line.unit }))
   if (!lineRows.length) throw new AppError('NO_LINES', 400, 'Add at least one line before generating the form')
   const props = await db.select().from(properties)
     .where(and(inArray(properties.lineId, lineRows.map((l) => l.line.id)), isNull(properties.voidedAt))).orderBy(asc(properties.propertyNo))
@@ -49,12 +50,15 @@ export async function generateDocument(documentId: string, ctx: Ctx, render: typ
     type: doc.type, docNo: doc.docNo, entityName: s.entityName, fundCluster: doc.fundCluster, formCode: code, issuedDate: doc.issuedDate,
     from: { name: names.get(doc.issuedByOfficerId) ?? '', position: doc.issuedByPosition },
     to: { name: names.get(doc.receivedByOfficerId) ?? '', position: doc.receivedByPosition },
-    lines: lineRows.map(({ line, unit }) => ({
-      lineId: line.id, qty: line.qty, unit, unitCostCentavos: line.unitCostCentavos, description: line.description,
+    lines: lineRows.map(({ line, unit }) => {
       // the main unit first, then its components (a set stacks all its numbers in one cell)
-      itemNos: props.filter((p) => p.lineId === line.id).sort((a, b) => Number(!!a.componentLabel) - Number(!!b.componentLabel) || a.propertyNo.localeCompare(b.propertyNo)).map((p) => p.propertyNo),
+      const own = props.filter((p) => p.lineId === line.id).sort((a, b) => Number(!!a.componentLabel) - Number(!!b.componentLabel) || a.propertyNo.localeCompare(b.propertyNo))
+      return {
+      lineId: line.id, qty: line.qty, unit, unitCostCentavos: line.unitCostCentavos, description: withSerials(line.description, own.map((p) => p.serialNo)),
+      itemNos: own.map((p) => p.propertyNo),
       life: line.estUsefulLifeYears, dateAcquired: line.dateAcquired,
-    })),
+      }
+    }),
   }, loadFonts())
 
   const storedName = `${randomUUID()}.pdf`

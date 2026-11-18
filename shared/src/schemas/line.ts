@@ -1,10 +1,13 @@
 import { z } from 'zod'
-import { centavos, isoDate, nonEmpty, propertyNo, uuid } from './common.js'
-import { itemInput } from './item.js'
+import { centavos, isoDate, nonEmpty, propertyNo } from './common.js'
 
-// article and unit live on the card (item); description is the text as printed on the ICS/PAR row
+// The line carries the item (decision 2026-11-18: one card per property). The category comes from the cost, never typed.
+// description is the one description, as printed on the ICS/PAR row (model and specs); serials are added when shown.
 export const lineFields = z.strictObject({
   lineNo: z.number().int().positive().optional(),
+  propertyTypeId: z.number().int().positive(),
+  article: nonEmpty.max(300),
+  unit: nonEmpty.max(30),
   qty: z.number().int().positive(),
   unitCostCentavos: centavos,
   description: nonEmpty,
@@ -23,15 +26,10 @@ export const pdfRegion = z.object({
   h: z.number().gt(0).max(1),
 }).refine((r) => r.x + r.w <= 1.00001 && r.y + r.h <= 1.00001, 'Region must stay inside the page')
 
-// the card: pick an existing one, or create it with the line
-export const itemRef = z.union([
-  z.strictObject({ itemId: uuid }),
-  z.strictObject({ new: itemInput }),
-])
-
 export const propertyFields = z.object({
   propertyNo,
-  serialNo: z.string().trim().min(1).optional(),
+  // "N/A" (the form's default) or blank means no serial
+  serialNo: z.string().trim().transform((v) => (!v || /^n\/?a$/i.test(v) ? undefined : v)).optional(),
   oldPropertyNo: z.string().trim().min(1).optional(),
   componentLabel: z.string().trim().min(1).optional(), // absent = main unit
   condition: z.enum(['serviceable', 'unserviceable']).optional(),
@@ -39,7 +37,6 @@ export const propertyFields = z.object({
 
 export const lineInput = z.strictObject({
   line: lineFields,
-  item: itemRef,
   region: pdfRegion.optional(),
   properties: z.array(propertyFields).min(1, 'At least one property is required'),
 }).superRefine((v, ctx) => {
@@ -49,12 +46,15 @@ export const lineInput = z.strictObject({
     if (seen.has(k)) ctx.addIssue({ code: 'custom', path: ['properties', i, 'propertyNo'], message: 'Duplicate property number' })
     seen.add(k)
   })
+  // a component belongs to one unit, whose card lists it
+  if (v.properties.some((p) => p.componentLabel) && v.properties.filter((p) => !p.componentLabel).length !== 1) {
+    ctx.addIssue({ code: 'custom', path: ['properties'], message: 'A row with parts must have exactly one main unit' })
+  }
 })
 
 // PATCH: line fields + region changes; property add/remove handled by dedicated arrays.
 export const linePatch = z.object({
   line: lineFields.partial().optional(),
-  item: itemRef.optional(), // move the line to another card of the same category
   region: pdfRegion.nullable().optional(),
   addProperties: z.array(propertyFields).optional(),
   removePropertyNos: z.array(propertyNo).optional(),

@@ -20,8 +20,8 @@ export function propertyNumbersRouter() {
   })
   r.use('/document-numbers', requireRole('supply_admin'))
   r.get('/document-numbers/next', async (req, res) => {
-    const q = z.object({ issuedDate: isoDate, unit: unitCode }).parse(req.query)
-    res.json(await suggestDocumentNumbers(q.issuedDate, q.unit))
+    const q = z.object({ issuedDate: isoDate, unit: unitCode, parCount: z.coerce.number().int().min(0).max(1000).default(1) }).parse(req.query)
+    res.json(await suggestDocumentNumbers(q.issuedDate, q.unit, q.parCount))
   })
   return r
 }

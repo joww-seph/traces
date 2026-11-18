@@ -5,7 +5,7 @@ import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 import { createApp } from '../app.js'
 import { pool } from '../db/client.js'
 import { testPool, resetDb } from './db.js'
-import { itemFor, loginAs, makeDocument, signDocument } from './helpers.js'
+import { ITEM, loginAs, makeDocument, signDocument } from './helpers.js'
 
 const STORAGE = path.resolve(process.env.STORAGE_DIR!)
 beforeEach(async () => { await resetDb(); rmSync(STORAGE, { recursive: true, force: true }) })
@@ -17,8 +17,7 @@ async function seed() {
   const { agent } = await loginAs('supply_admin')
   const { doc } = await makeDocument(agent)
   const made = await agent.post(`/api/documents/${doc.id}/lines`).send({
-    line: { qty: 1, unitCostCentavos: 9645000, description: 'Laptop set', estUsefulLifeYears: 5, dateAcquired: '2026-02-01' },
-    item: itemFor(9645000),
+    line: { ...ITEM, qty: 1, unitCostCentavos: 9645000, description: 'Laptop set', estUsefulLifeYears: 5, dateAcquired: '2026-02-01' },
     region: { page: 1, x: 0.1, y: 0.2, w: 0.8, h: 0.05 },
     properties: [{ propertyNo: 'L-1', serialNo: 'SN-1' }, { propertyNo: 'L-1a', componentLabel: 'Mouse' }],
   })
@@ -64,7 +63,7 @@ describe('GET /api/public/q/:token', () => {
     const { agent, token } = await seed()
     const other = await makeDocument(agent, { type: 'PAR', docNo: '2025-RO-68', issuedDate: '2025-05-31' })
     await agent.post(`/api/documents/${other.doc.id}/lines`).send({
-      line: { qty: 1, unitCostCentavos: 9200000, description: 'Fume hood', dateAcquired: '2025-01-01' }, item: itemFor(9200000), properties: [{ propertyNo: 'P-1' }],
+      line: { ...ITEM, qty: 1, unitCostCentavos: 9200000, description: 'Fume hood', dateAcquired: '2025-01-01' }, properties: [{ propertyNo: 'P-1' }],
     })
     const reg = (await anon().get(`/api/public/q/${await token('L-1')}`)).body.tabs.registry
     expect(reg.rows).toHaveLength(2)
@@ -103,7 +102,7 @@ describe('GET /api/public/q/:token', () => {
     expect(line.body.error.code).toBe('ITEM_REMOVED')
     // document removal on a fresh item
     const second = await agent.post(`/api/documents/${doc.id}/lines`).send({
-      line: { qty: 1, unitCostCentavos: 100000, description: 'Y', dateAcquired: '2026-02-01' }, item: itemFor(100000), properties: [{ propertyNo: 'X-1' }],
+      line: { ...ITEM, qty: 1, unitCostCentavos: 100000, description: 'Y', dateAcquired: '2026-02-01' }, properties: [{ propertyNo: 'X-1' }],
     })
     expect(second.status).toBe(201)
     const c = await token('X-1')

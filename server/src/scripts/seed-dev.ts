@@ -15,7 +15,7 @@ import { clearSettingsCache } from '../services/settings.js'
 // Everything goes through the real issuance service, so the forms are generated and the boxes computed like in the app.
 //   npm run seed:dev              adds the samples to an empty database
 //   npm run seed:dev -- --more    adds a larger made-up set (officers, 13 issuances) on top of what exists
-//   npm run seed:dev -- --reset   first wipes officers, cards, documents, lines, properties and PDFs (users, settings and property types stay)
+//   npm run seed:dev -- --reset   first wipes officers, documents, lines, properties and PDFs (users, settings and property types stay)
 //   add --officers --issuer <short name> to issue the samples to the officers already in the database (they are kept on --reset, none are added)
 const { values } = parseArgs({ options: { reset: { type: 'boolean' }, more: { type: 'boolean' }, officers: { type: 'boolean' }, issuer: { type: 'string' } } })
 if (process.env.NODE_ENV === 'production') { console.error('seed:dev never runs in production'); process.exit(1) }
@@ -49,14 +49,6 @@ async function existingOfficers(list: Officer[]) {
 }
 
 // The card of a model: an existing one by id, or a new one created with the line.
-async function cardOf(it: Item, category: 'semi' | 'ppe') {
-  const r = await db.execute(sql`SELECT id FROM items WHERE category = ${category} AND property_type_id = ${it.typeId}
-    AND lower(article) = lower(${it.article}) AND lower(description) = lower(${it.model})`)
-  return r.rows[0]
-    ? { itemId: String((r.rows[0] as { id: string }).id) }
-    : { new: { propertyTypeId: it.typeId, article: it.article, description: it.model, unit: 'unit' } }
-}
-
 // property numbers continue the series of their year + type (the same rule as the app's suggestion)
 const nextOf = new Map<string, number>()
 async function numbersFor(it: Item, dateAcquired: string) {
@@ -79,18 +71,20 @@ async function issue(admin: string, id: (s: string) => string, plan: Plan, thres
     const cents = it.pesos * 100
     const nos = await numbersFor(it, dateAcquired)
     rows.push({
-      line: { qty: 1, unitCostCentavos: cents, description: `${it.article}\n${it.model}`, dateAcquired, ...(it.life ? { estUsefulLifeYears: it.life } : {}) },
-      item: await cardOf(it, cents >= threshold ? 'ppe' : 'semi'),
+      line: { propertyTypeId: it.typeId, article: it.article, unit: 'unit', qty: 1, unitCostCentavos: cents, description: it.model, dateAcquired, ...(it.life ? { estUsefulLifeYears: it.life } : {}) },
       properties: [
         { propertyNo: nos[0], serialNo: `SN-${plan.date.slice(2, 4)}${plan.date.slice(5, 7)}-${n + 1}` },
         ...it.parts.map((componentLabel, i) => ({ propertyNo: nos[i + 1], componentLabel })),
       ],
     })
   }
+  // one PAR per PPE unit: the plan's number, then -2, -3 ... for the next units of the same save
+  const ppeCount = plan.items.filter((it) => it.pesos * 100 >= threshold).length
+  const parNos = plan.parNo ? Array.from({ length: ppeCount }, (_, i) => (i === 0 ? plan.parNo! : `${plan.parNo}-${i + 1}`)) : undefined
   const out = await createIssuance({
     header: {
       receivedByOfficerId: id(plan.to), issuedByOfficerId: id('JDelaCruz'), issuedDate: plan.date, fundCluster: 'RAF',
-      purpose: plan.purpose ?? 'Test data', icsNo: plan.icsNo, parNo: plan.parNo,
+      purpose: plan.purpose ?? 'Test data', icsNo: plan.icsNo, parNos,
     },
     rows, generate: true,
   }, { actorId: admin, ip: null })
@@ -176,7 +170,7 @@ try {
   if (values.more) { await seedMore(); process.exit(0) }
   if (values.reset) {
     await db.execute(sql`UPDATE settings SET default_issued_by_officer_id = NULL`)
-    await db.execute(sql`TRUNCATE audit_logs, movements, qr_tokens, properties, line_pdf_regions, document_files, lines, documents, items RESTART IDENTITY CASCADE`)
+    await db.execute(sql`TRUNCATE audit_logs, movements, qr_tokens, properties, line_pdf_regions, document_files, lines, documents RESTART IDENTITY CASCADE`)
     if (!values.officers) {
       await db.execute(sql`DELETE FROM officer_designations`)
       await db.execute(sql`DELETE FROM officers`)
@@ -210,10 +204,9 @@ try {
 
   // an old record with a legacy property number and an old date acquired
   const old = await createIssuance({
-    header: { receivedByOfficerId: id('PReyes'), issuedByOfficerId: id('JDelaCruz'), issuedDate: '2025-05-31', fundCluster: 'RAF', parNo: '2025-RO-68' },
+    header: { receivedByOfficerId: id('PReyes'), issuedByOfficerId: id('JDelaCruz'), issuedDate: '2025-05-31', fundCluster: 'RAF', parNos: ['2025-RO-68'] },
     rows: [{
-      line: { qty: 1, unitCostCentavos: 9_200_000, description: 'Fume hood, fabricated', dateAcquired: '1998-08-10' },
-      item: { new: { propertyTypeId: 3, article: 'Fume hood', description: 'Fume hood, fabricated', unit: 'unit' } },
+      line: { propertyTypeId: 3, article: 'Fume hood', unit: 'unit', qty: 1, unitCostCentavos: 9_200_000, description: 'Fume hood, fabricated', dateAcquired: '1998-08-10' },
       properties: [{ propertyNo: '1998-05-140-TSE000-RSTL15', oldPropertyNo: '10605140-00-7' }],
     }],
     generate: true,

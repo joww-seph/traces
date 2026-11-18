@@ -9,8 +9,10 @@ import { db } from '../db/client.js'
 import { ctx } from './ctx.js'
 
 const query = z.object({
-  itemId: uuid.optional(), officerId: uuid.optional(), typeId: z.coerce.number().int().positive().optional(),
+  cardId: uuid.optional(), officerId: uuid.optional(), typeId: z.coerce.number().int().positive().optional(),
   asAt: isoDate.optional(), from: isoDate.optional(), to: isoDate.optional(),
+  // icspar: the list page's filters
+  type: z.enum(['ICS', 'PAR']).optional(), status: z.enum(['none', 'generated', 'signed', 'unsigned']).optional(), q: z.string().trim().min(1).optional(),
   // the footer names typed on the report page, as JSON (they are not saved unless "Save as default" is used)
   signatories: z.string().optional().transform((s, ctx) => {
     if (!s) return undefined
@@ -22,7 +24,7 @@ const query = z.object({
 })
 const XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
 
-// GET /api/exports/:form  spc|pc (?itemId) · regspi|regppe (?typeId&from&to) · rpcsp|rpcppe (?officerId&typeId&asAt&signatories)
+// GET /api/exports/:form  spc|pc (?cardId) · regspi|regppe (?typeId&from&to) · rpcsp|rpcppe (?officerId&typeId&asAt&signatories) · icspar (?type&from&to&officerId&q&status)
 export function exportsRouter() {
   const r = Router()
   r.use('/exports', requireRole('supply_admin'))

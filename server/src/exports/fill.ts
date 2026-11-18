@@ -1,6 +1,6 @@
 import { formatLongDate } from '@traces/shared'
 import { PC, REGISTRY, RPCPPE } from './map.js'
-import { MONEY, asDate, insertRows, loadTemplate, pesos, put, ruleAndNumber, shortDate, sizeRow, toBuffer, usedCols, wrap } from './xlsx.js'
+import { MONEY, asDate, insertRows, loadTemplate, numberColumns, pageEvery, pesos, put, ruleAndNumber, shortDate, sizeRow, toBuffer, usedCols, wrap } from './xlsx.js'
 
 // Each function fills one official form and returns the .xlsx bytes. Money is written in pesos, dates as
 // real Excel dates; every calculated figure (totals, balances, shortage) comes from the SQL views.
@@ -50,7 +50,7 @@ export async function buildPc(s: Settings, d: CardData) {
 // ───────────────────────── Registry (RegSPI Annex A.4, and the PPE registry) ─────────────────────────
 export type RegistryData = {
   category: 'semi' | 'ppe'; fundCluster: string; typeName: string | null
-  rows: { date: string; reference: string; propertyNos: string[]; description: string; estUsefulLifeYears: number | null; issuedTo: string | null
+  rows: { rowNo: number; date: string; reference: string; propertyNos: string[]; description: string; estUsefulLifeYears: number | null; issuedTo: string | null
     issuedQty: number; returnedQty: number; reissuedQty: number; disposedQty: number; balanceQty: number; amountCentavos: number; remarks: string | null }[]
 }
 
@@ -85,7 +85,10 @@ export async function buildRegistry(s: Settings, d: RegistryData) {
     sizeRow(ws, r, [c.propertyNos, c.description, c.remarks, c.reference], { perLine: 11.5, charsPerWidth: 1.0, font: { name: 'Arial', size: 9 } })
   })
   if (!d.rows.length) ws.getRow(REGISTRY.firstRow).getCell(1).value = null
-  ruleAndNumber(ws, 9, 1, REGISTRY.firstRow + Math.max(1, d.rows.length) - 1, 15) // header rows 9-10, columns A-O
+  const nos = d.rows.map((x) => x.rowNo)
+  numberColumns(ws, [9, 10], REGISTRY.firstRow, 16, nos, true) // P: No., Q: Sheet No.
+  pageEvery(ws, [9, 10], REGISTRY.firstRow, nos)
+  ruleAndNumber(ws, 9, 1, REGISTRY.firstRow + Math.max(1, d.rows.length) - 1, 17) // header rows 9-10, columns A-Q
   return toBuffer(wb)
 }
 
@@ -132,7 +135,10 @@ export async function buildRpcppe(s: Settings, d: CountData) {
     put(ws, f(addr), namesOf(d, role))
     wrap(ws, f(addr), { horizontal: 'center', vertical: 'bottom' })
   }
-  ruleAndNumber(ws, 12, 3, RPCPPE.firstRow + RPCPPE.capacity - 1 + extra, 12) // header rows 12-14, columns C-L
+  const nos = d.rows.map((_x, i) => i + 1)
+  numberColumns(ws, [12, 14], RPCPPE.firstRow, 13, nos, false) // M: No.
+  pageEvery(ws, [12, 14], RPCPPE.firstRow, nos)
+  ruleAndNumber(ws, 12, 3, RPCPPE.firstRow + RPCPPE.capacity - 1 + extra, 13) // header rows 12-14, columns C-M
   ws.getRow(38 + extra).height = Math.max(45.75, 15 * Math.max(1, ...['committee', 'head_of_agency', 'coa_representative'].map((r) => namesOf(d, r).split('\n').length)) + 4)
   return toBuffer(wb)
 }

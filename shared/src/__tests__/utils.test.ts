@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
-  categorize, formatLongDate, formatPeso, formatPropertyNo, isIsoDate, itemInput, lineInput, loginInput, nextComponentSuffix,
-  nextInSequence, normalizePropertyNo, parseSeries, suggestNumbers, pesoToCentavos, propertyTypeInput, reportQuery, userCreate,
+  categorize, formatLongDate, formatPeso, formatPropertyNo, isIsoDate, issuanceHeader, lineInput, loginInput, nextComponentSuffix,
+  nextInSequence, normalizePropertyNo, parseSeries, suggestNumbers, pesoToCentavos, propertyTypeInput, reportQuery, userCreate, withSerials,
 } from '../index.js'
 
 describe('money', () => {
@@ -58,8 +58,7 @@ describe('propertyNo', () => {
 })
 
 const goodLine = {
-  line: { qty: 1, unitCostCentavos: 9645000, description: 'Laptop set', estUsefulLifeYears: 5, dateAcquired: '2026-09-01' },
-  item: { itemId: '0b6f2c1e-8a3d-4c55-9b1e-3f2a7d9c4e10' },
+  line: { propertyTypeId: 1, article: 'Laptop', unit: 'set', qty: 1, unitCostCentavos: 9645000, description: 'Laptop set', estUsefulLifeYears: 5, dateAcquired: '2026-09-01' },
   properties: [{ propertyNo: '2026-09ICT-0199' }, { propertyNo: '2026-09ICT-0199a', componentLabel: 'Mouse' }],
 }
 
@@ -70,15 +69,22 @@ describe('lineInput', () => {
   it('rejects a missing dateAcquired and an unknown key', () => {
     const { dateAcquired: _d, ...noDate } = goodLine.line
     expect(lineInput.safeParse({ ...goodLine, line: noDate }).success).toBe(false)
-    expect(lineInput.safeParse({ ...goodLine, line: { ...goodLine.line, article: 'Laptop' } }).success).toBe(false)
+    expect(lineInput.safeParse({ ...goodLine, line: { ...goodLine.line, model: 'x' } }).success).toBe(false)
   })
-  it('takes the card as an existing id or a new one, not both and not neither', () => {
-    const newCard = { new: { propertyTypeId: 1, article: 'Laptop', description: 'Lenovo ThinkPad E14 Gen 5', unit: 'unit' } }
-    expect(lineInput.safeParse({ ...goodLine, item: newCard }).success).toBe(true)
-    expect(lineInput.safeParse({ ...goodLine, item: { ...newCard, itemId: goodLine.item.itemId } }).success).toBe(false)
-    expect(lineInput.safeParse({ ...goodLine, item: {} }).success).toBe(false)
-    const { item: _i, ...noItem } = goodLine
-    expect(lineInput.safeParse(noItem).success).toBe(false)
+  it('the line carries the item: type, article, unit and one description (no card to pick)', () => {
+    for (const k of ['propertyTypeId', 'article', 'unit', 'description'] as const) {
+      const { [k]: _gone, ...rest } = goodLine.line
+      expect(lineInput.safeParse({ ...goodLine, line: rest }).success, k).toBe(false)
+    }
+    expect(lineInput.safeParse({ ...goodLine, item: { itemId: '0b6f2c1e-8a3d-4c55-9b1e-3f2a7d9c4e10' } }).success).toBe(false)
+  })
+  it('components belong to one unit: a line with parts has exactly one main unit', () => {
+    const two = { ...goodLine, line: { ...goodLine.line, qty: 2 }, properties: [{ propertyNo: 'A-1' }, { propertyNo: 'A-2' }, { propertyNo: 'A-1a', componentLabel: 'Mouse' }] }
+    expect(lineInput.safeParse(two).success).toBe(false)
+  })
+  it('a serial of N/A (or blank) means none', () => {
+    const r = lineInput.parse({ ...goodLine, properties: [{ propertyNo: 'A-1', serialNo: 'n/a' }, { propertyNo: 'A-1a', componentLabel: 'Mouse', serialNo: ' SN9 ' }] })
+    expect(r.properties.map((p) => p.serialNo)).toEqual([undefined, 'SN9'])
   })
   it('rejects qty 0', () => {
     expect(lineInput.safeParse({ ...goodLine, line: { ...goodLine.line, qty: 0 } }).success).toBe(false)
@@ -134,9 +140,16 @@ describe('property types, cards and reports', () => {
     expect(propertyTypeInput.safeParse({ code: 'ICT', name: 'x' }).success).toBe(true)
     expect(propertyTypeInput.safeParse({ code: 'ict1', name: 'x' }).success).toBe(false)
   })
-  it('a card needs type, article, model and unit', () => {
-    expect(itemInput.safeParse({ propertyTypeId: 1, article: 'Laptop', description: 'ThinkPad', unit: 'unit' }).success).toBe(true)
-    expect(itemInput.safeParse({ propertyTypeId: 1, article: 'Laptop', description: '', unit: 'unit' }).success).toBe(false)
+  it('the description carries the serials in brackets; none is N/A', () => {
+    expect(withSerials('Laptop MSI Katana', ['ABC123'])).toBe('Laptop MSI Katana (S/N: ABC123)')
+    expect(withSerials('Office chair', [null])).toBe('Office chair (S/N: N/A)')
+    expect(withSerials('Laptop set', ['K1', null, 'M7'])).toBe('Laptop set (S/N: K1, N/A, M7)')
+    expect(withSerials('Mouse', [null, ''])).toBe('Mouse (S/N: N/A)') // all missing: said once
+  })
+  it('an issuance gives one PAR number per PPE unit', () => {
+    const h = { receivedByOfficerId: '0b6f2c1e-8a3d-4c55-9b1e-3f2a7d9c4e10', issuedByOfficerId: '0b6f2c1e-8a3d-4c55-9b1e-3f2a7d9c4e10', issuedDate: '2026-11-18', fundCluster: 'RAF' }
+    expect(issuanceHeader.safeParse({ ...h, parNos: ['2026-11ADM-001', '2026-11ADM-002'] }).success).toBe(true)
+    expect(issuanceHeader.safeParse({ ...h, parNo: '2026-11ADM-001' }).success).toBe(false)
   })
   it('the report needs an officer and a category; the type and date are optional', () => {
     const id = '0b6f2c1e-8a3d-4c55-9b1e-3f2a7d9c4e10'

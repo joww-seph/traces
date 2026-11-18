@@ -1,17 +1,18 @@
 import { and, eq } from 'drizzle-orm'
 import { db } from '../db/client.js'
 import { propertyTypes } from '../db/schema.js'
-import { buildSpc, buildRpcsp } from '../exports/built.js'
+import { buildIcsParList, buildSpc, buildRpcsp } from '../exports/built.js'
+import { listDocuments } from './documents.js'
 import { buildPc, buildRegistry, buildRpcppe, type CountData } from '../exports/fill.js'
 import { AppError } from '../middleware/error.js'
 import { getSettings } from './settings.js'
 import { card, officerReportRows, registry } from './views.js'
 
 // ICS and PAR are no longer exported to Excel: TRACES generates the PDF forms (Update 02).
-export const FORMS = ['spc', 'pc', 'regspi', 'regppe', 'rpcsp', 'rpcppe'] as const
+export const FORMS = ['spc', 'pc', 'regspi', 'regppe', 'rpcsp', 'rpcppe', 'icspar'] as const
 export type Form = (typeof FORMS)[number]
 export type ExportQuery = {
-  itemId?: string; typeId?: number; officerId?: string; asAt?: string; from?: string; to?: string
+  cardId?: string; typeId?: number; type?: 'ICS' | 'PAR'; status?: 'none' | 'generated' | 'signed' | 'unsigned'; q?: string; officerId?: string; asAt?: string; from?: string; to?: string
   signatories?: { role: string; name: string; position?: string | null }[]
 }
 
@@ -25,14 +26,20 @@ export async function exportForm(form: Form, q: ExportQuery): Promise<{ buffer: 
   const s = await getSettings()
 
   if (form === 'spc' || form === 'pc') {
-    const { header, rows } = await card(need(q.itemId, 'itemId (the card)'))
+    const { header, rows } = await card(need(q.cardId, 'cardId (the card)'))
     const want = form === 'spc' ? 'semi' : 'ppe'
     if (header.category !== want) {
       throw new AppError('WRONG_FORM', 400, `This card is ${header.category === 'ppe' ? 'PPE' : 'semi-expendable'}; export it as ${header.category === 'ppe' ? 'pc' : 'spc'}`)
     }
-    const range = header.propertyNoFirst === header.propertyNoLast ? header.propertyNoFirst ?? '' : `${header.propertyNoFirst} - ${header.propertyNoLast}`
-    const data = { category: want as 'semi' | 'ppe', propertyNo: range, article: header.article, description: header.description, fundCluster: s.defaultFundCluster, rows }
-    return { buffer: await (form === 'spc' ? buildSpc(s.entityName, data) : buildPc(s, data)), filename: `${form.toUpperCase()}_${safe(header.article)}_${safe(header.description)}.xlsx` }
+    const data = { category: want as 'semi' | 'ppe', propertyNo: header.propertyNo, article: header.article, description: header.description, fundCluster: s.defaultFundCluster, rows }
+    return { buffer: await (form === 'spc' ? buildSpc(s.entityName, data) : buildPc(s, data)), filename: `${form.toUpperCase()}_${safe(header.propertyNo)}.xlsx` }
+  }
+
+  if (form === 'icspar') {
+    const { rows } = await listDocuments({ type: q.type, from: q.from, to: q.to, officerId: q.officerId, q: q.q, status: q.status, page: 1 }, true)
+    const list = rows.map((r) => ({ rowNo: r.rowNo, type: r.type, docNo: r.docNo, issuedDate: r.issuedDate, receivedByName: r.receivedByName, status: r.status }))
+      .sort((a, b) => a.type.localeCompare(b.type) || a.rowNo - b.rowNo)
+    return { buffer: await buildIcsParList({ entityName: s.entityName, rows: list }), filename: `ICS-PAR_${q.type ?? 'all'}.xlsx` }
   }
 
   const typeName = q.typeId ? (await db.select({ name: propertyTypes.name }).from(propertyTypes).where(eq(propertyTypes.id, q.typeId)))[0]?.name ?? null : null

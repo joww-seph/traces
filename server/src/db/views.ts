@@ -1,4 +1,4 @@
-// Read-only typings for the SQL views created in drizzle/0005_update01_views.sql. Never migrated by drizzle-kit (.existing()).
+// Read-only typings for the SQL views created in drizzle/0010_card_per_property.sql. Never migrated by drizzle-kit (.existing()).
 // bigint(mode:number) columns are converted to JS numbers by drizzle.
 import { sql } from 'drizzle-orm'
 import { bigint, date, integer, pgView, smallint, text, uuid } from 'drizzle-orm/pg-core'
@@ -18,9 +18,7 @@ export const vActiveProperties = pgView('v_active_properties', {
   category: itemCategory('category'),
   unitCostCentavos: money('unit_cost_centavos'),
   lineDescription: text('line_description'),
-  itemId: uuid('item_id'),
   article: text('article'),
-  itemDescription: text('item_description'),
   unit: text('unit'),
   propertyTypeId: smallint('property_type_id'),
   propertyTypeCode: text('property_type_code'),
@@ -32,9 +30,9 @@ export const vActiveProperties = pgView('v_active_properties', {
   issuedDate: day('issued_date'),
 }).existing()
 
-// one row per event per line (a set is one row); balance = stock held by the Supply Unit
-export const vItemCard = pgView('v_item_card', {
-  itemId: uuid('item_id'),
+// one card per main property: one row per event; item_nos lists the property and its components
+export const vPropertyCard = pgView('v_property_card', {
+  propertyId: uuid('property_id'),
   lineId: uuid('line_id'),
   type: movementType('type'),
   date: day('date'),
@@ -65,11 +63,12 @@ export const vRegistry = pgView('v_registry', {
   category: itemCategory('category'),
   propertyTypeId: smallint('property_type_id'),
   propertyTypeCode: text('property_type_code'),
-  itemId: uuid('item_id'),
+  documentId: uuid('document_id'),
   date: day('date'),
   docType: docType('doc_type'),
   docNo: text('doc_no'),
   propertyNos: text('property_nos'),
+  serialNos: text('serial_nos'),
   article: text('article'),
   description: text('description'),
   estUsefulLifeYears: smallint('est_useful_life_years'),
@@ -82,23 +81,25 @@ export const vRegistry = pgView('v_registry', {
   amountCentavos: money('amount_centavos'),
   remarks: text('remarks'),
   fundCluster: text('fund_cluster'),
+  lineNo: integer('line_no'),
+  rowNo: bigint('row_no', { mode: 'number' }),
 }).existing()
 
 export type OfficerReportRow = {
-  officerId: string; lineId: string; itemId: string; category: 'semi' | 'ppe'; propertyTypeId: number
-  article: string; description: string; propertyNos: string; unit: string; unitValueCentavos: number
+  officerId: string; lineId: string; documentId: string; category: 'semi' | 'ppe'; propertyTypeId: number
+  article: string; description: string; propertyNos: string; serialNos: string; unit: string; unitValueCentavos: number
   balancePerCard: number; docType: 'ICS' | 'PAR'; docNo: string; issuedDate: string
 }
 
 // RPCSP / RPCPPE rows as at a date. A function, not a view, so it goes through raw SQL.
 export async function officerReport(asAt: string, d: Pick<typeof db, 'execute'> = db): Promise<OfficerReportRow[]> {
-  const r = await d.execute(sql`SELECT officer_id, line_id, item_id, category, property_type_id, article, description,
-    property_nos, unit, unit_value_centavos, balance_per_card, doc_type, doc_no, issued_date::text AS issued_date
+  const r = await d.execute(sql`SELECT officer_id, line_id, document_id, category, property_type_id, article, description,
+    property_nos, serial_nos, unit, unit_value_centavos, balance_per_card, doc_type, doc_no, issued_date::text AS issued_date
     FROM fn_officer_report(${asAt}::date)`)
   return r.rows.map((x) => ({
-    officerId: String(x.officer_id), lineId: String(x.line_id), itemId: String(x.item_id), category: x.category as 'semi' | 'ppe',
+    officerId: String(x.officer_id), lineId: String(x.line_id), documentId: String(x.document_id), category: x.category as 'semi' | 'ppe',
     propertyTypeId: Number(x.property_type_id), article: String(x.article), description: String(x.description),
-    propertyNos: String(x.property_nos), unit: String(x.unit), unitValueCentavos: Number(x.unit_value_centavos),
+    propertyNos: String(x.property_nos), serialNos: String(x.serial_nos ?? ''), unit: String(x.unit), unitValueCentavos: Number(x.unit_value_centavos),
     balancePerCard: Number(x.balance_per_card), docType: x.doc_type as 'ICS' | 'PAR', docNo: String(x.doc_no), issuedDate: String(x.issued_date),
   }))
 }

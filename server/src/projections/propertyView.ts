@@ -6,12 +6,12 @@ import type { CardRow } from './card.js'
 export type Audience = 'admin' | 'public'
 
 export type RegistryRowIn = {
-  id: string; date: string; docType: 'ICS' | 'PAR'; reference: string; propertyNos: string[]; article: string; description: string
+  id: string; rowNo: number; documentId: string; date: string; docType: 'ICS' | 'PAR'; reference: string; propertyNos: string[]; article: string; description: string
   estUsefulLifeYears: number | null; issuedTo: string | null; issuedQty: number; returnedQty: number; reissuedQty: number
   disposedQty: number; balanceQty: number; amountCentavos: number; remarks: string | null; fundCluster: string
 }
 export type ReportRowIn = {
-  id: string; article: string; description: string; propertyNos: string[]; unit: string; unitValueCentavos: number
+  id: string; rowNo: number; documentId: string; article: string; description: string; propertyNos: string[]; unit: string; unitValueCentavos: number
   balancePerCard: number; reference: string; remarks: string | null
 }
 export type DocLineIn = {
@@ -26,7 +26,7 @@ export type PropertyViewData = {
     id: string; propertyNo: string; serialNo: string | null; oldPropertyNo: string | null; componentLabel: string | null
     condition: 'serviceable' | 'unserviceable'; partOfSetNo: string | null // the main number of the set when this is a component
   }
-  line: { id: string; itemId: string; category: 'semi' | 'ppe'; article: string; description: string; itemDescription: string; qty: number; unit: string
+  line: { id: string; cardId: string; category: 'semi' | 'ppe'; article: string; description: string; cardDescription: string; qty: number; unit: string
     unitCostCentavos: number; estUsefulLifeYears: number | null; dateAcquired: string | null; propertyTypeName: string }
   region: { page: number; x: number; y: number; w: number; h: number } | null
   document: {
@@ -35,7 +35,7 @@ export type PropertyViewData = {
     issuedBy: { name: string; position: string }; receivedBy: { name: string; position: string }
   }
   docLines: DocLineIn[]
-  card: { propertyNoFirst: string | null; propertyNoLast: string | null; rows: CardRow[] }
+  card: { propertyNo: string; rows: CardRow[] } // one card per property (decision 2026-11-18)
   registry: RegistryRowIn[]
   // the property's current holder's report as at today; null = nobody holds it
   report: null | { officerName: string; officerPosition: string; asAt: string; rows: ReportRowIn[] }
@@ -62,7 +62,6 @@ export function buildPropertyView(d: PropertyViewData, audience: Audience) {
   const registryRows = pub ? d.registry.map((r) => (r.id === d.line.id ? r : { ...r, issuedTo: null })) : d.registry
   const reportRows = d.report?.rows // one officer's report: the holder of the scanned item
   const cardRows = pub ? d.card.rows.map((r) => (r.lineId === d.line.id ? r : { ...r, officer: null, officerFullName: null })) : d.card.rows
-  const range = { first: d.card.propertyNoFirst, last: d.card.propertyNoLast }
   const highlightCard = cardRows.filter((r) => r.lineId === d.line.id).map((r) => cardId(r.id))
 
   return {
@@ -75,7 +74,7 @@ export function buildPropertyView(d: PropertyViewData, audience: Audience) {
       article: d.line.article, description: d.line.description, qty: d.line.qty, unit: d.line.unit,
       unitCostCentavos: d.line.unitCostCentavos, totalCostCentavos: lineAmount,
       estUsefulLifeYears: d.line.estUsefulLifeYears, dateAcquired: d.line.dateAcquired,
-      ...(audience === 'admin' ? { itemId: d.line.itemId } : {}), // the card's id: staff only, never in the public view
+      ...(audience === 'admin' ? { cardId: d.line.cardId } : {}), // the card's id: staff only, never in the public view
     },
     document: {
       type: d.document.type, docNo: d.document.docNo, fundCluster: d.document.fundCluster, issuedDate: d.document.issuedDate,
@@ -102,7 +101,7 @@ export function buildPropertyView(d: PropertyViewData, audience: Audience) {
               typeLabel: d.line.propertyTypeName, asAt: d.report.asAt, fundCluster: d.document.fundCluster, entityName: d.settings.entityName,
               officerName: d.report.officerName, officerPosition: d.report.officerPosition,
             },
-            rows: reportRows.map((r) => ({ ...r, id: rptId(r.id) })),
+            rows: reportRows.map(({ documentId, ...r }) => ({ ...r, id: rptId(r.id), ...(pub ? {} : { documentId }) })),
             highlightRowId: rptId(d.line.id),
           }
         : { empty: 'NOT_ISSUED' as const },
@@ -111,15 +110,15 @@ export function buildPropertyView(d: PropertyViewData, audience: Audience) {
           title: d.line.category === 'semi' ? `REGISTRY OF ${SEMI} ISSUED` : d.settings.ppeRegistryTitle,
           category: d.line.category, typeName: d.line.propertyTypeName, entityName: d.settings.entityName, fundCluster: d.document.fundCluster,
         },
-        rows: registryRows.map((r) => ({ ...r, id: regId(r.id) })),
+        rows: registryRows.map(({ documentId, ...r }) => ({ ...r, id: regId(r.id), ...(pub ? {} : { documentId }) })),
         highlightRowId: regId(d.line.id),
       },
       card: {
         header: {
           title: d.line.category === 'semi' ? `${SEMI} CARD` : 'PROPERTY CARD', category: d.line.category,
           entityName: d.settings.entityName, fundCluster: d.document.fundCluster,
-          article: d.line.article, description: d.line.itemDescription, typeName: d.line.propertyTypeName,
-          propertyNoFirst: range.first, propertyNoLast: range.last,
+          article: d.line.article, description: d.line.cardDescription, typeName: d.line.propertyTypeName,
+          propertyNo: d.card.propertyNo,
         },
         rows: cardRows.map(({ lineId: _line, ...r }) => ({ ...r, id: cardId(r.id), ...(audience === 'admin' ? { lineId: _line } : {}) })),
         highlightRowIds: highlightCard,

@@ -1,10 +1,11 @@
-import { category, isoDate, reportQuery, signatoriesInput, uuid } from '@traces/shared'
+import { cardRemarksInput, category, isoDate, reportQuery, signatoriesInput, uuid } from '@traces/shared'
 import { Router } from 'express'
 import { z } from 'zod'
 import { requireRole } from '../middleware/auth.js'
 import { validate } from '../middleware/validate.js'
 import { replaceSignatories } from '../services/reportSignatories.js'
-import { card, getSignatories, listCards, officerReportRows, registry } from '../services/views.js'
+import { officerForms, officerFormsPdf } from '../services/officerForms.js'
+import { card, getSignatories, listCards, officerReportRows, registry, setCardRemarks } from '../services/views.js'
 import { ctx } from './ctx.js'
 
 const registryQuery = z.object({
@@ -22,10 +23,24 @@ export function viewsRouter() {
     res.json(await registry(category, f))
   })
   r.get('/views/cards', async (req, res) => res.json(await listCards(cardsQuery.parse(req.query))))
-  r.get('/views/card/:itemId', async (req, res) => {
+  // :propertyId is the card's property (a component's id opens its unit's card)
+  r.get('/views/card/:propertyId', async (req, res) => {
     const { highlightLineId } = cardQuery.parse(req.query)
-    const c = await card(uuid.parse(req.params.itemId))
+    const c = await card(uuid.parse(req.params.propertyId))
     res.json({ ...c, highlightRowIds: highlightLineId ? c.rows.filter((row) => row.lineId === highlightLineId).map((row) => row.id) : [] })
+  })
+
+  r.patch('/views/card-rows/:movementId', validate(cardRemarksInput), async (req, res) =>
+    res.json(await setCardRemarks(z.coerce.number().int().positive().parse(req.params.movementId), req.body.remarks, ctx(req))))
+
+  // the officer's ICS/PAR (decision 2026-11-18): the list, and all of them as one PDF
+  r.get('/reports/forms', async (req, res) => res.json(await officerForms(z.object({ officerId: uuid }).parse(req.query).officerId)))
+  r.get('/reports/forms.pdf', async (req, res) => {
+    const { officerId } = z.object({ officerId: uuid }).parse(req.query)
+    res.type('application/pdf')
+    res.setHeader('Content-Disposition', `inline; filename="ICS-PAR_${officerId.slice(0, 8)}.pdf"`)
+    res.setHeader('Cache-Control', 'no-store')
+    res.send(await officerFormsPdf(officerId))
   })
 
   r.get('/reports/rpc', async (req, res) => res.json(await officerReportRows(reportQuery.parse(req.query))))

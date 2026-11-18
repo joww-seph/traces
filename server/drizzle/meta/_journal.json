@@ -71,6 +71,13 @@
       "when": 1794801018836,
       "tag": "0009_units",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1794997096189,
+      "tag": "0010_card_per_property",
+      "breakpoints": true
     }
   ]
 }

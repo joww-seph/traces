@@ -4,7 +4,7 @@ import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 import { pool } from '../db/client.js'
 import { createIssuance } from '../services/issuances.js'
 import { testPool, resetDb } from './db.js'
-import { agentFor, itemFor, loginAs, makeOfficer } from './helpers.js'
+import { agentFor, ITEM, loginAs, makeOfficer } from './helpers.js'
 
 // the made-up people of these tests; their short names are made from these names (MSantos, JDelaCruz, ...)
 const FULL_NAME: Record<string, string> = { JDelaCruz: 'Juan Dela Cruz', MSantos: 'Maria Santos', Staffer: 'Sam Staffer', Iss: 'Ivan Issuer', Rcv: 'Rita Receiver' }
@@ -25,12 +25,11 @@ async function setup() {
 }
 
 const row = (n: number, cost = 4870000, over: object = {}) => ({
-  line: { qty: 1, unitCostCentavos: cost, description: `Item ${n}`, dateAcquired: '2026-02-20', estUsefulLifeYears: 5, ...over },
-  item: itemFor(cost), properties: [{ propertyNo: `2026-02ICT-${String(n).padStart(4, '0')}` }],
+  line: { ...ITEM, qty: 1, unitCostCentavos: cost, description: `Item ${n}`, dateAcquired: '2026-02-20', estUsefulLifeYears: 5, ...over }, properties: [{ propertyNo: `2026-02ICT-${String(n).padStart(4, '0')}` }],
 })
 const header = (s: Awaited<ReturnType<typeof setup>>, over: object = {}) => ({
   receivedByOfficerId: s.receiver.id, issuedByOfficerId: s.issuer.id, issuedDate: '2026-03-01', fundCluster: 'RAF',
-  purpose: 'Project use', icsNo: '2026-09TEST-003', parNo: '2026-RO-68', ...over,
+  purpose: 'Project use', icsNo: '2026-09TEST-003', parNos: ['2026-RO-68'], ...over,
 })
 const post = (agent: Agent, body: object) => agent.post('/api/issuances').send(body)
 const count = async (table: string, where = '') => Number((await testPool.query(`SELECT count(*) FROM ${table} ${where}`)).rows[0].count)
@@ -56,10 +55,11 @@ describe('POST /api/issuances (update 02 W3)', () => {
     expect(d).toHaveLength(1)
     expect(d[0]).toMatchObject({ issued_date: '2026-03-01', fund_cluster: 'RAF', purpose: 'Project use' })
 
-    // registry has 7 rows; every property has its RECEIPT (date acquired) and ISSUE (date issued)
+    // registry has 7 rows; every property has its RECEIPT and ISSUE, both on the date issued (the card's date, decision 2026-11-18)
     expect(await count('v_registry')).toBe(7)
     const mv = (await testPool.query(`SELECT type, date::text, count(*) FROM movements GROUP BY type, date ORDER BY type`)).rows
-    expect(mv).toEqual([{ type: 'RECEIPT', date: '2026-02-20', count: '7' }, { type: 'ISSUE', date: '2026-03-01', count: '7' }]) // enum order
+    expect(mv).toEqual([{ type: 'RECEIPT', date: '2026-03-01', count: '7' }, { type: 'ISSUE', date: '2026-03-01', count: '7' }]) // enum order
+    expect((await testPool.query(`SELECT DISTINCT date_acquired::text FROM lines`)).rows).toEqual([{ date_acquired: '2026-02-20' }]) // kept for the RPC
     expect(await count('qr_tokens')).toBe(7)
     expect((await testPool.query(`SELECT action FROM audit_logs WHERE action='issuance.create'`)).rowCount).toBe(1)
     expect(await count('audit_logs', `WHERE action='line.create'`)).toBe(7)
@@ -70,7 +70,7 @@ describe('POST /api/issuances (update 02 W3)', () => {
 
   it('only semi rows -> only an ICS; the PAR number is not needed', async () => {
     const s = await setup()
-    const res = await post(s.agent, { header: header(s, { parNo: undefined }), rows: [row(1), row(2)], generate: false })
+    const res = await post(s.agent, { header: header(s, { parNos: undefined }), rows: [row(1), row(2)], generate: false })
     expect(res.status).toBe(201)
     expect(res.body.documents.map((d: { type: string }) => d.type)).toEqual(['ICS'])
     expect(await count('documents')).toBe(1)
@@ -78,17 +78,16 @@ describe('POST /api/issuances (update 02 W3)', () => {
 
   it('a missing number for a type that has rows -> 400 DOC_NO_REQUIRED naming it, nothing written', async () => {
     const s = await setup()
-    const res = await post(s.agent, { header: header(s, { parNo: undefined }), rows: [row(1), row(2, 9645000)], generate: false })
+    const res = await post(s.agent, { header: header(s, { parNos: undefined }), rows: [row(1), row(2, 9645000)], generate: false })
     expect(res.status).toBe(400)
     expect(res.body.error).toMatchObject({ code: 'DOC_NO_REQUIRED', details: { type: 'PAR' } })
     expect(await count('documents')).toBe(0)
     expect(await count('lines')).toBe(0)
-    expect(await count('items', `WHERE description <> 'Default model'`)).toBe(0)
   })
 
   it('a duplicate property number in rows 2 and 6 -> 409 flagging every one, zero documents written', async () => {
     const s = await setup()
-    await post(s.agent, { header: header(s, { icsNo: 'FIRST', parNo: 'FIRST-P' }), rows: [row(50)], generate: false })
+    await post(s.agent, { header: header(s, { icsNo: 'FIRST', parNos: ['FIRST-P'] }), rows: [row(50)], generate: false })
     const before = { d: await count('documents'), l: await count('lines'), p: await count('properties') }
     const rows = [row(1), row(2), row(3), row(4), row(5), row(6), row(7, 9645000)]
     rows[5].properties = rows[1].properties // row index 5 repeats row index 1
@@ -104,7 +103,7 @@ describe('POST /api/issuances (update 02 W3)', () => {
   it('a duplicate ICS number -> 409 DUPLICATE_DOCUMENT_NO and nothing else is written', async () => {
     const s = await setup()
     await post(s.agent, { header: header(s), rows: [row(1)], generate: false })
-    const res = await post(s.agent, { header: header(s, { parNo: 'OTHER-P' }), rows: [row(2), row(3, 9645000)], generate: false })
+    const res = await post(s.agent, { header: header(s, { parNos: ['OTHER-P'] }), rows: [row(2), row(3, 9645000)], generate: false })
     expect(res.status).toBe(409)
     expect(res.body.error.code).toBe('DUPLICATE_DOCUMENT_NO')
     expect(await count('documents')).toBe(1)
@@ -151,16 +150,31 @@ describe('POST /api/issuances (update 02 W3)', () => {
     expect(d).toEqual({ received_by_position: 'Acting Chief', issued_by_position: 'JDelaCruz Position' })
   })
 
-  it('a card is created once for new identical rows; a wrong card category rolls everything back', async () => {
+  it('one PAR per PPE unit: a row of 3 laptops makes 3 PARs, numbered from parNos in order; the line takes the item', async () => {
     const s = await setup()
-    const nc = { new: { propertyTypeId: 1, article: 'Laptop', description: 'Lenovo ThinkPad E14', unit: 'unit' } }
-    const ok = await post(s.agent, { header: header(s), rows: [{ ...row(1), item: nc }, { ...row(2), item: nc }], generate: false })
-    expect(ok.status).toBe(201)
-    expect(await count('items', `WHERE description='Lenovo ThinkPad E14'`)).toBe(1)
-    const bad = await post(s.agent, { header: header(s, { icsNo: 'B', parNo: 'B-P' }), rows: [row(3), { ...row(4, 9645000), item: itemFor(100) }], generate: false })
-    expect(bad.status).toBe(409)
-    expect(bad.body.error).toMatchObject({ code: 'CATEGORY_MISMATCH', details: { rowIndex: 1 } })
-    expect(await count('documents')).toBe(1)
+    const three = { line: { propertyTypeId: 1, article: 'Laptop', unit: 'unit', qty: 3, unitCostCentavos: 9645000, description: 'MSI Katana', dateAcquired: '2026-02-20' },
+      properties: [{ propertyNo: 'L-1', serialNo: 'K1' }, { propertyNo: 'L-2' }, { propertyNo: 'L-3', serialNo: 'N/A' }] }
+    const set = { line: { ...three.line, qty: 1, description: 'Dell set' }, properties: [{ propertyNo: 'S-1' }, { propertyNo: 'S-1a', componentLabel: 'Mouse' }] }
+    const res = await post(s.agent, { header: header(s, { parNos: ['P-001', 'P-002', 'P-003', 'P-004'] }), rows: [row(1), three, set], generate: false })
+    expect(res.status).toBe(201)
+    expect(res.body.documents.map((d: { type: string; docNo: string }) => `${d.type} ${d.docNo}`)).toEqual(['ICS 2026-09TEST-003', 'PAR P-001', 'PAR P-002', 'PAR P-003', 'PAR P-004'])
+    const pars = (await testPool.query(`SELECT d.doc_no, l.qty, l.article, l.category, string_agg(p.property_no || ':' || coalesce(p.serial_no, '-'), ',' ORDER BY p.property_no) AS nos
+      FROM documents d JOIN lines l ON l.document_id = d.id JOIN properties p ON p.line_id = l.id WHERE d.type = 'PAR' GROUP BY d.doc_no, l.qty, l.article, l.category ORDER BY d.doc_no`)).rows
+    expect(pars).toEqual([
+      { doc_no: 'P-001', qty: 1, article: 'Laptop', category: 'ppe', nos: 'L-1:K1' },
+      { doc_no: 'P-002', qty: 1, article: 'Laptop', category: 'ppe', nos: 'L-2:-' },
+      { doc_no: 'P-003', qty: 1, article: 'Laptop', category: 'ppe', nos: 'L-3:-' }, // N/A is no serial
+      { doc_no: 'P-004', qty: 1, article: 'Laptop', category: 'ppe', nos: 'S-1:-,S-1a:-' }, // the set stays together
+    ])
+  })
+
+  it('the PAR numbers must match the PPE units -> 400 naming how many, nothing written', async () => {
+    const s = await setup()
+    const two = { ...row(2, 9645000), properties: [{ propertyNo: 'T-1' }, { propertyNo: 'T-2' }] }
+    const res = await post(s.agent, { header: header(s, { parNos: ['ONLY-ONE'] }), rows: [two], generate: false })
+    expect(res.status).toBe(400)
+    expect(res.body.error).toMatchObject({ code: 'DOC_NO_REQUIRED', details: { type: 'PAR', needed: 2 } })
+    expect(await count('documents')).toBe(0)
   })
 
   it('validation: empty rows, unknown keys, anonymous', async () => {

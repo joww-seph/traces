@@ -1,7 +1,7 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 import { pool } from '../db/client.js'
 import { resetDb, testPool } from './db.js'
-import { agentFor, DEFAULT_ITEM, loginAs, makeDocument } from './helpers.js'
+import { agentFor, ITEM, loginAs, makeDocument } from './helpers.js'
 
 beforeEach(resetDb)
 afterAll(async () => { await pool.end(); await testPool.end() })
@@ -10,8 +10,8 @@ async function withNumbers(nos: string[]) {
   const { agent } = await loginAs('supply_admin')
   const { doc } = await makeDocument(agent)
   const res = await agent.post(`/api/documents/${doc.id}/lines`).send({
-    line: { qty: nos.length, unitCostCentavos: 100000, description: 'x', dateAcquired: '2026-03-01' },
-    item: { itemId: DEFAULT_ITEM.semi }, properties: nos.map((propertyNo) => ({ propertyNo })),
+    line: { ...ITEM, qty: nos.length, unitCostCentavos: 100000, description: 'x', dateAcquired: '2026-03-01' },
+    properties: nos.map((propertyNo) => ({ propertyNo })),
   })
   expect(res.status).toBe(201)
   return agent

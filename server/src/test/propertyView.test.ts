@@ -5,17 +5,17 @@ import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 import { createApp } from '../app.js'
 import { pool } from '../db/client.js'
 import { testPool, resetDb } from './db.js'
-import { agentFor, itemFor, loginAs, makeDocument, signDocument, makeOfficer } from './helpers.js'
+import { agentFor, ITEM, loginAs, makeDocument, signDocument, makeOfficer } from './helpers.js'
 
 const STORAGE = path.resolve(process.env.STORAGE_DIR!)
 beforeEach(async () => { await resetDb(); rmSync(STORAGE, { recursive: true, force: true }) })
 afterAll(async () => { rmSync(STORAGE, { recursive: true, force: true }); await pool.end(); await testPool.end() })
 
-const body = (cost: number, nos: { propertyNo: string; componentLabel?: string }[], region?: object, item: object = itemFor(cost)) => ({
-  line: { qty: 1, unitCostCentavos: cost, description: 'Described', estUsefulLifeYears: 5, dateAcquired: '2026-02-01' }, item,
+const body = (cost: number, nos: { propertyNo: string; componentLabel?: string }[], region?: object, item: object = {}) => ({
+  line: { ...ITEM, qty: 1, unitCostCentavos: cost, description: 'Described', estUsefulLifeYears: 5, dateAcquired: '2026-02-01', ...item },
   ...(region ? { region } : {}), properties: nos,
 })
-const thinkpad = { new: { propertyTypeId: 1, article: 'Laptop', description: 'Lenovo ThinkPad E14', unit: 'unit' } }
+const thinkpad = { article: 'Laptop', description: 'Lenovo ThinkPad E14' }
 
 // ICS with a PPE laptop set (+ a boxed region) and a semi item, plus a PAR with another PPE item.
 async function seed() {
@@ -70,12 +70,12 @@ describe('GET /api/properties/:no/view (admin)', () => {
     expect(semi.tabs.card.header.title).toBe('SEMI-EXPENDABLE PROPERTY CARD')
   })
 
-  it('card tab: the model card, this line’s rows highlighted', async () => {
+  it('card tab: the property’s own card, this line’s row highlighted', async () => {
     const { agent } = await seed()
     const issueId = (await testPool.query(`SELECT m.id FROM movements m JOIN properties p ON p.id=m.property_id WHERE p.property_no='L-1' AND m.type='ISSUE'`)).rows[0].id
     const card = (await agent.get('/api/properties/L-1/view')).body.tabs.card
-    expect(card.header).toMatchObject({ article: 'Laptop', description: 'Lenovo ThinkPad E14', propertyNoFirst: 'L-1', propertyNoLast: 'L-1' })
-    expect(card.rows).toHaveLength(2) // receipt (2026-02-01) and issue (2026-03-01)
+    expect(card.header).toMatchObject({ article: 'Laptop', description: 'Lenovo ThinkPad E14 (S/N: N/A)', propertyNo: 'L-1' })
+    expect(card.rows).toHaveLength(1) // receipt and issue share the date issued: one row
     expect(card.highlightRowIds).toContain(String(issueId))
     expect(card.rows.at(-1)).toMatchObject({ issueQty: 1, balanceQty: 0 })
   })
@@ -105,14 +105,13 @@ describe('GET /api/properties/:no/view (admin)', () => {
   })
 })
 
-describe('public view of a shared model card (SEC-10, revised 2026-11-16)', () => {
-  it('shows the whole card and registry with this line highlighted, but never another line’s officer', async () => {
+describe('public view (SEC-10, revised 2026-11-16 and 2026-11-18)', () => {
+  it('shows the whole registry with this line highlighted, but never another line’s officer; the card is the property’s own', async () => {
     const { agent, ics } = await seed()
     const second = await makeDocument(agent, { docNo: '2026-04TEST-001', issuedDate: '2026-04-01' })
     const other = await makeOfficer({ fullName: 'Zed O. Other', position: 'Clerk' })
     await testPool.query(`UPDATE documents SET received_by_officer_id = $1 WHERE id = $2`, [other.id, second.doc.id])
-    const itemId = (await testPool.query(`SELECT item_id FROM lines WHERE description='Described' ORDER BY line_no LIMIT 1`)).rows[0].item_id
-    await agent.post(`/api/documents/${second.doc.id}/lines`).send(body(9645000, [{ propertyNo: 'L-2' }], undefined, { itemId }))
+    await agent.post(`/api/documents/${second.doc.id}/lines`).send(body(9645000, [{ propertyNo: 'L-2' }], undefined, thinkpad))
     await testPool.query(`UPDATE movements SET officer_id = $1 WHERE property_id = (SELECT id FROM properties WHERE property_no='L-2') AND type='ISSUE'`, [other.id])
     const token = (await testPool.query(`SELECT t.token FROM qr_tokens t JOIN properties p ON p.id=t.property_id WHERE p.property_no='L-1'`)).rows[0].token.trim()
 
@@ -121,10 +120,10 @@ describe('public view of a shared model card (SEC-10, revised 2026-11-16)', () =
     expect(text).not.toContain('ZOOther')
     expect(text).not.toContain('Zed O. Other')
     const staff = (await agent.get('/api/properties/L-1/view')).body
-    expect(JSON.stringify(staff.tabs.card)).toContain('Zed O. Other') // staff see every officer
+    expect(JSON.stringify(staff.tabs.registry)).toContain('Zed O. Other') // staff see every officer
     // the public sees the entire card and registry (same rows as staff), only the names of other lines blanked
     expect(pub.tabs.card.rows.length).toBe(staff.tabs.card.rows.length)
-    expect(pub.tabs.card.header.propertyNoLast).toBe(staff.tabs.card.header.propertyNoLast)
+    expect(pub.tabs.card.header.propertyNo).toBe('L-1')
     expect(pub.tabs.registry.rows.length).toBe(staff.tabs.registry.rows.length)
     expect(pub.tabs.registry.rows.map((r: { reference: string }) => r.reference)).toContain('ICS 2026-04TEST-001')
     const mine = pub.tabs.registry.rows.find((r: { id: string }) => r.id === pub.tabs.registry.highlightRowId)

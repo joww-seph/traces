@@ -16,13 +16,14 @@ type R = readonly [method: 'get' | 'post' | 'put' | 'patch' | 'delete', path: st
 
 // Every route added by updates 01 and 02 (and the ones they changed): signed-in only, and mutating ones need an allowed Origin.
 const READ: R[] = [
-  ['get', '/api/items'], ['get', '/api/property-types'], ['get', '/api/property-numbers/next?typeId=1&dateAcquired=2026-01-01'],
+  ['get', '/api/property-types'], ['get', '/api/property-numbers/next?typeId=1&dateAcquired=2026-01-01'],
   ['get', '/api/views/cards'], ['get', `/api/views/card/${ID}`], ['get', '/api/views/registry?category=semi'],
-  ['get', `/api/reports/rpc?officerId=${ID}&category=ppe`], ['get', '/api/report-signatories'], ['get', `/api/exports/spc?itemId=${ID}`],
+  ['get', `/api/reports/rpc?officerId=${ID}&category=ppe`], ['get', '/api/report-signatories'], ['get', `/api/exports/spc?cardId=${ID}`],
   ['get', `/api/documents/${ID}/pdf`], ['get', `/api/documents/${ID}/pdf?kind=generated`],
+  ['get', `/api/documents/${ID}/history`], ['get', `/api/reports/forms?officerId=${ID}`], ['get', `/api/reports/forms.pdf?officerId=${ID}`],
 ]
 const WRITE: R[] = [
-  ['post', '/api/issuances'], ['post', '/api/items'], ['patch', `/api/items/${ID}`], ['post', '/api/property-types'], ['patch', '/api/property-types/1'],
+  ['post', '/api/issuances'], ['patch', '/api/views/card-rows/1'], ['post', '/api/property-types'], ['patch', '/api/property-types/1'],
   ['post', `/api/documents/${ID}/generate`], ['put', `/api/documents/${ID}/pdf`], ['delete', `/api/documents/${ID}/pdf`],
   ['post', `/api/documents/${ID}/lines/batch`], ['put', `/api/lines/${ID}/region`], ['put', '/api/report-signatories'],
 ]
@@ -61,7 +62,7 @@ describe('the public view never carries staff data', () => {
     const receiver = await mk('Rcv', true)
     const out = await agent.post('/api/issuances').send({
       header: { receivedByOfficerId: receiver.id, issuedByOfficerId: issuer.id, issuedDate: '2026-03-01', fundCluster: 'RAF', icsNo: 'SEC-1' },
-      rows: [{ line: { qty: 1, unitCostCentavos: 100000, description: 'x', dateAcquired: '2026-02-01' }, item: { itemId: '00000000-0000-4000-8000-0000000000a1' }, properties: [{ propertyNo: 'SEC-0001' }] }],
+      rows: [{ line: { propertyTypeId: 1, article: 'Article', unit: 'unit', qty: 1, unitCostCentavos: 100000, description: 'x', dateAcquired: '2026-02-01' }, properties: [{ propertyNo: 'SEC-0001' }] }],
       generate: true,
     })
     expect(out.status).toBe(201)
@@ -82,8 +83,9 @@ describe('the public view never carries staff data', () => {
 const RECORDS: R[] = [
   ['get', '/api/dashboard'], ['get', '/api/documents'], ['post', '/api/documents'], ['get', `/api/documents/${ID}`], ['patch', `/api/documents/${ID}`],
   ['post', `/api/documents/${ID}/generate`], ['put', `/api/documents/${ID}/pdf`], ['delete', `/api/documents/${ID}/pdf`], ['delete', `/api/documents/${ID}`],
-  ['get', `/api/documents/${ID}/pdf`], ['get', `/api/exports/spc?itemId=${ID}`], ['post', '/api/issuances'],
-  ['get', '/api/items'], ['post', '/api/items'], ['patch', `/api/items/${ID}`],
+  ['get', `/api/documents/${ID}/pdf`], ['get', `/api/exports/spc?cardId=${ID}`], ['post', '/api/issuances'],
+  ['get', `/api/documents/${ID}/history`], ['get', `/api/reports/forms?officerId=${ID}`], ['get', `/api/reports/forms.pdf?officerId=${ID}`],
+  ['patch', '/api/views/card-rows/1'],
   ['post', `/api/documents/${ID}/lines`], ['post', `/api/documents/${ID}/lines/batch`], ['get', `/api/lines/${ID}`], ['patch', `/api/lines/${ID}`],
   ['put', `/api/lines/${ID}/region`], ['delete', `/api/lines/${ID}`],
   ['get', '/api/properties/X-1/view'], ['post', '/api/properties/X-1/qr/rotate'], ['get', '/api/properties/X-1'], ['patch', '/api/properties/X-1'],
@@ -99,7 +101,7 @@ describe('the IT officer has no access to the records', () => {
   })
   it('the supply admin still opens them; the IT officer still reads the lists it keeps', async () => {
     const { agent } = await loginAs('supply_admin')
-    for (const path of ['/api/dashboard', '/api/documents', '/api/items', '/api/views/cards', '/api/report-signatories']) expect((await agent.get(path)).status, path).toBe(200)
+    for (const path of ['/api/dashboard', '/api/documents', '/api/views/cards', '/api/report-signatories']) expect((await agent.get(path)).status, path).toBe(200)
     const { agent: it_ } = await loginAs('superadmin')
     for (const path of ['/api/officers', '/api/property-types', '/api/units', '/api/settings']) expect((await it_.get(path)).status, path).toBe(200)
   })

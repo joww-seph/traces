@@ -1,7 +1,7 @@
 import { formatLongDate } from '@traces/shared'
 import ExcelJS from 'exceljs'
 import type { CardData, CountData } from './fill.js'
-import { MONEY, asDate, pesos, ruleAndNumber, sizeRow, toBuffer } from './xlsx.js'
+import { MONEY, asDate, pageEvery, pesos, ruleAndNumber, sizeRow, toBuffer } from './xlsx.js'
 
 // SPC and RPCSP have no official Excel template, so they are drawn here to match the blank forms
 // (Semi-Expendable Property Card, Report on Physical Count of Semi-Expendable Property).
@@ -91,7 +91,11 @@ export async function buildRpcsp(entityName: string, d: CountData) {
   head('H9', 'Shortage/Overage', 'H9:I9'); head('H10', 'Quantity'); head('I10', 'Value')
   head('J9', 'Remarks', 'J9:J10')
   const last = 10 + Math.max(MIN_BLANK_ROWS - 2, d.rows.length)
-  boxRange(ws, 9, 1, last, 10)
+  head('K9', 'No.', 'K9:K10')
+  ws.getColumn(11).width = 7
+  boxRange(ws, 9, 1, last, 11)
+  const nos = d.rows.map((_x, i) => i + 1)
+  pageEvery(ws, [9, 10], 11, nos)
 
   d.rows.forEach((x, i) => {
     const r = 11 + i
@@ -100,6 +104,7 @@ export async function buildRpcsp(entityName: string, d: CountData) {
     set('E', pesos(x.unitValueCentavos), MONEY); set('F', x.balancePerCard); set('G', '')
     set('H', ''); set('I', '')
     set('J', x.remarks ?? '')
+    set('K', i + 1)
     sizeRow(ws, r, ['A', 'B', 'C', 'J'], { perLine: 12.5 })
   })
 
@@ -116,7 +121,27 @@ export async function buildRpcsp(entityName: string, d: CountData) {
   block('H', 'J', 'Witnessed by:', 'coa_representative', 'Signature over Printed Name of COA Representative')
   ws.getRow(sig + 2).height = Math.max(36, 15 * Math.max(1, names('committee').split('\n').length, names('head_of_agency').split('\n').length, names('coa_representative').split('\n').length))
   ws.getRow(sig + 3).height = 28
-  ruleAndNumber(ws, 9, 1, last, 10)
+  ruleAndNumber(ws, 9, 1, last, 11)
   ws.pageSetup.printArea = `A1:J${sig + 3}`
+  return toBuffer(wb)
+}
+
+// The ICS/PAR list as printed (decision 2026-11-18): No. per form type, 20 rows per sheet, the header row repeats.
+export type IcsParListRow = { rowNo: number; type: 'ICS' | 'PAR'; docNo: string; issuedDate: string; receivedByName: string; status: 'none' | 'generated' | 'signed' }
+const STATUS = { none: 'No PDF', generated: 'Unsigned', signed: 'Signed copy' } as const
+export async function buildIcsParList(d: { entityName: string; rows: IcsParListRow[] }) {
+  const { wb, ws } = newSheet('ICS and PAR', [7, 8, 24, 16, 34, 14])
+  cell(ws, 'A1', 'ICS AND PAR', { merge: 'A1:F1', font: { ...heading, size: 12 }, alignment: center })
+  cell(ws, 'A2', d.entityName, { merge: 'A2:F2', alignment: center })
+  const head = ['No.', 'Form', 'Number', 'Date issued', 'Received by', 'Status']
+  head.forEach((h, i) => cell(ws, `${String.fromCharCode(65 + i)}3`, h, { font: heading, alignment: center }))
+  d.rows.forEach((x, i) => {
+    const r = 4 + i
+    const set = (col: string, v: ExcelJS.CellValue, numFmt?: string) => cell(ws, `${col}${r}`, v, { numFmt })
+    set('A', x.rowNo); set('B', x.type); set('C', x.docNo); set('D', asDate(x.issuedDate), 'mmm d, yyyy'); set('E', x.receivedByName); set('F', STATUS[x.status])
+  })
+  ruleAndNumber(ws, 3, 1, 3 + Math.max(1, d.rows.length), 6)
+  ws.pageSetup = { ...ws.pageSetup, printTitlesRow: '3:3' }
+  d.rows.forEach((_x, i) => { if (i < d.rows.length - 1 && (i + 1) % 20 === 0) ws.getRow(4 + i).addPageBreak() })
   return toBuffer(wb)
 }

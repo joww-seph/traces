@@ -19,15 +19,20 @@ describe('ICS/PAR number suggestion: YYYY-MM{UNIT}-NNN, one counter per year + u
     const { agent } = await loginAs('supply_admin')
     const res = await next(agent, 'issuedDate=2026-11-15&unit=SARAi')
     expect(res.status).toBe(200)
-    expect(res.body).toEqual({ icsNo: '2026-11SARAi-001', parNo: '2026-11SARAi-001' })
+    expect(res.body).toEqual({ icsNo: '2026-11SARAi-001', parNos: ['2026-11SARAi-001'] })
   })
   it('continues the unit’s highest number of the year, whatever the month; other units and the other form type are ignored', async () => {
     const agent = await withDocs([
       { type: 'ICS', docNo: '2026-03SARAi-005' }, { type: 'ICS', docNo: '2026-09SARAi-012' }, { type: 'ICS', docNo: '2026-09IT-040' },
       { type: 'ICS', docNo: '2026-09SARAi-012a' }, { type: 'PAR', docNo: '2026-05SARAi-001' }, { type: 'PAR', docNo: '2025-12SARAi-099' },
     ])
-    expect((await next(agent, 'issuedDate=2026-11-15&unit=SARAi')).body).toEqual({ icsNo: '2026-11SARAi-013', parNo: '2026-11SARAi-002' })
-    expect((await next(agent, 'issuedDate=2026-11-15&unit=IT')).body).toEqual({ icsNo: '2026-11IT-041', parNo: '2026-11IT-001' })
+    expect((await next(agent, 'issuedDate=2026-11-15&unit=SARAi')).body).toEqual({ icsNo: '2026-11SARAi-013', parNos: ['2026-11SARAi-002'] })
+    expect((await next(agent, 'issuedDate=2026-11-15&unit=IT')).body).toEqual({ icsNo: '2026-11IT-041', parNos: ['2026-11IT-001'] })
+  })
+  it('one PAR per PPE unit: parCount numbers in a row', async () => {
+    const agent = await withDocs([{ type: 'PAR', docNo: '2026-05ADM-004' }])
+    expect((await next(agent, 'issuedDate=2026-11-15&unit=ADM&parCount=3')).body.parNos).toEqual(['2026-11ADM-005', '2026-11ADM-006', '2026-11ADM-007'])
+    expect((await next(agent, 'issuedDate=2026-11-15&unit=ADM&parCount=0')).body.parNos).toEqual([])
   })
   it('a new year starts again', async () => {
     const agent = await withDocs([{ type: 'ICS', docNo: '2026-09SARAi-012' }])

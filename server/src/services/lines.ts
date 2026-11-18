@@ -2,11 +2,10 @@ import { categorize, formatPeso, type lineInput, type linePatch } from '@traces/
 import { and, asc, eq, inArray, isNull, max, sql } from 'drizzle-orm'
 import type { z } from 'zod'
 import { db } from '../db/client.js'
-import { documents, items, linePdfRegions, lines, movements, properties, propertyTypes, qrTokens } from '../db/schema.js'
+import { documents, linePdfRegions, lines, movements, properties, propertyTypes, qrTokens } from '../db/schema.js'
 import { AppError, pgErrorOf } from '../middleware/error.js'
 import { audit, type Ctx } from './audit.js'
 import { assertNotSigned } from './documentFiles.js'
-import { insertItem } from './items.js'
 import { newToken } from './qr.js'
 import { getSettings } from './settings.js'
 
@@ -86,10 +85,9 @@ const lockLiveLine = async (tx: Tx, id: string) => {
 export const regionOut = (r: typeof linePdfRegions.$inferSelect | undefined | null) =>
   r ? { page: r.page, x: Number(r.x), y: Number(r.y), w: Number(r.w), h: Number(r.h) } : null
 
-// A line carries its card's article, unit and model; they are not stored on the line (3NF).
 export async function getLine(lineId: string) {
-  const row = (await db.select({ line: lines, category: items.category, article: items.article, unit: items.unit, itemDescription: items.description, propertyTypeCode: propertyTypes.code })
-    .from(lines).innerJoin(items, eq(items.id, lines.itemId)).innerJoin(propertyTypes, eq(propertyTypes.id, items.propertyTypeId))
+  const row = (await db.select({ line: lines, propertyTypeCode: propertyTypes.code })
+    .from(lines).innerJoin(propertyTypes, eq(propertyTypes.id, lines.propertyTypeId))
     .where(and(eq(lines.id, lineId), isNull(lines.deletedAt))))[0]
   if (!row) throw new AppError('LINE_NOT_FOUND', 404, 'Line not found')
   const doc = (await db.select({ id: documents.id }).from(documents).where(and(eq(documents.id, row.line.documentId), isNull(documents.deletedAt))))[0]
@@ -108,16 +106,16 @@ export async function getLine(lineId: string) {
 export const regionValues = (lineId: string, r: Region, kind: 'generated' | 'uploaded' = 'uploaded') =>
   ({ lineId, kind, page: r.page, x: String(r.x), y: String(r.y), w: String(r.w), h: String(r.h) })
 
-// One token + RECEIPT (date acquired) and ISSUE (document date) movements per property (BR-04).
+// One token + RECEIPT and ISSUE movements per property (BR-04). Both carry the document date: the card's date is the
+// ICS/PAR date issued, like the registry's (decision 2026-11-18); the date acquired stays on the line for the RPC.
 async function insertProperties(tx: Tx, line: typeof lines.$inferSelect, doc: Doc, props: PropertyInput[]) {
   const rows = await tx.insert(properties).values(props.map((p) => ({
     propertyNo: p.propertyNo, lineId: line.id, serialNo: p.serialNo, oldPropertyNo: p.oldPropertyNo, componentLabel: p.componentLabel, condition: p.condition,
   }))).returning()
   await tx.insert(qrTokens).values(rows.map((p) => ({ token: newToken(), propertyId: p.id })))
-  const receiptDate = line.dateAcquired ?? doc.issuedDate // legacy lines may have no date acquired
   await tx.insert(movements).values(rows.flatMap((p) => [
     {
-      propertyId: p.id, type: 'RECEIPT' as const, date: receiptDate,
+      propertyId: p.id, type: 'RECEIPT' as const, date: doc.issuedDate,
       referenceDocumentId: line.iarNo ? null : doc.id, referenceText: line.iarNo ?? null,
     },
     {
@@ -128,43 +126,31 @@ async function insertProperties(tx: Tx, line: typeof lines.$inferSelect, doc: Do
   return rows
 }
 
-// Cards created inside one save are keyed so identical new cards are created once.
-export type ItemCache = Map<string, string>
-const itemKey = (category: string, v: { propertyTypeId: number; article: string; description: string }) =>
-  `${category}|${v.propertyTypeId}|${v.article.toLowerCase()}|${v.description.toLowerCase()}`
-
-async function resolveItem(tx: Tx, ref: LineInput['item'], category: 'semi' | 'ppe', cache: ItemCache) {
-  if ('itemId' in ref) {
-    const item = (await tx.select().from(items).where(eq(items.id, ref.itemId)))[0]
-    if (!item) throw new AppError('ITEM_NOT_FOUND', 404, 'Card not found')
-    if (!item.active) throw new AppError('ITEM_INACTIVE', 409, 'This card is inactive')
-    if (item.category !== category) {
-      throw new AppError('CATEGORY_MISMATCH', 409,
-        `This line is ${category.toUpperCase()} by cost, but the card is ${item.category.toUpperCase()}. Pick or create a ${category === 'ppe' ? 'PC' : 'SPC'} card.`,
-        { lineCategory: category, itemCategory: item.category, itemId: item.id })
-    }
-    return item.id
+// A row with parts has one main unit (its card lists them); a PAR holds one property (decision 2026-11-18).
+async function assertUnits(tx: Tx, doc: Doc, lineId: string) {
+  const onLine = await tx.select({ c: properties.componentLabel }).from(properties).where(and(eq(properties.lineId, lineId), isNull(properties.voidedAt)))
+  if (onLine.some((p) => p.c) && onLine.filter((p) => !p.c).length !== 1) {
+    throw new AppError('PARTS_NEED_ONE_UNIT', 400, 'A row with parts must have exactly one main unit')
   }
-  const key = itemKey(category, ref.new)
-  const hit = cache.get(key)
-  if (hit) return hit
-  const row = await insertItem(tx, { ...ref.new, category })
-  cache.set(key, row.id)
-  return row.id
+  if (doc.type !== 'PAR') return
+  const mains = (await tx.select({ n: sql<number>`count(*)::int` }).from(properties)
+    .innerJoin(lines, and(eq(lines.id, properties.lineId), isNull(lines.deletedAt)))
+    .where(and(eq(lines.documentId, doc.id), isNull(properties.voidedAt), isNull(properties.componentLabel))))[0].n
+  if (mains > 1) throw new AppError('PAR_ONE_PROPERTY', 400, 'A PAR holds one property (with its parts); give each unit its own PAR')
 }
 
 // The shared core of createLine and createLinesBatch. The caller holds the document lock and the transaction.
 export async function insertLineTx(
-  tx: Tx, doc: Doc, input: LineInput, o: { lineNo: number; cache: ItemCache; thresholdCentavos: number; ctx: Ctx },
+  tx: Tx, doc: Doc, input: LineInput, o: { lineNo: number; thresholdCentavos: number; ctx: Ctx },
 ) {
   const category = categorize(input.line.unitCostCentavos, o.thresholdCentavos)
-  const itemId = await resolveItem(tx, input.item, category, o.cache)
   const { lineNo: _ignored, ...fields } = input.line
-  const [line] = await tx.insert(lines).values({ ...fields, lineNo: o.lineNo, documentId: doc.id, itemId }).returning()
+  const [line] = await tx.insert(lines).values({ ...fields, category, lineNo: o.lineNo, documentId: doc.id }).returning()
   if (input.region) await tx.insert(linePdfRegions).values(regionValues(line.id, input.region, 'uploaded'))
   await insertProperties(tx, line, doc, input.properties)
+  await assertUnits(tx, doc, line.id)
   await audit(tx, o.ctx, 'line.create', 'lines', line.id, null, input)
-  return { lineId: line.id, category, itemId, warning: mismatchWarning(doc.type, category, o.thresholdCentavos) }
+  return { lineId: line.id, category, warning: mismatchWarning(doc.type, category, o.thresholdCentavos) }
 }
 
 const nextLineNo = async (tx: Tx, docId: string) =>
@@ -178,7 +164,7 @@ export async function createLine(docId: string, input: LineInput, ctx: Ctx) {
       const s = await getSettings(tx)
       await assertNoDuplicateNumbers(tx, [input.properties])
       const lineNo = input.line.lineNo ?? await nextLineNo(tx, docId)
-      return insertLineTx(tx, doc, input, { lineNo, cache: new Map(), thresholdCentavos: s.ppeThresholdCentavos, ctx })
+      return insertLineTx(tx, doc, input, { lineNo, thresholdCentavos: s.ppeThresholdCentavos, ctx })
     }))
   } catch (e) { rethrowDuplicateProperty(e, input.properties) }
 }
@@ -192,12 +178,11 @@ export async function createLinesBatch(docId: string, rows: LineInput[], ctx: Ct
       await assertNotSigned(tx, docId)
       const s = await getSettings(tx)
       await assertNoDuplicateNumbers(tx, rows.map((r) => r.properties))
-      const cache: ItemCache = new Map()
       let lineNo = await nextLineNo(tx, docId)
       const out = []
       for (const [rowIndex, row] of rows.entries()) {
         try {
-          out.push(await insertLineTx(tx, doc, row, { lineNo: lineNo++, cache, thresholdCentavos: s.ppeThresholdCentavos, ctx }))
+          out.push(await insertLineTx(tx, doc, row, { lineNo: lineNo++, thresholdCentavos: s.ppeThresholdCentavos, ctx }))
         } catch (e) {
           if (e instanceof AppError) throw new AppError(e.code, e.status, e.message, { ...(e.details as object | undefined), rowIndex })
           throw e
@@ -224,10 +209,10 @@ export async function updateLine(lineId: string, patch: z.infer<typeof linePatch
     return await withTokenRetry(() => db.transaction(async (tx) => {
       const before = await lockLiveLine(tx, lineId)
       const doc = await lockLiveDocument(tx, before.documentId)
-      if (patch.line || patch.item || patch.addProperties?.length || patch.removePropertyNos?.length) await assertNotSigned(tx, doc.id) // boxes stay editable
+      if (patch.line || patch.addProperties?.length || patch.removePropertyNos?.length) await assertNotSigned(tx, doc.id) // boxes stay editable
       const s = await getSettings(tx)
       const { lineNo, ...fields } = patch.line ?? {}
-      const category = (await tx.select({ c: items.category }).from(items).where(eq(items.id, before.itemId)))[0].c // the card decides it (3NF)
+      const category = before.category
 
       // category is frozen at creation (BR-01); a cost edit across the threshold only warns
       let warning
@@ -236,13 +221,11 @@ export async function updateLine(lineId: string, patch: z.infer<typeof linePatch
           `The new cost is on the other side of the ${formatPeso(s.ppeThresholdCentavos)} threshold, but the category stays ${category.toUpperCase()}.`)
       }
       if (Object.keys(fields).length) await tx.update(lines).set(fields).where(eq(lines.id, lineId))
-      // the card can be corrected, but only to one of the line's (frozen) category
-      if (patch.item) await tx.update(lines).set({ itemId: await resolveItem(tx, patch.item, category, new Map()) }).where(eq(lines.id, lineId))
-      // the RECEIPT movements carry the date acquired and the IAR number: keep them in step with the line
-      if ('dateAcquired' in fields || 'iarNo' in fields) {
+      // the RECEIPT movements carry the IAR number: keep them in step with the line
+      if ('iarNo' in fields) {
         const cur = (await tx.select().from(lines).where(eq(lines.id, lineId)))[0]
         await tx.update(movements).set({
-          date: cur.dateAcquired ?? doc.issuedDate, referenceText: cur.iarNo ?? null, referenceDocumentId: cur.iarNo ? null : doc.id,
+          referenceText: cur.iarNo ?? null, referenceDocumentId: cur.iarNo ? null : doc.id,
         }).where(and(eq(movements.type, 'RECEIPT'), inArray(movements.propertyId, tx.select({ id: properties.id }).from(properties).where(eq(properties.lineId, lineId)))))
       }
       if (lineNo !== undefined && lineNo !== before.lineNo) await reorder(tx, doc.id, lineId, lineNo)
@@ -260,9 +243,10 @@ export async function updateLine(lineId: string, patch: z.infer<typeof linePatch
         await tx.update(qrTokens).set({ revokedAt: new Date() }).where(and(eq(qrTokens.propertyId, p.id), isNull(qrTokens.revokedAt)))
       }
       if (added.length) {
-        const current = (await tx.select().from(lines).where(eq(lines.id, lineId)))[0] // receipt date uses the edited date acquired
+        const current = (await tx.select().from(lines).where(eq(lines.id, lineId)))[0]
         await insertProperties(tx, current, doc, added)
       }
+      if (added.length || patch.removePropertyNos?.length) await assertUnits(tx, doc, lineId)
 
       await audit(tx, ctx, 'line.update', 'lines', lineId, before, patch)
       return { lineId, category, warning }

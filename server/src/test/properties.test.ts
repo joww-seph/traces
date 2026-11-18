@@ -3,14 +3,14 @@ import path from 'node:path'
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 import { pool } from '../db/client.js'
 import { testPool, resetDb } from './db.js'
-import { agentFor, itemFor, loginAs, makeDocument, signDocument } from './helpers.js'
+import { agentFor, ITEM, loginAs, makeDocument, signDocument } from './helpers.js'
 
 const STORAGE = path.resolve(process.env.STORAGE_DIR!)
 beforeEach(async () => { await resetDb(); rmSync(STORAGE, { recursive: true, force: true }) })
 afterAll(async () => { rmSync(STORAGE, { recursive: true, force: true }); await pool.end(); await testPool.end() })
 
 const line = (cost: number, nos: { propertyNo: string; componentLabel?: string; oldPropertyNo?: string }[]) => ({
-  line: { qty: 1, unitCostCentavos: cost, description: 'Laptop set', dateAcquired: '2026-02-01' }, item: itemFor(cost), properties: nos,
+  line: { ...ITEM, qty: 1, unitCostCentavos: cost, description: 'Laptop set', dateAcquired: '2026-02-01' }, properties: nos,
 })
 
 async function setup() {
@@ -73,7 +73,7 @@ describe('dashboard', () => {
     expect((await agent.get('/api/dashboard')).body).toEqual({
       documents: { ICS: 0, PAR: 0 },
       categories: { semi: { properties: 0, mainUnits: 0, valueCentavos: 0 }, ppe: { properties: 0, mainUnits: 0, valueCentavos: 0 } },
-      cards: 2, // the two default test cards
+      cards: 0, // one card per main unit (decision 2026-11-18)
       unsignedDocuments: 0,
     })
     const { doc } = await makeDocument(agent)

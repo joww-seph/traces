@@ -2,8 +2,8 @@ import { z } from 'zod'
 import { isoDate, nonEmpty, positionText, uuid } from './common.js'
 import { lineInput } from './line.js'
 
-// One issuance form (Update 02 V-01): the receiver and date once, then every row. The server splits it into an ICS
-// (rows under the PPE threshold) and a PAR (rows at or above it) and saves both together.
+// One issuance form (Update 02 V-01): the receiver and date once, then every row. The server puts the rows under the
+// PPE threshold on one ICS (one per purchase) and gives every PPE unit its own PAR (decision 2026-11-18), all in one save.
 export const issuanceHeader = z.strictObject({
   receivedByOfficerId: uuid,
   receivedByPosition: positionText.optional(), // as printed; the officer's own position when omitted
@@ -13,7 +13,7 @@ export const issuanceHeader = z.strictObject({
   fundCluster: nonEmpty,
   purpose: z.string().trim().optional(), // becomes the registry's Remarks
   icsNo: nonEmpty.optional(), // needed only when some row is semi-expendable
-  parNo: nonEmpty.optional(), // needed only when some row is PPE
+  parNos: z.array(nonEmpty).max(1000).optional(), // one per PPE unit, in row order
 })
 
 export const issuanceInput = z.strictObject({

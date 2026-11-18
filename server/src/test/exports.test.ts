@@ -1,10 +1,11 @@
 import { rmSync } from 'node:fs'
 import path from 'node:path'
 import ExcelJS from 'exceljs'
+import JSZip from 'jszip'
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 import { pool } from '../db/client.js'
 import { testPool, resetDb } from './db.js'
-import { agentFor, loginAs, makeDocument } from './helpers.js'
+import { agentFor, ITEM, loginAs, makeDocument } from './helpers.js'
 
 const STORAGE = path.resolve(process.env.STORAGE_DIR!)
 beforeEach(async () => { await resetDb(); rmSync(STORAGE, { recursive: true, force: true }) })
@@ -24,30 +25,30 @@ async function sheet(agent: Agent, url: string) {
   return { ws: wb.worksheets[0], res, text: (a: string) => String(wb.worksheets[0].getCell(a).value ?? '') }
 }
 
-const card = (propertyTypeId: number, article: string, description: string) => ({ new: { propertyTypeId, article, description, unit: 'unit' } })
-const lineBody = (cost: number, nos: { propertyNo: string; componentLabel?: string }[], item: object, extra: object = {}) => ({
-  line: { qty: 1, unitCostCentavos: cost, description: 'Described', estUsefulLifeYears: 5, dateAcquired: '2026-03-19', ...extra }, item, properties: nos,
+const card = (propertyTypeId: number, article: string, description: string) => ({ propertyTypeId, article, description })
+const lineBody = (cost: number, nos: { propertyNo: string; componentLabel?: string; serialNo?: string }[], item: object, extra: object = {}) => ({
+  line: { ...ITEM, qty: 1, unitCostCentavos: cost, description: 'Described', estUsefulLifeYears: 5, dateAcquired: '2026-03-19', ...item, ...extra }, properties: nos,
 })
+const propertyId = async (no: string) => (await testPool.query(`SELECT id FROM properties WHERE property_no=$1`, [no])).rows[0].id as string
 
 // A PPE laptop set (ICT) and a semi chair (Furniture and Fixtures) issued to MSantos on 2026-03-19.
 async function seed() {
   const { agent } = await loginAs('supply_admin')
   const ics = await makeDocument(agent, { issuedDate: '2026-03-19' })
-  const laptop = await agent.post(`/api/documents/${ics.doc.id}/lines`).send(lineBody(9645000,
-    [{ propertyNo: 'L-1' }, { propertyNo: 'L-1a', componentLabel: 'Mouse' }], card(1, 'Laptop', 'Lenovo ThinkPad E14'), { description: 'Laptop Unit\nSpecification:\n- Memory: 16GB' }))
-  const chair = await agent.post(`/api/documents/${ics.doc.id}/lines`).send(lineBody(450000, [{ propertyNo: 'S-1' }], card(2, 'Chair', 'Office chair')))
-  const itemOf = async (lineId: string) => (await testPool.query(`SELECT item_id FROM lines WHERE id=$1`, [lineId])).rows[0].item_id as string
-  return { agent, ics, laptopItem: await itemOf(laptop.body.lineId), chairItem: await itemOf(chair.body.lineId) }
+  await agent.post(`/api/documents/${ics.doc.id}/lines`).send(lineBody(9645000,
+    [{ propertyNo: 'L-1', serialNo: 'LT-9' }, { propertyNo: 'L-1a', componentLabel: 'Mouse' }], card(1, 'Laptop', 'Lenovo ThinkPad E14')))
+  await agent.post(`/api/documents/${ics.doc.id}/lines`).send(lineBody(450000, [{ propertyNo: 'S-1' }], card(2, 'Chair', 'Office chair')))
+  return { agent, ics, laptopItem: await propertyId('L-1'), chairItem: await propertyId('S-1') }
 }
 
-describe('cards (PC / SPC), one per model', () => {
+describe('cards (PC / SPC), one per property', () => {
   it('PC: header text and the merged card row, balance and amount from the view', async () => {
     const { agent, laptopItem } = await seed()
-    const x = await sheet(agent, `/api/exports/pc?itemId=${laptopItem}`)
-    expect(x.res.headers['content-disposition']).toContain('PC_Laptop_Lenovo_ThinkPad_E14.xlsx')
+    const x = await sheet(agent, `/api/exports/pc?cardId=${laptopItem}`)
+    expect(x.res.headers['content-disposition']).toContain('PC_L-1.xlsx')
     expect(x.text('B8')).toBe('Property, Plant and Equipment : Laptop')
     expect(x.text('I9')).toBe('Property Number: L-1')
-    expect(x.text('B10')).toContain('Lenovo ThinkPad E14')
+    expect(x.text('B10')).toContain('Lenovo ThinkPad E14 (S/N: LT-9, N/A)')
     expect(x.ws.getCell('B13').value).toEqual(new Date(Date.UTC(2026, 2, 19)))
     expect(x.text('C13')).toBe('ICS 2026-03SARAi-005')
     // receipt and issue on the same day merge; the Supply Unit holds nothing after the issue
@@ -57,7 +58,7 @@ describe('cards (PC / SPC), one per model', () => {
 
   it('SPC: the semi-expendable card is drawn with receipt unit cost and total cost', async () => {
     const { agent, chairItem } = await seed()
-    const x = await sheet(agent, `/api/exports/spc?itemId=${chairItem}`)
+    const x = await sheet(agent, `/api/exports/spc?cardId=${chairItem}`)
     expect(x.text('A1')).toBe('SEMI-EXPENDABLE PROPERTY CARD')
     expect(x.text('H4')).toBe('Semi-expendable Property Number: S-1')
     expect([x.ws.getCell('C8').value, x.ws.getCell('D8').value, x.ws.getCell('E8').value, x.text('F8'), x.ws.getCell('G8').value, x.text('H8'), x.ws.getCell('I8').value, x.ws.getCell('J8').value])
@@ -66,10 +67,10 @@ describe('cards (PC / SPC), one per model', () => {
 
   it('the wrong form for the category -> 400 WRONG_FORM', async () => {
     const { agent, laptopItem, chairItem } = await seed()
-    const pc = await agent.get(`/api/exports/pc?itemId=${chairItem}`)
+    const pc = await agent.get(`/api/exports/pc?cardId=${chairItem}`)
     expect(pc.status).toBe(400)
     expect(pc.body.error.code).toBe('WRONG_FORM')
-    expect((await agent.get(`/api/exports/spc?itemId=${laptopItem}`)).status).toBe(400)
+    expect((await agent.get(`/api/exports/spc?cardId=${laptopItem}`)).status).toBe(400)
   })
 })
 
@@ -81,7 +82,7 @@ describe('registries (per category and type)', () => {
     expect(semi.text('A7')).toBe('Semi-expendable Property: Furniture and Fixtures')
     expect(semi.text('L6')).toBe('Fund Cluster: RAF')
     expect([semi.text('B11'), semi.text('C11'), semi.text('D11'), semi.ws.getCell('F11').value, semi.text('G11'), semi.ws.getCell('M11').value, semi.ws.getCell('N11').value, semi.text('O11')])
-      .toEqual(['ICS 2026-03SARAi-005', 'S-1', 'Described', 1, 'Maria Santos', 1, 4500, ''])
+      .toEqual(['ICS 2026-03SARAi-005', 'S-1', 'Office chair (S/N: N/A)', 1, 'Maria Santos', 1, 4500, ''])
     expect(semi.ws.getCell('A11').value).toEqual(new Date(Date.UTC(2026, 2, 19)))
     const ppe = await sheet(agent, '/api/exports/regppe?typeId=1')
     expect(ppe.text('C4')).toBe('REGISTRY OF PROPERTY, PLANT AND EQUIPMENT ISSUED')
@@ -149,7 +150,7 @@ describe('request checks', () => {
     expect((await agent.get('/api/exports/ics')).status).toBe(404)
     expect((await agent.get('/api/exports/pc')).status).toBe(400)
     expect((await agent.get('/api/exports/rpcppe')).status).toBe(400)
-    expect((await agent.get('/api/exports/pc?itemId=00000000-0000-4000-8000-0000000000ff')).status).toBe(404)
+    expect((await agent.get('/api/exports/pc?cardId=00000000-0000-4000-8000-0000000000ff')).status).toBe(404)
     expect((await agentFor().get('/api/exports/regspi')).status).toBe(401)
   })
 
@@ -172,11 +173,11 @@ describe('every export prints ruled and numbered', () => {
     const officerId = (await testPool.query(`SELECT id FROM officers WHERE short_name='MSantos'`)).rows[0].id
     // [url, first table row, last table row, first column, last column]
     const forms: [string, number, number, number, number][] = [
-      [`/api/exports/pc?itemId=${laptopItem}`, 11, 30, 2, 10],
-      [`/api/exports/spc?itemId=${chairItem}`, 6, 21, 1, 11],
-      ['/api/exports/regspi', 9, 11, 1, 15],
-      [`/api/exports/rpcppe?officerId=${officerId}&asAt=2026-12-31`, 12, 34, 3, 12],
-      [`/api/exports/rpcsp?officerId=${officerId}&asAt=2026-12-31`, 9, 22, 1, 10],
+      [`/api/exports/pc?cardId=${laptopItem}`, 11, 30, 2, 10],
+      [`/api/exports/spc?cardId=${chairItem}`, 6, 21, 1, 11],
+      ['/api/exports/regspi', 9, 11, 1, 17],
+      [`/api/exports/rpcppe?officerId=${officerId}&asAt=2026-12-31`, 12, 34, 3, 13],
+      [`/api/exports/rpcsp?officerId=${officerId}&asAt=2026-12-31`, 9, 22, 1, 11],
     ]
     for (const [url, r1, r2, c1, c2] of forms) {
       const { ws } = await sheet(agent, url)
@@ -186,5 +187,43 @@ describe('every export prints ruled and numbered', () => {
         expect([b.top?.style, b.bottom?.style, b.left?.style, b.right?.style].every(Boolean), `${url} ${ws.getCell(r, c).address}`).toBe(true)
       }
     }
+  })
+})
+
+describe('20 rows per printed sheet, with No. and Sheet No. (decision 2026-11-18)', () => {
+  it('the registry numbers its rows, names each row\u2019s sheet, repeats its header and breaks after every 20th row', async () => {
+    const { agent, ics } = await seed()
+    for (let i = 2; i <= 25; i++) {
+      await agent.post(`/api/documents/${ics.doc.id}/lines`).send(lineBody(450000, [{ propertyNo: `S-${String(i).padStart(2, '0')}` }], card(2, 'Chair', `Chair ${i}`)))
+    }
+    const { ws, text, res } = await sheet(agent, '/api/exports/regspi?typeId=2')
+    expect([text('P9'), text('Q9')]).toEqual(['No.', 'Sheet No.'])
+    expect([ws.getCell('P11').value, ws.getCell('Q11').value, ws.getCell('P30').value, ws.getCell('Q30').value, ws.getCell('P31').value, ws.getCell('Q31').value])
+      .toEqual([1, 1, 20, 1, 21, 2])
+    expect(ws.pageSetup.printTitlesRow).toBe('9:10')
+    // ExcelJS writes page breaks but does not read them back: look in the sheet XML (jszip comes with ExcelJS)
+    const xml = await (await JSZip.loadAsync(res.body as Buffer)).file('xl/worksheets/sheet1.xml')!.async('string')
+    expect([...xml.matchAll(/<brk id="(\d+)"/g)].map((m) => Number(m[1]))).toEqual([30])
+  })
+  it('the officer reports number their rows too', async () => {
+    const { agent, ics } = await seed()
+    const rpcsp = await sheet(agent, `/api/exports/rpcsp?officerId=${ics.receiver.id}&asAt=2026-12-31`)
+    expect([rpcsp.text('K9'), rpcsp.ws.getCell('K11').value]).toEqual(['No.', 1])
+    const rpcppe = await sheet(agent, `/api/exports/rpcppe?officerId=${ics.receiver.id}&asAt=2026-12-31`)
+    expect([rpcppe.text('M12'), rpcppe.ws.getCell('M15').value]).toEqual(['No.', 1])
+  })
+})
+
+describe('ICS/PAR list export (decision 2026-11-18)', () => {
+  it('lists every live form with its No., type, number, date, receiver and status; filters like the list page', async () => {
+    const { agent } = await seed()
+    await makeDocument(agent, { type: 'PAR', docNo: 'PAR-9', issuedDate: '2026-04-02' })
+    const x = await sheet(agent, '/api/exports/icspar')
+    expect(x.text('A1')).toBe('ICS AND PAR')
+    expect([x.text('A3'), x.text('B3'), x.text('C3'), x.text('D3'), x.text('E3'), x.text('F3')]).toEqual(['No.', 'Form', 'Number', 'Date issued', 'Received by', 'Status'])
+    expect([x.ws.getCell('A4').value, x.text('B4'), x.text('C4'), x.text('E4'), x.text('F4')]).toEqual([1, 'ICS', '2026-03SARAi-005', 'Maria Santos', 'No PDF'])
+    expect([x.ws.getCell('A5').value, x.text('B5'), x.text('C5')]).toEqual([1, 'PAR', 'PAR-9']) // No. counts per form type
+    expect((await sheet(agent, '/api/exports/icspar?type=PAR')).text('C4')).toBe('PAR-9')
+    expect(x.ws.pageSetup.printTitlesRow).toBe('3:3')
   })
 })

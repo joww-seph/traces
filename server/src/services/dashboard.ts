@@ -1,6 +1,6 @@
 import { count, isNull, sql, sum } from 'drizzle-orm'
 import { db } from '../db/client.js'
-import { documentFiles, documents, items } from '../db/schema.js'
+import { documentFiles, documents } from '../db/schema.js'
 import { vActiveProperties, vRegistry } from '../db/views.js'
 
 const zero = () => ({ properties: 0, mainUnits: 0, valueCentavos: 0 })
@@ -15,7 +15,6 @@ export async function dashboard() {
   }).from(vActiveProperties).groupBy(vActiveProperties.category)
   const value = await db.select({ category: vRegistry.category, v: sum(vRegistry.amountCentavos) }).from(vRegistry).groupBy(vRegistry.category)
 
-  const cards = (await db.select({ n: count() }).from(items))[0].n
   const unsigned = (await db.select({ n: count() }).from(documents)
     .where(sql`${documents.deletedAt} is null and not exists (select 1 from ${documentFiles} f where f.document_id = ${documents.id} and f.kind = 'uploaded')`))[0].n
 
@@ -25,7 +24,7 @@ export async function dashboard() {
   return {
     documents: { ICS: docs.find((d) => d.type === 'ICS')?.n ?? 0, PAR: docs.find((d) => d.type === 'PAR')?.n ?? 0 },
     categories,
-    cards, // models with a card
+    cards: categories.semi.mainUnits + categories.ppe.mainUnits, // one card per property (decision 2026-11-18)
     unsignedDocuments: unsigned, // ICS/PAR without an uploaded (signed) copy
   }
 }

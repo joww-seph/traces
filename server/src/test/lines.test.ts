@@ -4,7 +4,7 @@ import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 import { pool } from '../db/client.js'
 import { withTokenRetry } from '../services/lines.js'
 import { testPool, resetDb } from './db.js'
-import { agentFor, DEFAULT_ITEM, itemFor, loginAs, makeDocument, makeOfficer } from './helpers.js'
+import { agentFor, ITEM, loginAs, makeDocument, makeOfficer } from './helpers.js'
 
 const STORAGE = path.resolve(process.env.STORAGE_DIR!)
 beforeEach(async () => { await resetDb(); rmSync(STORAGE, { recursive: true, force: true }) })
@@ -20,7 +20,7 @@ const counts = async () => ({
 const laptop = (over: object = {}) => {
   const line = { qty: 1, unitCostCentavos: 9645000, description: 'Laptop set', estUsefulLifeYears: 5, dateAcquired: '2026-02-15', ...over }
   return {
-    line, item: itemFor(line.unitCostCentavos),
+    line: { ...ITEM, ...line },
     region: { page: 1, x: 0.1, y: 0.2, w: 0.8, h: 0.05 },
     properties: [
       { propertyNo: '2026-09ICT-0199' },
@@ -57,19 +57,19 @@ describe('create line (BR-04)', () => {
     expect(Number(reg[0].amount_centavos)).toBe(9645000)
     expect(reg[0].property_nos).toBe('2026-09ICT-0199\n2026-09ICT-0199a\n2026-09ICT-0199b')
 
-    // receipt on the date acquired, issue on the document date to the receiving officer
+    // receipt and issue both on the document date (the card's date, decision 2026-11-18), issued to the receiving officer
     const mv = (await testPool.query(`SELECT type, date::text, officer_id FROM movements ORDER BY id LIMIT 2`)).rows
     expect(mv.map((m) => m.type)).toEqual(['RECEIPT', 'ISSUE'])
-    expect(mv[0].date).toBe('2026-02-15')
+    expect(mv[0].date).toBe('2026-03-01')
     expect(mv[1].date).toBe('2026-03-01')
     expect(mv[1].officer_id).toBe(receiver.id)
   })
 
-  it('receipt movement is dated by the date acquired and carries the iar_no when given', async () => {
+  it('receipt movement is dated by the date issued and carries the iar_no when given', async () => {
     const { post } = await setup()
     await post(laptop({ iarNo: 'IAR-77', iarDate: '2026-02-12', dateAcquired: '2026-02-10' }))
     const r = (await testPool.query(`SELECT date::text, reference_text, reference_document_id FROM movements WHERE type='RECEIPT' LIMIT 1`)).rows[0]
-    expect(r).toEqual({ date: '2026-02-10', reference_text: 'IAR-77', reference_document_id: null })
+    expect(r).toEqual({ date: '2026-03-01', reference_text: 'IAR-77', reference_document_id: null })
   })
 
   it('line_no defaults to max+1 per document', async () => {
@@ -126,66 +126,46 @@ describe('create line (BR-04)', () => {
   })
 })
 
-describe('cards on a line (update 01 U4)', () => {
-  const newCard = { new: { propertyTypeId: 1, article: 'Laptop', description: 'Lenovo ThinkPad E14 Gen 5', unit: 'unit' } }
-
-  it('a ₱96,450 line on a semi card -> 409 CATEGORY_MISMATCH and nothing is written', async () => {
-    const { post } = await setup()
-    const before = await counts()
-    const res = await post({ ...laptop(), item: { itemId: DEFAULT_ITEM.semi } })
-    expect(res.status).toBe(409)
-    expect(res.body.error).toMatchObject({ code: 'CATEGORY_MISMATCH', details: { lineCategory: 'ppe', itemCategory: 'semi' } })
-    expect(await counts()).toEqual(before)
-  })
-
-  it('an inline new card is created with the computed category and reused by id afterwards', async () => {
+describe('the line carries the item (decision 2026-11-18)', () => {
+  it('type, article, unit and the category from the cost are stored on the line', async () => {
     const { post, agent } = await setup()
-    const first = await post({ ...laptop({ unitCostCentavos: 3709200 }), item: newCard, region: undefined, properties: [{ propertyNo: 'T-1' }] })
-    expect(first.status).toBe(201)
-    const card = (await testPool.query(`SELECT id, category, article, unit FROM items WHERE description = 'Lenovo ThinkPad E14 Gen 5'`)).rows[0]
-    expect(card).toMatchObject({ category: 'semi', article: 'Laptop', unit: 'unit' })
-    const second = await post({ ...laptop({ unitCostCentavos: 3709200 }), item: { itemId: card.id }, region: undefined, properties: [{ propertyNo: 'T-2' }] })
-    expect(second.status).toBe(201)
-    expect((await testPool.query(`SELECT count(*) FROM lines WHERE item_id = $1`, [card.id])).rows[0].count).toBe('2')
-    expect((await agent.get(`/api/lines/${first.body.lineId}`)).body).toMatchObject({ article: 'Laptop', unit: 'unit' })
+    const res = await post({ ...laptop({ unitCostCentavos: 3709200, article: 'Laptop', unit: 'set' }), region: undefined, properties: [{ propertyNo: 'T-1' }] })
+    expect(res.status).toBe(201)
+    expect((await testPool.query(`SELECT property_type_id, category, article, unit FROM lines`)).rows[0])
+      .toEqual({ property_type_id: 1, category: 'semi', article: 'Laptop', unit: 'set' })
+    expect((await agent.get(`/api/lines/${res.body.lineId}`)).body).toMatchObject({ article: 'Laptop', unit: 'set', propertyTypeCode: 'ICT' })
   })
 
-  it('an inline card that already exists -> 409 ITEM_EXISTS carrying its id, nothing written', async () => {
+  it('a row with parts has one main unit -> 400, nothing written', async () => {
     const { post } = await setup()
-    await post({ ...laptop({ unitCostCentavos: 3709200 }), item: newCard, region: undefined, properties: [{ propertyNo: 'T-1' }] })
-    const id = (await testPool.query(`SELECT id FROM items WHERE description = 'Lenovo ThinkPad E14 Gen 5'`)).rows[0].id
     const before = await counts()
-    const res = await post({ ...laptop({ unitCostCentavos: 3709200 }), item: { new: { ...newCard.new, article: 'LAPTOP' } }, region: undefined, properties: [{ propertyNo: 'T-2' }] })
-    expect(res.status).toBe(409)
-    expect(res.body.error).toMatchObject({ code: 'ITEM_EXISTS', details: { itemId: id } })
+    const res = await post({ ...laptop({ qty: 2 }), properties: [{ propertyNo: 'U-1' }, { propertyNo: 'U-2' }, { propertyNo: 'U-1a', componentLabel: 'Mouse' }] })
+    expect(res.status).toBe(400)
     expect(await counts()).toEqual(before)
   })
 
-  it('an unknown card -> 404 ITEM_NOT_FOUND; an inactive card -> 409 ITEM_INACTIVE', async () => {
-    const { post } = await setup()
-    expect((await post({ ...laptop(), item: { itemId: '00000000-0000-4000-8000-0000000000ff' } })).status).toBe(404)
-    await testPool.query(`UPDATE items SET active = false WHERE id = $1`, [DEFAULT_ITEM.ppe])
-    const res = await post(laptop())
-    expect(res.status).toBe(409)
-    expect(res.body.error.code).toBe('ITEM_INACTIVE')
+  it('a PAR holds one property: a second unit -> 400 PAR_ONE_PROPERTY', async () => {
+    const { post } = await setup({ type: 'PAR', docNo: 'PAR-1' })
+    expect((await post(laptop())).status).toBe(201)
+    const res = await post({ ...laptop(), region: undefined, properties: [{ propertyNo: 'X-2' }] })
+    expect(res.status).toBe(400)
+    expect(res.body.error.code).toBe('PAR_ONE_PROPERTY')
   })
 })
 
 describe('batch save (BR-14)', () => {
   const row = (nos: string[], over: object = {}) => ({
     ...laptop({ unitCostCentavos: 3709200, ...over }), region: undefined,
-    item: { new: { propertyTypeId: 1, article: 'Laptop', description: 'Lenovo ThinkPad E14 Gen 5', unit: 'unit' } },
     properties: nos.map((propertyNo) => ({ propertyNo })),
   })
   const batch = (agent: Awaited<ReturnType<typeof setup>>['agent'], id: string, rows: object[]) =>
     agent.post(`/api/documents/${id}/lines/batch`).send({ rows })
 
-  it('two rows of the same new card create one card and two lines, numbered in order', async () => {
+  it('two rows make two lines, numbered in order', async () => {
     const { agent, doc } = await setup()
     const res = await batch(agent, doc.id, [row(['B-1']), row(['B-2', 'B-3'], { qty: 2 })])
     expect(res.status).toBe(201)
     expect(res.body.lines.map((l: { category: string }) => l.category)).toEqual(['semi', 'semi'])
-    expect(await count('items', `WHERE description = 'Lenovo ThinkPad E14 Gen 5'`)).toBe(1)
     const got = await agent.get(`/api/documents/${doc.id}`)
     expect(got.body.lines.map((l: { lineNo: number }) => l.lineNo)).toEqual([1, 2])
     expect(await count('audit_logs', `WHERE action='line.create'`)).toBe(2)
@@ -202,15 +182,14 @@ describe('batch save (BR-14)', () => {
       { rowIndex: 1, propertyNo: 'D-1' }, { rowIndex: 2, propertyNo: '2026-09ict-0199' },
     ]))
     expect(await counts()).toEqual(before)
-    expect(await count('items', `WHERE description = 'Lenovo ThinkPad E14 Gen 5'`)).toBe(0)
   })
 
-  it('a category mismatch in one row rolls the whole batch back', async () => {
-    const { agent, doc } = await setup()
+  it('a bad row rolls the whole batch back and is named by its index', async () => {
+    const { agent, doc } = await setup({ type: 'PAR', docNo: 'PAR-B' })
     const before = await counts()
-    const res = await batch(agent, doc.id, [row(['M-1']), { ...laptop(), item: { itemId: DEFAULT_ITEM.semi } }])
-    expect(res.status).toBe(409)
-    expect(res.body.error.code).toBe('CATEGORY_MISMATCH')
+    const res = await batch(agent, doc.id, [row(['M-1']), row(['M-2'])]) // a PAR holds one property
+    expect(res.status).toBe(400)
+    expect(res.body.error.code).toBe('PAR_ONE_PROPERTY')
     expect(res.body.error.details.rowIndex).toBe(1)
     expect(await counts()).toEqual(before)
   })
@@ -268,19 +247,19 @@ describe('update line (BR-05)', () => {
   it('cost change across the threshold keeps the category and returns a warning', async () => {
     const { post, agent } = await setup()
     const { lineId } = (await post({ ...laptop({ unitCostCentavos: 4870000 }), region: undefined, properties: [{ propertyNo: 'S-1' }] })).body
-    const same = await agent.patch(`/api/lines/${lineId}`).send({ line: { unitCostCentavos: 4900000 } })
+    const same = await agent.patch(`/api/lines/${lineId}`).send({ line: { ...ITEM, unitCostCentavos: 4900000 } })
     expect(same.body.warning).toBeUndefined()
-    const res = await agent.patch(`/api/lines/${lineId}`).send({ line: { unitCostCentavos: 6000000 } })
+    const res = await agent.patch(`/api/lines/${lineId}`).send({ line: { ...ITEM, unitCostCentavos: 6000000 } })
     expect(res.status).toBe(200)
     expect(res.body.category).toBe('semi')
     expect(res.body.warning.code).toBe('CATEGORY_UNCHANGED')
-    expect((await testPool.query('SELECT i.category, l.unit_cost_centavos FROM lines l JOIN items i ON i.id = l.item_id')).rows[0]).toMatchObject({ category: 'semi', unit_cost_centavos: '6000000' })
+    expect((await testPool.query('SELECT l.category, l.unit_cost_centavos FROM lines l')).rows[0]).toMatchObject({ category: 'semi', unit_cost_centavos: '6000000' })
   })
 
   it('text edits, region replace and region clear', async () => {
     const { post, agent } = await setup()
     const { lineId } = (await post(laptop())).body
-    await agent.patch(`/api/lines/${lineId}`).send({ line: { description: 'Edited' }, region: { page: 2, x: 0, y: 0, w: 0.5, h: 0.5 } })
+    await agent.patch(`/api/lines/${lineId}`).send({ line: { ...ITEM, description: 'Edited' }, region: { page: 2, x: 0, y: 0, w: 0.5, h: 0.5 } })
     expect((await testPool.query('SELECT description FROM lines')).rows[0].description).toBe('Edited')
     expect((await testPool.query('SELECT page FROM line_pdf_regions')).rows[0].page).toBe(2)
     await agent.patch(`/api/lines/${lineId}`).send({ region: null })
@@ -291,7 +270,7 @@ describe('update line (BR-05)', () => {
     const { post, agent, doc } = await setup()
     const ids: string[] = []
     for (const n of ['R-1', 'R-2', 'R-3']) ids.push((await post({ ...laptop(), region: undefined, properties: [{ propertyNo: n }] })).body.lineId)
-    const res = await agent.patch(`/api/lines/${ids[2]}`).send({ line: { lineNo: 1 } })
+    const res = await agent.patch(`/api/lines/${ids[2]}`).send({ line: { ...ITEM, lineNo: 1 } })
     expect(res.status).toBe(200)
     const got = await agent.get(`/api/documents/${doc.id}`)
     expect(got.body.lines.map((l: { id: string }) => l.id)).toEqual([ids[2], ids[0], ids[1]])
@@ -350,32 +329,17 @@ describe('corrections reach the ledger (card, registry, report)', () => {
     expect((await agent.patch(`/api/documents/${doc.id}`).send({ receivedByOfficerId: other.id, issuedDate: '2026-03-05' })).status).toBe(200)
     expect(await holder('2026-09ICT-0199')).toBe(other.id)
     expect(await holder('2026-09ICT-0199a')).toBe(other.id)
-    expect(await dates('2026-09ICT-0199')).toEqual([{ type: 'RECEIPT', date: '2026-02-15' }, { type: 'ISSUE', date: '2026-03-05' }])
+    expect(await dates('2026-09ICT-0199')).toEqual([{ type: 'RECEIPT', date: '2026-03-05' }, { type: 'ISSUE', date: '2026-03-05' }])
   })
 
-  it('a corrected date acquired and IAR number move the RECEIPT movements', async () => {
+  it('a corrected IAR number moves to the RECEIPT movements; the date acquired stays on the line', async () => {
     const { post, agent } = await setup()
     const { lineId } = (await post(laptop())).body
-    expect((await agent.patch(`/api/lines/${lineId}`).send({ line: { dateAcquired: '2026-01-20', iarNo: 'IAR-9' } })).status).toBe(200)
-    expect(await dates('2026-09ICT-0199')).toEqual([{ type: 'RECEIPT', date: '2026-01-20' }, { type: 'ISSUE', date: '2026-03-01' }])
+    expect((await agent.patch(`/api/lines/${lineId}`).send({ line: { ...ITEM, dateAcquired: '2026-01-20', iarNo: 'IAR-9' } })).status).toBe(200)
+    expect(await dates('2026-09ICT-0199')).toEqual([{ type: 'RECEIPT', date: '2026-03-01' }, { type: 'ISSUE', date: '2026-03-01' }])
+    expect((await testPool.query(`SELECT date_acquired::text FROM lines WHERE id=$1`, [lineId])).rows[0].date_acquired).toBe('2026-01-20')
     const r = (await testPool.query(`SELECT reference_text, reference_document_id FROM movements WHERE type='RECEIPT' LIMIT 1`)).rows[0]
     expect(r).toEqual({ reference_text: 'IAR-9', reference_document_id: null })
   })
 })
 
-describe('moving a line to another card', () => {
-  it('a wrong card can be corrected to one of the same category; another category is 409', async () => {
-    const { post, agent } = await setup()
-    const { lineId } = (await post(laptop())).body
-    const other = (await agent.post('/api/items').send({ propertyTypeId: 1, category: 'ppe', article: 'Laptop', description: 'Dell Latitude', unit: 'unit' })).body
-    const res = await agent.patch(`/api/lines/${lineId}`).send({ item: { itemId: other.id } })
-    expect(res.status).toBe(200)
-    expect((await testPool.query('SELECT item_id FROM lines WHERE id=$1', [lineId])).rows[0].item_id).toBe(other.id)
-    const wrong = await agent.patch(`/api/lines/${lineId}`).send({ item: { itemId: DEFAULT_ITEM.semi } })
-    expect(wrong.status).toBe(409)
-    expect(wrong.body.error.code).toBe('CATEGORY_MISMATCH')
-    const created = await agent.patch(`/api/lines/${lineId}`).send({ item: { new: { propertyTypeId: 1, article: 'Laptop', description: 'HP ProBook', unit: 'unit' } } })
-    expect(created.status).toBe(200)
-    expect((await testPool.query(`SELECT category FROM items WHERE description='HP ProBook'`)).rows[0].category).toBe('ppe')
-  })
-})
