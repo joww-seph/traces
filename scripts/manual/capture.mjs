@@ -132,7 +132,8 @@ async function login(page, who) {
   await page.locator('#email').fill(who.email)
   await page.locator('#password').fill(who.password)
   await page.getByRole('button', { name: 'Sign in' }).click()
-  await page.getByRole('heading', { name: 'Dashboard' }).waitFor()
+  await page.waitForURL((u) => !u.pathname.startsWith('/login')) // supply admins land on the dashboard, the IT officer on User accounts
+  await page.getByRole('main').getByRole('heading').first().waitFor()
 }
 
 const browser = await chromium.launch({ channel: 'chrome' })
@@ -141,7 +142,7 @@ const page = await ctx.newPage()
 watch(page, 'desktop')
 const row = (n) => page.getByRole('group', { name: `Row ${n}` })
 const S = {
-  start: 'Getting started', officers: 'People and property types', issue: 'Entering an issuance', docs: 'ICS and PAR documents',
+  start: 'Getting started', officers: 'Lists kept by the IT administrator', issue: 'Entering an issuance', docs: 'ICS and PAR documents',
   cards: 'Cards, registry and property', reports: 'Reports', stickers: 'QR stickers', scan: 'Scanning a sticker', admin: 'Administration', account: 'Your account',
 }
 
@@ -173,21 +174,27 @@ await shot(page, {
     'Dashboard: totals and shortcuts.',
     'New issuance: record property given to an officer. TRACES makes the ICS or PAR for you.',
     'ICS and PAR: every slip and receipt, printed or signed.',
-    'Cards: one property card per model (SPC or PC).',
+    'Cards: one property card for every property number (SPC or PC).',
     'Registry: the registry of property issued (RegSPI and the PPE registry).',
     'Reports: what one officer holds on a date (RPCSP or RPCPPE), for the physical count.',
     'Stickers: print QR stickers.',
-    'Officers and Property types: the lists the forms pick from.',
   ],
   marks: [
     page.getByRole('link', { name: 'Dashboard' }), page.getByRole('link', { name: 'New issuance' }).first(), page.getByRole('link', { name: 'ICS and PAR' }),
     page.getByRole('link', { name: 'Cards', exact: true }), page.getByRole('link', { name: 'Registry' }), page.getByRole('link', { name: 'Reports' }),
-    page.getByRole('link', { name: 'Stickers' }), page.getByRole('link', { name: 'Officers' }),
+    page.getByRole('link', { name: 'Stickers' }),
   ],
   prefer: 'right',
+  note: 'Officers, property types and office units are kept by the IT administrator. Ask them when a person or a unit is missing from a list.',
 })
 
-// ───────────── Officers and property types ─────────────
+// ───────────── Lists kept by the IT administrator (officers, property types, office units) ─────────────
+const itCtx = await browser.newContext({ viewport: { width: 1440, height: 900 } })
+const it = await itCtx.newPage()
+watch(it, 'it')
+await login(it, ADMIN)
+{
+const page = it // the shots below are the IT administrator's screens
 await page.goto(`${BASE}/officers`)
 await shot(page, {
   section: S.officers, title: 'Officers: the people who issue and receive property',
@@ -231,77 +238,78 @@ await shot(page, {
   ],
   marks: [page.getByRole('cell', { name: 'ICT', exact: true }), page.getByRole('button', { name: 'Add type' }), page.getByRole('button', { name: 'Deactivate' }).first()],
 })
+await page.goto(`${BASE}/units`)
+await page.getByRole('button', { name: 'Add unit' }).click()
+await page.locator('#u-code').fill('SARAi')
+await page.locator('#u-name').fill('Smarter Approaches to Reinvigorate Agriculture as an Industry')
+await shot(page, {
+  section: S.officers, title: 'Office units: the code inside ICS and PAR numbers',
+  steps: ['Code: the letters inside the slip numbers, like SARAi in 2026-11SARAi-001. It cannot be changed later.', 'Name: the unit written out.', 'Click Add unit. The unit can then be chosen on the issuance form.'],
+  marks: ['#u-code', '#u-name', page.getByRole('dialog').getByRole('button', { name: 'Add unit' })],
+})
+await page.getByRole('dialog').getByRole('button', { name: 'Add unit' }).click()
+await page.getByRole('cell', { name: 'SARAi', exact: true }).waitFor()
+}
+await itCtx.close()
 
 // ───────────── New issuance ─────────────
 await page.goto(`${BASE}/issue`)
 await shot(page, {
   section: S.issue, title: 'New issuance: the four parts of the form',
   steps: [
-    'Part 1, Property card: one row for each model you are handing over.',
+    'Part 1, Property card: one row for each kind of item you are handing over. Every unit gets its own card.',
     'Each row is a box like this one. You can add as many rows as you need.',
     'Parts 2 to 4 are further down: Registry (who receives it), Report (a preview) and ICS/PAR (the slip numbers).',
   ],
   marks: [page.getByRole('heading', { name: '1. Property card' }), row(1), null],
   note: 'Nothing is saved until you press a Save button at the bottom. If the page is closed by accident, your typing is kept on this computer and comes back when you open the form again.',
 })
-await shot(page, {
-  section: S.issue, title: 'Step 1: choose the card (the model)',
-  steps: ['If this model was issued before, type part of its name here and pick it from the list.', 'If it is a new model, click New card.'],
-  marks: [row(1).getByLabel('Row 1, search cards'), row(1).getByRole('button', { name: 'New card' })],
-})
-await row(1).getByRole('button', { name: 'New card' }).click()
+const DESC = 'Description (model and specifications, as printed)'
 await row(1).getByLabel('Row 1, property type', { exact: true }).selectOption({ label: 'ICT · Information and Communications Technology Equipment' })
 await row(1).getByLabel('Row 1, article', { exact: true }).fill('Laptop')
-await row(1).getByLabel('Row 1, model', { exact: true }).fill('Acer TravelMate P2')
 await row(1).getByLabel('Row 1, unit', { exact: true }).fill('unit')
+await row(1).getByLabel(DESC).fill('Acer TravelMate P2\nSpecification:\n- Intel Core i7, 16GB RAM, 512GB SSD')
 await shot(page, {
-  section: S.issue, title: 'Step 2: describe a new card',
+  section: S.issue, title: 'Step 1: describe the item',
   steps: [
     'Property type: pick from the list. It decides the letters in the property number.',
     'Article: the general name, like Laptop.',
-    'Model: brand and model, like Acer TravelMate P2. All laptops of this model share one card.',
     'Unit: how it is counted, like unit or set.',
+    'Description: the model and its specifications, exactly as they should be printed. The serial numbers are added after it by TRACES.',
   ],
-  marks: [row(1).getByLabel('Row 1, property type', { exact: true }), row(1).getByLabel('Row 1, article', { exact: true }), row(1).getByLabel('Row 1, model', { exact: true }), row(1).getByLabel('Row 1, unit', { exact: true })],
+  marks: [row(1).getByLabel('Row 1, property type', { exact: true }), row(1).getByLabel('Row 1, article', { exact: true }), row(1).getByLabel('Row 1, unit', { exact: true }), row(1).getByLabel(DESC)],
 })
-await row(1).getByLabel('Description as printed on the form').fill('Laptop, Acer TravelMate P2\nSpecification:\n- Intel Core i7, 16GB RAM, 512GB SSD')
 await row(1).getByLabel('Quantity').fill('2')
 await row(1).getByLabel('Unit cost (₱)').fill('62,500.00')
 await row(1).getByLabel('Date acquired').fill('2026-11-03')
 await row(1).getByLabel('Useful life (years)').fill('5')
 await shot(page, {
-  section: S.issue, title: 'Step 3: what was bought',
+  section: S.issue, title: 'Step 2: what was bought',
   steps: [
-    'Description: type it exactly as it should appear on the slip, specifications included.',
-    'Quantity: how many units of this model.',
+    'Quantity: how many units.',
     'Unit cost in pesos. At ₱50,000 or more the item is PPE and goes on a PAR; below that it goes on an ICS.',
-    'The label shows the result: here PPE, so a PAR.',
+    'The label shows the result: here PPE, so a PAR for each unit.',
     'Date acquired: the delivery date. The month goes into the property number.',
   ],
-  marks: [row(1).getByLabel('Description as printed on the form'), row(1).getByLabel('Quantity'), row(1).getByLabel('Unit cost (₱)'), row(1).getByText('PPE · PC · PAR'), row(1).getByLabel('Date acquired')],
+  marks: [row(1).getByLabel('Quantity'), row(1).getByLabel('Unit cost (₱)'), row(1).getByText('PPE · PC · PAR'), row(1).getByLabel('Date acquired')],
 })
+await row(1).getByLabel('Row 1, unit 1, serial number').fill('NXVPKSP00123')
 await shot(page, {
-  section: S.issue, title: 'Step 4: property numbers are suggested for you',
+  section: S.issue, title: 'Step 3: property numbers and serial numbers',
   steps: [
-    'One box per unit. The grey number is TRACES\'s suggestion: the next free number for this type and year.',
-    'To use a different number (for example an old one), just type it in the box.',
-    'Serial numbers are optional.',
+    'One box per unit. The grey number is TRACES\'s suggestion: the next free number for this type and year. Type a number to use another one.',
+    'The serial number of that unit. It is printed after the description, like "Acer TravelMate P2 (S/N: NXVPKSP00123)".',
+    'N/A is filled in for you. Leave it when the item has no serial number.',
   ],
-  marks: [row(1).getByLabel('Row 1, unit 1, property number'), row(1).getByLabel('Row 1, unit 2, property number'), row(1).getByLabel('Row 1, unit 1, serial number')],
+  marks: [row(1).getByLabel('Row 1, unit 1, property number'), row(1).getByLabel('Row 1, unit 1, serial number'), row(1).getByLabel('Row 1, unit 2, serial number')],
   scrollTo: row(1).getByText('Property numbers'),
 })
-// row 2: an existing card with parts
+// row 2: a semi-expendable set with parts
 await page.getByRole('button', { name: 'Add a row' }).click()
-await row(2).getByLabel('Row 2, search cards').fill('desktop')
-await row(2).getByRole('button', { name: /Desktop computer/ }).waitFor()
-await shot(page, {
-  section: S.issue, title: 'Picking a card that already exists',
-  steps: ['Click Add a row for the next model.', 'Type part of the name.', 'Click the matching card. Only cards of the right kind (SPC or PC) are offered once the cost is entered.'],
-  marks: [page.getByRole('button', { name: 'Add a row' }), row(2).getByLabel('Row 2, search cards'), row(2).getByRole('button', { name: /Desktop computer/ })],
-  scrollTo: row(2),
-})
-await row(2).getByRole('button', { name: /Desktop computer/ }).click()
-await row(2).getByLabel('Description as printed on the form').fill('Desktop computer set\nwith monitor and keyboard')
+await row(2).getByLabel('Row 2, property type', { exact: true }).selectOption({ label: 'ICT · Information and Communications Technology Equipment' })
+await row(2).getByLabel('Row 2, article', { exact: true }).fill('Desktop computer')
+await row(2).getByLabel('Row 2, unit', { exact: true }).fill('set')
+await row(2).getByLabel(DESC).fill('Desktop computer set\nwith monitor and keyboard')
 await row(2).getByLabel('Unit cost (₱)').fill('38,500.00')
 await row(2).getByLabel('Date acquired').fill('2026-11-03')
 await row(2).getByRole('button', { name: 'Add component' }).click()
@@ -311,13 +319,14 @@ await row(2).getByLabel('Row 2, component 2, label').fill('Keyboard')
 await shot(page, {
   section: S.issue, title: 'Sets: one row, a sticker for every part',
   steps: [
-    'For a set, click Add component once for each part.',
+    'Click Add a row for the next item. For a set, click Add component once for each part.',
     'Name the part, like Monitor.',
-    'Its number is the main number plus a letter (a, b, c…). Each part gets its own QR sticker, but the set stays one row on the card, registry and report.',
+    'Its number is the main number plus a letter (a, b, c…), with its own serial number. Each part gets its own QR sticker and is listed on the set\'s card.',
     'Copy row (or Ctrl+D) repeats a row; Make copies repeats it as many times as the number beside it. Remove deletes the row.',
   ],
   marks: [row(2).getByRole('button', { name: 'Add component' }), row(2).getByLabel('Row 2, component 1, label'), row(2).getByLabel('Row 2, component 1, property number'), row(2).getByRole('button', { name: 'Copy row' })],
   scrollTo: row(2),
+  note: 'A set is entered one per row (quantity 1), so that each set has its own card.',
 })
 await page.locator('#rcv').fill('SARAi')
 await page.getByRole('listbox', { name: 'Officers' }).getByRole('option').first().click()
@@ -340,18 +349,21 @@ await shot(page, {
   marks: [page.locator('section[aria-labelledby="s3"] table'), page.locator('section[aria-labelledby="s3"] th', { hasText: 'Balance per card' })],
   scrollTo: page.locator('#s3'),
 })
-await page.locator('#icsNo').fill('2026-11TEST-010')
-await page.locator('#parNo').fill('2026-11TEST-P06')
+await page.getByLabel('Office unit').selectOption('SARAi')
+await page.locator('#parNo-1').waitFor()
+await page.waitForFunction(() => /SARAi-\d{3}$/.test(document.querySelector('#parNo-1')?.value ?? ''))
+const icsNo = await page.locator('#icsNo').inputValue()
+const firstPar = await page.locator('#parNo-0').inputValue()
 await shot(page, {
   section: S.issue, title: 'Part 4, ICS/PAR: the slip numbers, then save',
   steps: [
-    'TRACES tells you which slips this makes. Here: one ICS (the cheaper desktop) and one PAR (the laptops).',
-    'Type the ICS number and the PAR number. A box only appears when that slip is needed.',
-    'Received from / Issued by: the supply officer is filled in. To change it, type a name and pick from the list. Positions can be changed to match the printed form.',
+    'TRACES tells you which slips this makes: one ICS for all the semi-expendable rows, and one PAR for each PPE unit.',
+    'Office unit: its code goes inside the slip numbers. The numbers are then suggested for you (year, month, unit, running number).',
+    'The ICS number, and one PAR number per laptop, each labelled with the property number it is for. Change any of them if needed.',
     'Save and generate ICS/PAR: saves everything and makes the slips ready to print.',
     'Use "Save, I\'ll upload the PDF" only when encoding an old paper form that already exists.',
   ],
-  marks: [page.getByTestId('summary'), '#icsNo', '#issuer', page.getByRole('button', { name: 'Save and generate ICS/PAR' }), page.getByRole('button', { name: "Save, I'll upload the PDF" })],
+  marks: [page.getByTestId('summary'), '#doc-unit', '#parNo-0', page.getByRole('button', { name: 'Save and generate ICS/PAR' }), page.getByRole('button', { name: "Save, I'll upload the PDF" })],
   scrollTo: page.getByRole('heading', { name: '4. ICS / PAR' }),
 })
 await page.getByRole('button', { name: 'Save and generate ICS/PAR' }).click()
@@ -364,7 +376,7 @@ await shot(page, {
     'Open shows the slip in TRACES. Stickers prints its QR stickers.',
     'Enter another issuance starts a fresh form.',
   ],
-  marks: [page.getByRole('listitem').filter({ hasText: '2026-11TEST-P06' }), page.getByRole('link', { name: 'Print' }).first(), page.getByRole('link', { name: 'Open' }).first(), page.getByRole('button', { name: 'Enter another issuance' })],
+  marks: [page.getByRole('listitem').filter({ hasText: firstPar }), page.getByRole('link', { name: 'Print' }).first(), page.getByRole('link', { name: 'Open' }).first(), page.getByRole('button', { name: 'Enter another issuance' })],
 })
 await page.goto(`${BASE}/issue`)
 await page.getByRole('button', { name: 'Save and generate ICS/PAR' }).click()
@@ -374,7 +386,7 @@ await shot(page, {
   steps: ['A row with a problem gets a red border.', 'The red list under it says exactly what to fix. Nothing is saved until every problem is fixed.'],
   marks: [row(1), row(1).getByRole('alert')],
   scrollTo: row(1),
-  note: 'Other messages you may see: "already used or repeated" (a property number is taken: type another), "Enter the ICS number" (part 4), "already exists" (that slip number was used before).',
+  note: 'Other messages you may see: "already used or repeated" (a property number is taken: type another), "Enter the ICS number" or "Enter 2 PAR number(s)" (part 4), "already exists" (that slip number was used before).',
 })
 
 // ───────────── ICS and PAR documents ─────────────
@@ -386,11 +398,12 @@ await shot(page, {
     'Show only ICS or only PAR.',
     'Show only slips that still need their signed copy.',
     'The PDF column: No PDF, Generated (printed, not yet signed) or Signed.',
-    'Click a number to open the slip.',
+    'Click a number to open the slip. No. is the slip\'s place among all ICS (or all PAR), the same on paper.',
+    'Export to Excel prints the list, 20 slips per sheet.',
   ],
-  marks: [page.getByLabel('Search by document number'), page.getByLabel('Document type'), page.getByLabel('Signed copy'), page.getByRole('columnheader', { name: 'PDF' }), page.getByRole('link', { name: '2026-11TEST-P06' })],
+  marks: [page.getByLabel('Search by document number'), page.getByLabel('Document type'), page.getByLabel('Signed copy'), page.getByRole('columnheader', { name: 'PDF' }), page.getByRole('link', { name: firstPar }), page.getByRole('button', { name: /^Export/ })],
 })
-await page.getByRole('link', { name: '2026-11TEST-P06' }).click()
+await page.getByRole('link', { name: firstPar }).click()
 await page.getByText('Page 1 of 1').waitFor()
 const parUrl = page.url()
 const parId = parUrl.split('/').pop()
@@ -438,22 +451,29 @@ await shot(page, {
   marks: [page.getByLabel('Why is it being removed?'), page.getByRole('dialog').getByRole('button', { name: 'Remove signed copy' }), page.getByRole('button', { name: 'Keep the signed copy' })],
 })
 await page.getByRole('button', { name: 'Keep the signed copy' }).click()
+await page.getByRole('heading', { name: 'History' }).scrollIntoViewIfNeeded()
+await shot(page, {
+  section: S.docs, title: 'History: everything done to a slip',
+  steps: ['Every action on the slip, its rows, its property numbers and their cards: who did it and when, newest first.', 'For a change, the old and the new value.'],
+  marks: [page.getByRole('heading', { name: 'History' }), page.locator('section[aria-labelledby="history-title"] li').first()],
+  scrollTo: page.getByRole('heading', { name: 'History' }),
+})
 
 // the ICS: edit a row, add rows
 await page.goto(`${BASE}/documents`)
-await page.getByRole('link', { name: '2026-11TEST-010' }).click()
+await page.getByRole('link', { name: icsNo }).click()
 await page.getByText('Page 1 of 1').waitFor()
 await page.locator('.ag-row').first().click()
 await page.getByRole('heading', { name: 'Edit line' }).waitFor()
 await shot(page, {
   section: S.docs, title: 'Correcting a row (before it is signed)',
   steps: [
-    'Change card moves the row to another card of the same kind, if the wrong one was picked.',
+    'Correct the property type, article or unit here.',
     'Correct the quantity, cost, description or dates here.',
     'Each property number with its serial number, old number and condition.',
     'Save line. The card, registry and report change with it.',
   ],
-  marks: [page.getByRole('button', { name: 'Change card' }), page.locator('#qty'), page.getByLabel('Property number 1', { exact: true }), page.getByRole('button', { name: 'Save line' })],
+  marks: [page.locator('#article'), page.locator('#qty'), page.getByLabel('Property number 1', { exact: true }), page.getByRole('button', { name: 'Save line' })],
   note: 'After a correction, open the slip again: TRACES asks you to regenerate it so the printed slip matches.',
 })
 await page.goBack()
@@ -465,28 +485,33 @@ await shot(page, {
 })
 
 // ───────────── Cards, registry, property ─────────────
+const reg = await (await page.request.get(`${BASE}/api/views/registry?category=ppe`)).json()
+const laptopNo = reg.find((r) => r.reference === `PAR ${firstPar}`).propertyNos[0]
 await page.goto(`${BASE}/cards`)
+await page.getByLabel('Search cards').fill('TravelMate')
+await page.getByRole('link', { name: laptopNo, exact: true }).waitFor()
 await shot(page, {
-  section: S.cards, title: 'Cards: one property card per model',
-  steps: ['Search by article or model.', 'Show SPC (semi-expendable) or PC (PPE) cards, or one property type.', 'In stock: still with the Supply Unit. Units issued: now with officers.', 'Click a card to open it.'],
-  marks: [page.getByLabel('Search cards'), page.getByLabel('Category'), page.getByRole('columnheader', { name: 'In stock' }), page.getByRole('row', { name: /Acer TravelMate P2/ }).getByRole('link')],
+  section: S.cards, title: 'Cards: one property card per property number',
+  steps: ['Search by property number, serial number, description or the officer who holds it.', 'Show SPC (semi-expendable) or PC (PPE) cards, or one property type.', 'Each property number has its own card. Click it to open the card.', 'The ICS or PAR it was issued on. Click to open the slip.'],
+  marks: [page.getByLabel('Search cards'), page.getByLabel('Category'), page.getByRole('link', { name: laptopNo, exact: true }), page.getByRole('link', { name: `PAR ${firstPar}` })],
 })
-await page.getByRole('row', { name: /Acer TravelMate P2/ }).getByRole('link').click()
+await page.getByRole('link', { name: laptopNo, exact: true }).click()
 await page.getByRole('heading', { name: 'PROPERTY CARD', level: 1 }).waitFor()
 await shot(page, {
   section: S.cards, title: 'A property card',
-  steps: ['The card heading: article, model and the range of property numbers on this card.', 'Every receipt and issue of this model is a row. Balance is what the Supply Unit still holds.', 'Edit card fixes the name or stops offering the card on new entries.', 'Export PC (or SPC) downloads the official form as an Excel file.'],
-  marks: [page.getByText('Property Number:'), page.locator('.ag-root-wrapper'), page.getByRole('button', { name: 'Edit card' }), page.getByRole('button', { name: /Export (PC|SPC)/ })],
+  steps: ['The card heading: the article, the description with its serial number, and the property number.', 'Its rows: the issue now, and later transfers. The date is the date issued, the same as in the registry.', 'Remarks: double-click the cell to type a note, for example about a transfer, and press Enter to save it.', 'Open the PAR (or ICS) it was issued on.', 'Export PC (or SPC) downloads the official form as an Excel file.'],
+  marks: [page.getByText('Property Number:'), page.locator('.ag-root-wrapper'), page.locator('.ag-cell[col-id="remarks"]').first(), page.getByRole('link', { name: /^Open PAR/ }), page.getByRole('button', { name: /Export (PC|SPC)/ })],
 })
 await page.goto(`${BASE}/registry`)
 await page.getByRole('radio', { name: 'Property, plant and equipment' }).click()
 await page.waitForTimeout(800)
 await shot(page, {
   section: S.cards, title: 'Registry of property issued',
-  steps: ['Choose semi-expendable or PPE.', 'Choose a property type, or all.', 'Optional dates: only slips issued between them.', 'Export downloads the registry as an Excel file.', 'Click a row to open its property.'],
-  marks: [page.getByRole('radiogroup', { name: 'Category' }), page.getByLabel('Property type'), page.locator('#from'), page.getByRole('button', { name: /^Export/ }), page.locator('.ag-row').first()],
+  steps: ['Choose semi-expendable or PPE.', 'Choose a property type, or all.', 'Optional dates: only slips issued between them.', 'Export downloads the registry as an Excel file, 20 rows per sheet.', 'No. is the row\'s number in this registry and Sheet No. the printed sheet it is on, so a row is easy to find on paper. Click a row to open its ICS or PAR.'],
+  marks: [page.getByRole('radiogroup', { name: 'Category' }), page.getByLabel('Property type'), page.locator('#from'), page.getByRole('button', { name: /^Export/ }), page.getByRole('columnheader', { name: 'No.', exact: true })],
+  note: 'The tables show 20 rows per page, like the printed sheets. Use the arrows under a table to turn the pages.',
 })
-await page.locator('.ag-row').first().click()
+await page.goto(`${BASE}/properties/${encodeURIComponent(laptopNo)}`)
 await page.getByRole('tab', { name: 'ICS/PAR' }).waitFor()
 await page.waitForTimeout(2500) // the page scrolls itself to the highlighted row once the PDF is drawn
 await shot(page, {
@@ -498,7 +523,7 @@ await shot(page, {
 await page.getByRole('tablist').evaluate((el) => el.scrollIntoView({ block: 'start' }))
 await shot(page, {
   section: S.cards, title: 'The four tabs',
-  steps: ['ICS/PAR: the slip, with this item\'s row highlighted in yellow.', 'Report: the receiver\'s physical count report.', 'Registry: the registry rows of this kind of property.', 'Card: the model\'s property card.'],
+  steps: ['ICS/PAR: the slip, with this item\'s row highlighted in yellow.', 'Report: the receiver\'s physical count report.', 'Registry: the registry rows of this kind of property.', 'Card: this property\'s own card.'],
   marks: [page.getByRole('tab', { name: 'ICS/PAR' }), page.getByRole('tab', { name: 'Report' }), page.getByRole('tab', { name: 'Registry' }), page.getByRole('tab', { name: 'Card' })],
 })
 
@@ -506,14 +531,14 @@ await shot(page, {
 await page.goto(`${BASE}/reports`)
 await page.locator('#r-officer').fill('SARAi')
 await page.getByRole('listbox', { name: 'Officers' }).getByRole('option').first().click()
-await page.locator('.ag-row').first().waitFor()
+await page.locator('.ag-cell[col-id="article"]').first().waitFor()
 await shot(page, {
   section: S.reports, title: 'Report on the physical count',
   steps: [
     'Accountable officer: type part of a name or a program, then click the officer in the list.',
     'RPCPPE (PPE) or RPCSP (semi-expendable).',
     '"As at": the date of the count. Today is filled in.',
-    'Everything the officer holds on that date, one row per slip row.',
+    'Everything the officer holds on that date, one numbered row per slip row. Click a row to open its slip.',
     'Print prints the report; Export to Excel downloads the official RPCPPE / RPCSP file.',
   ],
   marks: ['#r-officer', '#r-category', '#r-asat', page.locator('.ag-root-wrapper'), page.getByRole('button', { name: 'Print' })],
@@ -525,10 +550,18 @@ await shot(page, {
   marks: ['#sig-committee', page.getByRole('button', { name: 'Save these names as the default' })],
   scrollTo: page.locator('#sig-committee'),
 })
+await page.getByRole('heading', { name: /ICS and PAR held by/ }).waitFor()
+await shot(page, {
+  section: S.reports, title: 'All the slips of an officer',
+  steps: ['Every ICS and PAR of which the officer still holds a property, oldest first. Click one to open it.', 'Download all as one PDF: the signed copies (or the printed ones) in one file, for the inventory folder.'],
+  marks: [page.locator('section[aria-labelledby="officer-forms"] ol'), page.getByRole('link', { name: 'Download all as one PDF' })],
+  scrollTo: page.getByRole('heading', { name: /ICS and PAR held by/ }),
+  note: 'A slip with no PDF yet is named above the list and left out of the file.',
+})
 
 // ───────────── Stickers ─────────────
 await page.goto(`${BASE}/stickers`)
-await page.getByLabel('Find a document by number').fill('P06')
+await page.getByLabel('Find a document by number').fill(firstPar)
 await page.waitForTimeout(600)
 await shot(page, {
   section: S.stickers, title: 'Choosing which stickers to print',
@@ -545,8 +578,6 @@ await shot(page, {
 })
 
 // ───────────── Scanning (phone) ─────────────
-const reg = await (await page.request.get(`${BASE}/api/views/registry?category=ppe`)).json()
-const laptopNo = reg.find((r) => r.reference === 'PAR 2026-11TEST-P06').propertyNos[0]
 const view = await (await page.request.get(`${BASE}/api/properties/${laptopNo}/view`)).json()
 const phone = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true })
 const mob = await phone.newPage()
@@ -569,7 +600,7 @@ await mob.getByRole('tab', { name: 'Card' }).click()
 await mob.waitForTimeout(1200)
 await shot(mob, {
   section: S.scan, phone: true, title: 'The property card on a phone',
-  steps: ['The rows of this item are highlighted. Other people\'s items of the same model are not shown to the public.'],
+  steps: ['This property\'s own card, with its row highlighted. Names of other people are never shown to the public.'],
   marks: [mob.locator('.traces-highlight').first()],
   scrollTo: mob.getByRole('tablist'),
 })

@@ -69,8 +69,8 @@ test('one PAR per PPE unit: two laptops in one row get two PAR numbers in a row;
   await page.locator('#date').fill('2026-05-12')
   await page.getByLabel('Office unit').selectOption('ADM')
   await expect(page.getByTestId('summary')).toHaveText('This creates 2 PAR (one per PPE unit).')
+  await expect(page.locator('#parNo-0')).toHaveValue(/^2026-05ADM-\d{3}$/) // the suggestion arrives from the server
   const first = await page.locator('#parNo-0').inputValue()
-  expect(first).toMatch(/^2026-05ADM-\d{3}$/)
   const next = `2026-05ADM-${String(Number(first.slice(-3)) + 1).padStart(3, '0')}`
   await expect(page.locator('#parNo-1')).toHaveValue(next) // consecutive
   await page.getByRole('button', { name: "Save, I'll upload the PDF" }).click()

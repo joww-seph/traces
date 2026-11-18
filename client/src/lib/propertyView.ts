@@ -112,7 +112,7 @@ export const cardColumns = (category: 'semi' | 'ppe', editRemarks = false): Cols
   },
   { headerName: 'Balance', children: [num('Qty.', 'balanceQty', { width: 110 })] },
   moneyCol('amountCentavos', 'Amount', { width: 140 }) as ColDef<CardRow>,
-  { headerName: editRemarks ? 'Remarks (click to edit)' : 'Remarks', field: 'remarks', minWidth: 180, flex: 1, editable: editRemarks, cellClass: editRemarks ? 'traces-editable' : undefined },
+  { headerName: editRemarks ? 'Remarks (edit)' : 'Remarks', field: 'remarks', minWidth: 180, flex: 1, editable: editRemarks, cellClass: editRemarks ? 'traces-editable' : undefined },
 ] as Cols<CardRow>
 
 // The officer report (RPCSP / RPCPPE): "On Hand per Count" and "Shortage/Overage" stay empty, they are filled in by hand when printed.

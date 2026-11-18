@@ -205,8 +205,8 @@ part('Part 1. What TRACES does', 'No code yet. If you understand this part, the 
     ['Word', 'Meaning', 'Where in the code'],
     ['ICS', 'Inventory Custodian Slip: given for semi-expendable property (cost below ₱50,000)', "documents.type = 'ICS'"],
     ['PAR', 'Property Acknowledgment Receipt: the same for PPE (₱50,000 or more)', "documents.type = 'PAR'"],
-    ['Semi / PPE', 'The two categories. The cost decides it (business rule BR-01)', "items.category: 'semi' | 'ppe'"],
-    ['Card (SPC / PC)', 'Property card of one model, e.g. "Laptop, MSI Katana 15"', 'items + view v_item_card'],
+    ['Semi / PPE', 'The two categories. The cost decides it (business rule BR-01)', "lines.category: 'semi' | 'ppe'"],
+    ['Card (SPC / PC)', 'Property card of one property, e.g. laptop 2026-11ICT-0017', 'view v_property_card'],
     ['Registry (RegSPI)', 'List of everything issued, per category and property type', 'view v_registry'],
     ['RPCSP / RPCPPE', 'Physical count report: what one officer holds on a date', 'function fn_officer_report'],
     ['Property number', 'Number of one physical unit, e.g. 2026-05ICT-0017', 'properties.property_no'],
@@ -432,7 +432,7 @@ part('Part 4. The database', 'Where the truth lives. Learn this part well: the r
   B(0.5, 1.4, 'officers', 'who receives / issues', NAVY)
   B(0.5, 3.1, 'documents', 'one ICS or PAR', NAVY)
   B(3.6, 3.1, 'lines', 'one row of the form', NAVY)
-  B(3.6, 1.4, 'items', 'the card (one model)', NAVY)
+  B(3.6, 1.4, 'v_property_card', 'the card: a view, one per property')
   B(6.7, 1.4, 'property_types', 'ICT, FF, OE ...')
   B(6.7, 3.1, 'properties', 'one physical unit', NAVY)
   B(9.8, 3.1, 'qr_tokens', 'the sticker code')
@@ -442,15 +442,14 @@ part('Part 4. The database', 'Where the truth lives. Learn this part well: the r
   B(9.8, 1.4, 'officer_designations', 'programs of an officer (-> officers)')
   arrow(s, 1.675, 3.1, 1.675, 2.35, 'received by / issued by', { lw: 2.6, lx: 1.8, ly: 2.55 })
   arrow(s, 3.6, 3.575, 2.85, 3.575)
-  arrow(s, 4.775, 3.1, 4.775, 2.35, 'item_id', { lw: 1, lx: 4.85, ly: 2.55 })
-  arrow(s, 5.95, 1.875, 6.7, 1.875)
+  arrow(s, 5.95, 3.4, 6.7, 2.1, 'property_type_id', { lw: 1.6, lx: 6.45, ly: 2.75 })
   arrow(s, 6.7, 3.575, 5.95, 3.575)
   arrow(s, 9.8, 3.575, 9.05, 3.575)
   arrow(s, 7.875, 4.8, 7.875, 4.05)
   arrow(s, 1.675, 4.8, 1.675, 4.05)
   arrow(s, 4.775, 4.8, 4.775, 4.05)
   para(s, 'An arrow points from the table that holds the link to the table it points at. Not drawn: users, session, settings, report_signatories, audit_logs.', { x: 0.5, y: 5.95, w: 12.3, h: 0.7, size: 13, color: MUTED })
-  plain(s, 'A document has lines; a line belongs to one card and has properties; each property has a sticker and a history.', { x: 9.8, y: 4.7, w: 3.0, h: 1.2, size: 12 })
+  plain(s, 'A document has lines; a line carries its item and has properties; each property has a sticker, a history and its own card.', { x: 9.8, y: 4.7, w: 3.0, h: 1.2, size: 12 })
 }
 
 {
@@ -459,9 +458,8 @@ part('Part 4. The database', 'Where the truth lives. Learn this part well: the r
     ['Table', 'One row is ...'],
     ['users', 'a staff login (email, argon2id password hash, role, must_change_password)'],
     ['officers', 'a person who can be "Received by" or "Issued by"; short_name is computed from full_name'],
-    ['items', 'a card: category + property type + article ("Laptop") + description (the model) + unit'],
     ['documents', 'an ICS or PAR header: number, date, fund cluster, who issued, who received, positions as printed'],
-    ['lines', 'one row of a form: its card, quantity, unit cost (centavos), description, date acquired'],
+    ['lines', 'one row of a form: property type, category, article, unit, one description, quantity, unit cost (centavos), date acquired'],
     ['properties', 'one physical unit: property number, serial, condition; component_label set = part of a set'],
     ['qr_tokens', 'the 10-character sticker code of a property; revoked_at set when replaced'],
     ['movements', 'one event in a property\'s life: RECEIPT, ISSUE, RETURN, REISSUE or DISPOSE, with a date'],
@@ -493,12 +491,12 @@ part('Part 4. The database', 'Where the truth lives. Learn this part well: the r
     ['3NF ("third normal form")', 'means each fact is stored once, in one place. Anything that can be worked out is worked out, not saved.'],
     ['So the three "sheets" are not tables.', 'They are calculated every time from the real tables:'],
   ], { h: 1.6 })
-  box(s, { x: 0.5, y: 3.0, w: 3.9, h: 1.5, title: 'Card', body: 'view v_item_card\none card per model (item)', fill: NAVY })
+  box(s, { x: 0.5, y: 3.0, w: 3.9, h: 1.5, title: 'Card', body: 'view v_property_card\none card per property', fill: NAVY })
   box(s, { x: 4.7, y: 3.0, w: 3.9, h: 1.5, title: 'Registry', body: 'view v_registry\none row per line', fill: NAVY })
   box(s, { x: 8.9, y: 3.0, w: 3.9, h: 1.5, title: 'Count report', body: 'fn_officer_report(as_at)\nwhat each officer holds on a date', fill: NAVY })
   bullets(s, [
     'No column for totals, amounts, balances or shortages. No "count" tables. The count columns of the report are printed blank for hand counting.',
-    'Example: a line has no category column. Its category comes from its card (items.category). Migration 0008 removed the copy.',
+    'Example: the registry\'s No. column is row_number() in v_registry, worked out on every read; nothing stores it.',
   ], { y: 4.75, h: 1.0, size: 14 })
   plain(s, 'If you save a total, sooner or later it disagrees with the rows it came from. If you always calculate it, it can never be wrong.', { y: 5.85, h: 1.0 })
 }
@@ -587,13 +585,13 @@ part('Part 5. The server', 'What happens between a click and a saved row.')
     'After the commit: draws the PDFs. If drawing fails the data stays and the answer carries a warning.',
   ], { numbered: true, w: 7.4, h: 5.3, size: 15 })
   box(s, { x: 8.2, y: 1.3, w: 4.6, h: 1.2, title: 'Where', body: 'server/src/services/issuances.ts\ncalled by POST /api/issuances', valign: 'top', align: 'left', mono: false })
-  plain(s, 'One form on the screen can become two papers: an ICS for the cheap items and a PAR for the expensive ones. Both are saved in one go.', { x: 8.2, y: 2.8, w: 4.6, h: 2.0 })
+  plain(s, 'One form on the screen can become several papers: one ICS for the cheap items and one PAR for each expensive unit. All are saved in one go.', { x: 8.2, y: 2.8, w: 4.6, h: 2.0 })
 }
 
 {
   const s = content('What one row of the form writes')
   box(s, { x: 0.5, y: 1.5, w: 2.6, h: 1.0, title: 'lines', body: '1 row', fill: NAVY })
-  box(s, { x: 3.6, y: 1.5, w: 2.6, h: 1.0, title: 'items', body: 'only if it is a new card' })
+  box(s, { x: 3.6, y: 1.5, w: 2.6, h: 1.0, title: 'the card', body: 'a view: nothing to write' })
   box(s, { x: 0.5, y: 3.0, w: 2.6, h: 1.0, title: 'properties', body: '1 per unit and component', fill: NAVY })
   box(s, { x: 3.6, y: 3.0, w: 2.6, h: 1.0, title: 'qr_tokens', body: '1 per property' })
   box(s, { x: 0.5, y: 4.5, w: 2.6, h: 1.0, title: 'movements', body: 'RECEIPT + ISSUE per property', fill: RED })
@@ -680,12 +678,12 @@ part('Part 5. The server', 'What happens between a click and a saved row.')
   table(s, [
     ['Area', 'Routes (all start with /api)'],
     ['Login', 'POST /auth/login · POST /auth/logout · GET /me · POST /me/password'],
-    ['Issue', 'POST /issuances · GET /property-numbers/next · GET, POST /items · PATCH /items/:id'],
+    ['Issue', 'POST /issuances · GET /property-numbers/next · GET /document-numbers/next?parCount='],
     ['ICS / PAR', 'GET, POST /documents · GET, PATCH, DELETE /documents/:id · POST /documents/:id/generate'],
     ['PDF files', 'GET, PUT, DELETE /documents/:id/pdf'],
     ['Lines', 'POST /documents/:id/lines(/batch) · GET, PATCH, DELETE /lines/:id · PUT /lines/:id/region'],
     ['Properties', 'GET /properties/:no(/view) · PATCH /properties/:no · POST /properties/:no/qr/rotate · GET /stickers'],
-    ['Sheets', 'GET /views/registry · /views/cards · /views/card/:itemId · /reports/rpc · /exports/:form · /dashboard'],
+    ['Sheets', 'GET /views/registry · /views/cards · /views/card/:propertyId · PATCH /views/card-rows/:id · /reports/rpc · /reports/forms(.pdf) · /exports/:form · /dashboard'],
     ['Lists', 'GET, POST /officers · PATCH, DELETE /officers/:id · GET, POST /property-types · PATCH /property-types/:id'],
     ['Report footer', 'GET, PUT /report-signatories · GET /settings'],
     ['Public', 'GET /public/q/:token · GET /public/q/:token/pdf   (no login, rate limited)'],
@@ -706,7 +704,7 @@ part('Part 6. The shared rules', 'shared/: why a rule is written once and used b
     '  fundCluster: nonEmpty,',
     '  purpose: z.string().trim().optional(),',
     '  icsNo: nonEmpty.optional(), // if a row is semi',
-    '  parNo: nonEmpty.optional(), // if a row is PPE',
+    '  parNos: z.array(nonEmpty).optional(), // one per PPE unit',
     '})',
   ].join('\n'), { label: 'shared/src/schemas/issuance.ts (shortened)', w: 7.3, h: 3.7, size: 13 })
   bullets(s, [
@@ -781,7 +779,7 @@ part('Part 7. The client', 'How the screens get their data and talk back.')
     ['/issue', 'issue/IssueForm.tsx', 'New issuance: the only data entry form'],
     ['/documents, /documents/:id', 'documents/List.tsx, Detail.tsx', 'ICS and PAR list; one form with its PDF and lines'],
     ['/lines/:lineId/edit', 'lines/LineForm.tsx', 'Fix one row (locked when signed)'],
-    ['/cards, /cards/:itemId', 'cards/List.tsx, Card.tsx', 'Property cards, one per model'],
+    ['/cards, /cards/:propertyId', 'cards/List.tsx, Card.tsx', 'Property cards, one per property'],
     ['/registry', 'registry/Registry.tsx', 'RegSPI / PPE registry, Excel export'],
     ['/reports', 'reports/Reports.tsx', 'RPCSP / RPCPPE for one officer on a date'],
     ['/stickers', 'stickers/StickerSheet.tsx', 'Print QR stickers'],
@@ -795,14 +793,14 @@ part('Part 7. The client', 'How the screens get their data and talk back.')
 {
   const s = content('Deep dive: the New issuance form')
   bullets(s, [
-    ['Header', 'once: Received by and Issued by (OfficerPicker, a searchable list), date, fund cluster, purpose, ICS no., PAR no.'],
-    ['Rows', 'one per model: pick or create the card (CardPicker), quantity, unit cost, description, property numbers.'],
+    ['Header', 'once: Received by and Issued by (OfficerPicker, a searchable list), date, fund cluster, purpose, office unit, ICS no., one PAR no. per PPE unit.'],
+    ['Rows', 'one per item: property type, article, unit, description, quantity, unit cost, property and serial numbers (serial default N/A).'],
     ['Category badge', 'per row shows ICS or PAR from the cost, using the same categorize() as the server.'],
     ['Property numbers', 'are pre-filled from GET /api/property-numbers/next; you may type others.'],
     ['Draft', 'saved in the browser (localStorage key traces:draft:issue) while you type, so a reload loses nothing. "Discard draft" clears it.'],
     ['Save', 'sends one POST /api/issuances. Row errors come back with details.rowIndex so the right row turns red.'],
   ], { w: 7.6, h: 5.4, size: 15 })
-  box(s, { x: 8.5, y: 1.3, w: 4.3, h: 1.3, title: 'Files', body: 'pages/issue/IssueForm.tsx\npages/issue/CardPicker.tsx\npages/issue/model.ts\ncomponents/OfficerPicker.tsx', mono: true, size: 11, align: 'left', valign: 'top' })
+  box(s, { x: 8.5, y: 1.3, w: 4.3, h: 1.3, title: 'Files', body: 'pages/issue/IssueForm.tsx\npages/issue/model.ts\ncomponents/OfficerPicker.tsx', mono: true, size: 11, align: 'left', valign: 'top' })
   plain(s, 'This one screen replaces typing the slip, the card, the registry and the count report by hand. Read IssueForm.tsx slowly: it uses almost every idea in this guide.', { x: 8.5, y: 2.9, w: 4.3, h: 2.4 })
 }
 
