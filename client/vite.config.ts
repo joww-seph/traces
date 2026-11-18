@@ -5,7 +5,14 @@ import { defineConfig } from 'vite'
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
-  resolve: { alias: { '@': path.resolve(import.meta.dirname, './src') } },
+  resolve: {
+    alias: [
+      { find: '@', replacement: path.resolve(import.meta.dirname, './src') },
+      // pdf.js's legacy build carries polyfills (e.g. Map.getOrInsertComputed) that phone browsers such as Samsung Internet still lack
+      { find: /^pdfjs-dist$/, replacement: 'pdfjs-dist/legacy/build/pdf.mjs' },
+      { find: /^pdfjs-dist\/web\/pdf_viewer\.mjs$/, replacement: 'pdfjs-dist/legacy/web/pdf_viewer.mjs' },
+    ],
+  },
   server: {
     host: true, // reachable from phones on the same network
     port: Number(process.env.CLIENT_PORT ?? 5173),

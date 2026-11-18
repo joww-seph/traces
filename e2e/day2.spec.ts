@@ -86,6 +86,20 @@ test('a PDF that fails to load (e.g. too many scans) leaves the scan page workin
   await ctx.close()
 })
 
+test('an older phone browser without Map.getOrInsertComputed still shows the scanned form', async ({ browser }) => {
+  const ctx = await browser.newContext()
+  // phone browsers such as Samsung Internet do not have these yet; pdf.js uses them
+  await ctx.addInitScript(() => {
+    for (const C of [Map, WeakMap]) for (const k of ['getOrInsert', 'getOrInsertComputed']) delete (C.prototype as unknown as Record<string, unknown>)[k]
+  })
+  const anon = await ctx.newPage()
+  await anon.goto(`/q/${tokens.main}`)
+  await expect(anon.locator('.react-pdf__Page__canvas')).toBeVisible()
+  await expect(anon.getByTestId('region-highlight')).toBeVisible()
+  await expect(anon.getByText('Unexpected Application Error')).toHaveCount(0)
+  await ctx.close()
+})
+
 test('phone (360 px): the scan page fits and every tab works', async ({ browser }) => {
   const ctx = await browser.newContext({ viewport: { width: 360, height: 780 } })
   const page = await ctx.newPage()
