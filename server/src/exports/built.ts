@@ -156,7 +156,9 @@ export type IirupData = {
 export async function buildIirup(d: IirupData) {
   const { wb, ws } = newSheet(d.category === 'ppe' ? 'IIRUP' : 'IIRUSP', [13, 34, 22, 6, 13, 14, 13, 13, 13, 22, 10, 10, 11, 11, 10, 12, 10, 12, 7])
   const title = d.category === 'ppe' ? 'INVENTORY AND INSPECTION REPORT OF UNSERVICEABLE PROPERTY' : 'INVENTORY AND INSPECTION REPORT OF UNSERVICEABLE SEMI-EXPENDABLE PROPERTY'
-  cell(ws, 'A1', title, { merge: 'A1:S1', font: { ...heading, size: 12 }, alignment: center })
+  // "Appendix 74" is the PPE form's label; the semi-expendable form (IIRUSP) has its own appendix, so none is printed
+  cell(ws, 'A1', title, { merge: d.category === 'ppe' ? 'A1:O1' : 'A1:S1', font: { ...heading, size: 12 }, alignment: center })
+  if (d.category === 'ppe') cell(ws, 'P1', 'Appendix 74', { merge: 'P1:S1', font: { ...FONT, italic: true }, alignment: { horizontal: 'right', vertical: 'middle' } })
   cell(ws, 'A2', `As at ${formatLongDate(d.asAt)}`, { merge: 'A2:S2', alignment: center })
   cell(ws, 'A4', `Entity Name: ${d.entityName}`, { merge: 'A4:H4' })
   cell(ws, 'P4', `Fund Cluster: ${d.fundCluster}`, { merge: 'P4:S4', font: heading })
@@ -168,19 +170,22 @@ export async function buildIirup(d: IirupData) {
   cell(ws, 'J6', '(Station)', { merge: 'J6:O6', font: { ...FONT, italic: true, size: 9 }, alignment: center })
 
   const head = (addr: string, text: string, merge?: string) => cell(ws, addr, text, { merge, font: heading, alignment: center })
-  head('A8', 'INVENTORY', 'A8:J8'); head('K8', 'INSPECTION and DISPOSAL', 'K8:R8'); head('S8', 'No.', 'S8:S10')
+  head('A8', 'INVENTORY', 'A8:J8'); head('K8', 'INSPECTION and DISPOSAL', 'K8:R8'); head('S8', 'No.', 'S8:S11')
   const single: [string, string][] = [['A', 'Date Acquired'], ['B', 'Particulars/ Articles'], ['C', 'Property No.'], ['D', 'Qty'], ['E', 'Unit Cost'], ['F', 'Total Cost'],
     ['G', 'Accumulated Depreciation'], ['H', 'Accumulated Impairment Losses'], ['I', 'Carrying Amount'], ['J', 'Remarks'], ['P', 'Appraised Value']]
   for (const [col, text] of single) head(`${col}9`, text, `${col}9:${col}10`)
   head('K9', 'DISPOSAL', 'K9:O9'); head('Q9', 'RECORD OF SALES', 'Q9:R9')
   for (const [col, text] of [['K', 'Sale'], ['L', 'Transfer'], ['M', 'Destruction'], ['N', 'Others (Specify)'], ['O', 'Total'], ['Q', 'OR No.'], ['R', 'Amount']]) head(`${col}10`, text)
 
-  const last = 10 + Math.max(MIN_BLANK_ROWS, d.rows.length)
+  // row 11 numbers the columns (1) to (18), as on the form
+  for (let c = 1; c <= 18; c++) cell(ws, `${ws.getColumn(c).letter}11`, `(${c})`, { font: { ...FONT, italic: true, size: 9 }, alignment: center })
+
+  const last = 11 + Math.max(MIN_BLANK_ROWS, d.rows.length)
   boxRange(ws, 8, 1, last, 19)
   const nos = d.rows.map((_x, i) => i + 1)
-  pageEvery(ws, [8, 10], 11, nos)
+  pageEvery(ws, [8, 11], 12, nos)
   d.rows.forEach((x, i) => {
-    const r = 11 + i
+    const r = 12 + i
     const set = (col: string, v: ExcelJS.CellValue, numFmt?: string) => cell(ws, `${col}${r}`, v, { border: BOX, numFmt })
     set('A', asDate(x.dateAcquired), 'mmm d, yyyy'); set('B', `${x.article}, ${x.description}`); set('C', x.propertyNos.join('\n')); set('D', x.qty)
     set('E', pesos(x.unitValueCentavos), MONEY); set('F', pesos(x.totalCostCentavos), MONEY); set('J', x.remarks ?? ''); set('S', i + 1)

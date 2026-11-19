@@ -256,15 +256,19 @@ describe('physical count and unserviceable property (decision 2026-11-19)', () =
     const x = await sheet(agent, `/api/exports/iirup?officerId=${ics.receiver.id}&asAt=2026-12-31`)
     expect(x.res.headers['content-disposition']).toContain('IIRUP_')
     expect(x.text('A1')).toBe('INVENTORY AND INSPECTION REPORT OF UNSERVICEABLE PROPERTY')
-    // row 11: date acquired, article + description, property no, qty, unit cost, total cost
-    expect(x.text('B11')).toContain('Laptop')
-    expect(x.text('C11')).toContain('L-1')
-    expect(x.ws.getCell('D11').value).toBe(1)
-    expect(x.ws.getCell('E11').value).toBe(96450)
-    expect(x.ws.getCell('F11').value).toBe(96450)
-    for (const col of ['G', 'H', 'I', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R']) expect(x.text(`${col}11`), col).toBe('')
+    expect(x.text('P1')).toBe('Appendix 74')
+    // row 11 numbers the columns (1) to (18), as on the form; rows start at 12
+    expect(x.text('A11')).toBe('(1)')
+    expect(x.text('R11')).toBe('(18)')
+    // row 12: date acquired, article + description, property no, qty, unit cost, total cost
+    expect(x.text('B12')).toContain('Laptop')
+    expect(x.text('C12')).toContain('L-1')
+    expect(x.ws.getCell('D12').value).toBe(1)
+    expect(x.ws.getCell('E12').value).toBe(96450)
+    expect(x.ws.getCell('F12').value).toBe(96450)
+    for (const col of ['G', 'H', 'I', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R']) expect(x.text(`${col}12`), col).toBe('')
     // the semi chair is not on the PPE form
-    expect(x.text('B12')).toBe('')
+    expect(x.text('B13')).toBe('')
   })
 
   it('IIRUSP is the semi-expendable version', async () => {
@@ -273,6 +277,7 @@ describe('physical count and unserviceable property (decision 2026-11-19)', () =
     await agent.post(`/api/counts/${c.id}/scans`).send({ token: await tok('S-1'), condition: 'unserviceable' })
     const x = await sheet(agent, `/api/exports/iirusp?officerId=${ics.receiver.id}&asAt=2026-12-31`)
     expect(x.text('A1')).toBe('INVENTORY AND INSPECTION REPORT OF UNSERVICEABLE SEMI-EXPENDABLE PROPERTY')
-    expect(x.text('B11')).toContain('Chair')
+    expect(x.text('B12')).toContain('Chair')
+    expect(x.ws.model.merges).toContain('A1:S1') // the title spans the sheet: no "Appendix 74" label, it is the PPE form's
   })
 })
