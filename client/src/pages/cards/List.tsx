@@ -63,20 +63,19 @@ export default function Cards() {
               <TableHeader>
                 <TableRow className="bg-muted/50 hover:bg-muted/50">
                   <TableHead className="pl-5">Property No.</TableHead><TableHead>Article</TableHead><TableHead>Description</TableHead>
-                  <TableHead>Card</TableHead><TableHead>ICS/PAR</TableHead><TableHead className="pr-5">Held by</TableHead>
+                  <TableHead>Card</TableHead><TableHead className="pr-5">ICS/PAR</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {isLoading && <TableSkeletonRows cols={6} label="Loading cards" />}
+                {isLoading && <TableSkeletonRows cols={5} label="Loading cards" />}
                 {shown.map((c) => (
                   <TableRow key={c.id} className="cursor-pointer" onClick={() => navigate(`/cards/${c.id}`)}>
                     <TableCell className="figures pl-5 font-medium"><Link to={`/cards/${c.id}`} className="hover:underline">{c.propertyNo}</Link></TableCell>
                     <TableCell>{c.article}</TableCell>
                     <TableCell className="whitespace-pre-line">{c.description}{`\n(S/N: ${c.serialNo ?? 'N/A'})`}</TableCell>
                     <TableCell><Badge variant="secondary">{c.category === 'semi' ? 'SPC' : 'PC'}</Badge> <span className="text-xs text-muted-foreground">{c.propertyTypeCode}</span></TableCell>
-                    <TableCell className="figures"><Link to={`/documents/${c.documentId}`} onClick={(e) => e.stopPropagation()} className="hover:underline">{c.docType} {c.docNo}</Link>
+                    <TableCell className="figures pr-5"><Link to={`/documents/${c.documentId}`} onClick={(e) => e.stopPropagation()} className="hover:underline">{c.docType} {c.docNo}</Link>
                       <span className="block text-xs text-muted-foreground">{formatLongDate(c.issuedDate)}</span></TableCell>
-                    <TableCell className="pr-5">{c.holder ?? '—'}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
