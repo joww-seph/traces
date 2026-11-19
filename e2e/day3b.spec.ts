@@ -230,3 +230,61 @@ test('an unknown address shows a not-found page inside the app', async ({ page }
   await page.getByRole('link', { name: 'Go to the dashboard' }).click()
   await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible()
 })
+
+test('physical count by QR scan: counted rows, unserviceable items go to the IIRUSP, and only the counting phone sees the panel', async ({ page, browser }) => {
+  await login(page)
+  const s = await apiSeed(page, '2026-05CNT-001', { main: '2026-05CNT-0001', part: '2026-05CNT-0001a', semi: '2026-05CNT-0002' })
+  const chair = await s.token('2026-05CNT-0002')
+  const openReport = async () => {
+    await page.goto('/reports')
+    await pickOfficer(page, 'r-officer', 'Maria Santos')
+    await page.getByLabel('Report', { exact: true }).selectOption('semi')
+  }
+
+  // a phone with no count on it shows the plain page
+  await page.goto(`/q/${chair}`)
+  await expect(page.getByRole('heading', { name: 'Office chair', level: 1 })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Physical count' })).toHaveCount(0)
+
+  await openReport()
+  await page.getByRole('button', { name: 'Start the count' }).click()
+  await expect(page.getByText(/0 of \d+ counted/)).toBeVisible()
+
+  // scanning with this phone: serviceable
+  await page.goto(`/q/${chair}`)
+  await expect(page.getByRole('heading', { name: 'Physical count' })).toBeVisible()
+  await page.getByRole('button', { name: 'Serviceable', exact: true }).click()
+  await expect(page.getByRole('status').filter({ hasText: '2026-05CNT-0002 counted as serviceable' })).toBeVisible()
+  await expect(page.getByText(/1 of \d+ counted/)).toBeVisible()
+
+  await openReport()
+  await page.getByLabel('Show', { exact: true }).selectOption('counted')
+  const report = page.getByRole('region', { name: 'REPORT ON THE PHYSICAL COUNT OF SEMI-EXPENDABLE PROPERTY' })
+  await expect(report.getByText('2026-05CNT-0002')).toBeVisible()
+  await expect(report.getByRole('gridcell', { name: 'Counted', exact: true }).first()).toBeVisible()
+
+  // a mis-tap is fixed by scanning again; this time it is unserviceable and leaves the report for the IIRUSP
+  await page.goto(`/q/${chair}`)
+  await page.getByRole('button', { name: 'Unserviceable' }).click()
+  await expect(page.getByRole('status').filter({ hasText: 'counted as unserviceable' })).toContainText('IIRUSP')
+  await openReport()
+  await expect(report.getByText('2026-05CNT-0002')).toHaveCount(0)
+  const iirusp = page.getByRole('region', { name: 'Unserviceable property (IIRUSP)' })
+  await expect(iirusp.getByText('2026-05CNT-0002')).toBeVisible()
+
+  // another browser, signed in or not, does not get the panel
+  const other = await browser.newContext()
+  const anon = await other.newPage()
+  await anon.goto(`/q/${chair}`)
+  await expect(anon.getByRole('heading', { name: 'Office chair', level: 1 })).toBeVisible()
+  await expect(anon.getByRole('heading', { name: 'Physical count' })).toHaveCount(0)
+  await other.close()
+
+  // close the count: no more scans
+  page.once('dialog', (d) => d.accept())
+  await page.getByRole('button', { name: 'Close the count' }).click()
+  await expect(page.getByText(/· closed/)).toBeVisible()
+  await page.goto(`/q/${chair}`)
+  await expect(page.getByRole('heading', { name: 'Office chair', level: 1 })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Physical count' })).toHaveCount(0) // closing it stopped counting on this phone
+})

@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { formatLongDate, formatPeso, isIsoDate } from '@traces/shared'
-import { FileDown, Printer, Save } from 'lucide-react'
+import { ClipboardCheck, FileDown, Printer, Save } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { toast } from 'sonner'
@@ -13,7 +13,8 @@ import { Button, buttonVariants } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { reportColumns, ROWS_PER_SHEET, type ReportRow } from '@/lib/propertyView'
+import { reportColumns, reportColumnsWithCount, ROWS_PER_SHEET, unserviceableColumns, type ReportRow, type UnserviceableRow } from '@/lib/propertyView'
+import { getActiveCountId, setActiveCountId, useActiveCountId, type Count } from '@/lib/counts'
 import { TypeBadge } from '@/components/TypeBadge'
 import { usePropertyTypes, useReceivers, useSettings } from '@/lib/queries'
 import { BlockSkeleton } from '@/components/Loading'
@@ -23,8 +24,9 @@ type Role = 'committee' | 'head_of_agency' | 'coa_representative'
 type Signatory = { role: Role; sortOrder: number; name: string; position: string | null }
 type Report = {
   officer: { id: string; fullName: string; position: string; office: string }
-  category: 'semi' | 'ppe'; type: { id: number; name: string } | null; asAt: string; rows: ReportRow[]; signatories: Signatory[]
+  category: 'semi' | 'ppe'; type: { id: number; name: string } | null; asAt: string; countId: string | null; rows: ReportRow[]; signatories: Signatory[]
 }
+type Unserviceable = { officer: { fullName: string }; category: 'semi' | 'ppe'; asAt: string; rows: UnserviceableRow[] }
 const ROLES: { role: Role; label: string; caption: string }[] = [
   { role: 'committee', label: 'Certified correct by', caption: 'Inventory Committee Chair and Members, one name per line' },
   { role: 'head_of_agency', label: 'Approved by', caption: 'Head of Agency or Authorized Representative' },
@@ -32,7 +34,8 @@ const ROLES: { role: Role; label: string; caption: string }[] = [
 ]
 const today = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' })
 
-// RPCSP / RPCPPE: what an accountable officer holds on a date, to print and count by hand. The count columns stay blank.
+// RPCSP / RPCPPE: what an accountable officer holds on a date, to print and count by hand, or to count by scanning the QR stickers
+// (decision 2026-11-19). With a count the report shows Counted / Not counted; unserviceable items move to the IIRUP / IIRUSP below.
 export default function Reports() {
   const qc = useQueryClient()
   const { data: settings } = useSettings()
@@ -44,8 +47,30 @@ export default function Reports() {
   const [typeId, setTypeId] = useState('')
   const [asAt, setAsAt] = useState(today())
   const ready = !!officerId && isIsoDate(asAt)
-  const qs = new URLSearchParams({ officerId, category, asAt, ...(typeId && { typeId }) }).toString()
-  const report = useQuery({ queryKey: ['report', qs], enabled: ready, retry: false, queryFn: () => api.get<Report>(`/api/reports/rpc?${qs}`) })
+  const base = new URLSearchParams({ officerId, category, asAt, ...(typeId && { typeId }) }).toString()
+  // the count of this officer + report + date, if one was started; refreshed while it is open so scans from a phone show up
+  const counts = useQuery({
+    queryKey: ['counts', officerId, category], enabled: !!officerId, queryFn: () => api.get<Count[]>(`/api/counts?officerId=${officerId}&category=${category}`),
+    refetchInterval: (q) => (q.state.data?.some((c) => !c.closedAt) ? 5000 : false),
+  })
+  const current = counts.data?.find((c) => c.asAt === asAt) ?? null
+  const phoneCountId = useActiveCountId()
+  const qs = current ? `${base}&countId=${current.id}` : base
+  const open = !!current && !current.closedAt
+  const report = useQuery({ queryKey: ['report', qs], enabled: ready, retry: false, queryFn: () => api.get<Report>(`/api/reports/rpc?${qs}`), refetchInterval: open ? 5000 : false })
+  const unserviceable = useQuery({ queryKey: ['unserviceable', base], enabled: ready, retry: false, queryFn: () => api.get<Unserviceable>(`/api/reports/unserviceable?${base}`), refetchInterval: open ? 5000 : false })
+  const [show, setShow] = useState<'all' | 'counted' | 'not'>('all')
+
+  const startCount = useMutation({
+    mutationFn: () => api.post<Count>('/api/counts', { officerId, category, asAt }),
+    onSuccess: (c) => { setActiveCountId(c.id); qc.invalidateQueries({ queryKey: ['counts'] }); toast.success('Count started on this phone') },
+    onError: (e) => toast.error(e instanceof ApiError ? e.message : 'Could not start the count'),
+  })
+  const closeCount = useMutation({
+    mutationFn: (id: string) => api.post<Count>(`/api/counts/${id}/close`),
+    onSuccess: (c) => { if (getActiveCountId() === c.id) setActiveCountId(null); qc.invalidateQueries({ queryKey: ['counts'] }); toast.success('Count closed') },
+    onError: (e) => toast.error(e instanceof ApiError ? e.message : 'Could not close the count'),
+  })
 
   // names under the report: editable here, saved only on "Save as default"
   const [names, setNames] = useState<Record<Role, string>>({ committee: '', head_of_agency: '', coa_representative: '' })
@@ -67,13 +92,17 @@ export default function Reports() {
   })
 
   const exportPath = () => `/api/exports/${category === 'semi' ? 'rpcsp' : 'rpcppe'}?${new URLSearchParams({
-    officerId, asAt, ...(typeId && { typeId }), signatories: JSON.stringify(signatories),
+    officerId, asAt, ...(typeId && { typeId }), ...(current && { countId: current.id }), signatories: JSON.stringify(signatories),
   })}`
+  const exportUnserviceable = async () => { try { toast.success(`Saved ${await downloadExport(`/api/exports/${category === 'semi' ? 'iirusp' : 'iirup'}?${base}`)}`) } catch (e) { toast.error((e as Error).message) } }
   const exportIt = async () => { try { toast.success(`Saved ${await downloadExport(exportPath())}`) } catch (e) { toast.error((e as Error).message) } }
 
   const r = report.data
   const title = category === 'semi' ? 'REPORT ON THE PHYSICAL COUNT OF SEMI-EXPENDABLE PROPERTY' : 'REPORT ON THE PHYSICAL COUNT OF PROPERTY, PLANT AND EQUIPMENT'
   const total = r?.rows.reduce((s, x) => s + x.balancePerCard * x.unitValueCentavos, 0) ?? 0
+  const shown = (r?.rows ?? []).filter((x) => show === 'all' || (show === 'counted' ? x.counted : x.counted === false))
+  const u = unserviceable.data
+  const iirup = category === 'semi' ? 'IIRUSP' : 'IIRUP'
 
   return (
     <>
@@ -105,6 +134,35 @@ export default function Reports() {
             {isIsoDate(asAt) && <p className="text-xs text-muted-foreground">{formatLongDate(asAt)}</p>}
           </div>
         </div>
+
+        {ready && (
+          <section aria-labelledby="count-h" className="mb-5 rounded-xl border bg-card p-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <ClipboardCheck className="size-5 text-primary" aria-hidden />
+              <h2 id="count-h" className="text-base font-semibold">Physical count by QR scan</h2>
+            </div>
+            {!current ? (
+              <>
+                <p className="mt-2 text-sm text-muted-foreground">Start a count for this officer and date. Then scan each item's QR sticker with a phone signed in to TRACES; it asks whether the item is serviceable.</p>
+                <Button className="mt-3" size="sm" onClick={() => startCount.mutate()} disabled={startCount.isPending}>Start the count</Button>
+              </>
+            ) : (
+              <>
+                <p className="figures mt-2 text-sm" aria-live="polite">
+                  <span className="font-semibold">{current.counted} of {current.total}</span> counted
+                  {current.unserviceable ? ` · ${current.unserviceable} unserviceable` : ''}
+                  {current.closedAt ? ' · closed' : ''}
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {!current.closedAt && phoneCountId !== current.id && <Button size="sm" onClick={() => { setActiveCountId(current.id); toast.success('This phone now counts for this officer') }}>Count with this phone</Button>}
+                  {!current.closedAt && phoneCountId === current.id && <Button size="sm" variant="outline" onClick={() => setActiveCountId(null)}>Stop counting on this phone</Button>}
+                  {!current.closedAt && <Button size="sm" variant="outline" onClick={() => { if (window.confirm('Close this count? A closed count takes no more scans and cannot be reopened.')) closeCount.mutate(current.id) }} disabled={closeCount.isPending}>Close the count</Button>}
+                </div>
+                {!current.closedAt && phoneCountId === current.id && <p role="status" className="mt-2 text-xs text-muted-foreground">This phone is counting. Scan an item's QR sticker with its camera.</p>}
+              </>
+            )}
+          </section>
+        )}
       </div>
 
       {!ready && <div className="print:hidden"><EmptyState title="Choose an accountable officer">The report lists the items that officer holds on the chosen date.</EmptyState></div>}
@@ -120,8 +178,18 @@ export default function Reports() {
           </div>
           {!r.rows.length
             ? <EmptyState title="Nothing held on that date">This officer holds no {category === 'semi' ? 'semi-expendable' : 'PPE'} items{typeId ? ' of that type' : ''} as at {formatLongDate(r.asAt)}.</EmptyState>
-            : <FormGrid<ReportRow> fullscreenTitle={title} columnDefs={reportColumns} rowData={r.rows} pageSize={ROWS_PER_SHEET}
-                onRowClicked={(row) => row.documentId && navigate(`/documents/${row.documentId}`)} />}
+            : <>
+              {r.countId && (
+                <div className="mb-2 flex items-center gap-2 print:hidden">
+                  <Label htmlFor="r-show" className="text-xs">Show</Label>
+                  <NativeSelect id="r-show" className="h-8 w-auto" value={show} onChange={(e) => setShow(e.target.value as typeof show)}>
+                    <option value="all">All rows</option><option value="counted">Counted</option><option value="not">Not counted</option>
+                  </NativeSelect>
+                </div>
+              )}
+              <FormGrid<ReportRow> fullscreenTitle={title} columnDefs={r.countId ? reportColumnsWithCount : reportColumns} rowData={shown} pageSize={ROWS_PER_SHEET}
+                onRowClicked={(row) => row.documentId && navigate(`/documents/${row.documentId}`)} />
+            </>}
           {r.rows.length > 0 && <p className="figures mt-2 text-right text-sm">Total value per card <span className="font-semibold">{formatPeso(total)}</span></p>}
 
           <div className="mt-6 grid gap-4 md:grid-cols-3">
@@ -137,6 +205,19 @@ export default function Reports() {
           <div className="mt-3 print:hidden">
             <Button variant="outline" size="sm" onClick={() => saveDefault.mutate()} disabled={saveDefault.isPending}><Save /> Save these names as the default</Button>
           </div>
+        </section>
+      )}
+      {ready && u && (
+        <section aria-labelledby="iirup-h" className="mt-8 rounded-xl border bg-card p-4 print:hidden">
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 id="iirup-h" className="text-base font-semibold">Unserviceable property ({iirup})</h2>
+            <Button className="ml-auto" size="sm" variant="outline" onClick={exportUnserviceable} disabled={!u.rows.length}><FileDown /> Export {iirup} to Excel</Button>
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">Items marked unserviceable during a count leave the count report and are listed here for inspection and disposal. Accumulated depreciation, impairment and the disposal columns print blank.</p>
+          {!u.rows.length
+            ? <p className="mt-3 text-sm text-muted-foreground">No unserviceable {category === 'semi' ? 'semi-expendable' : 'PPE'} items held by {u.officer.fullName}.</p>
+            : <div className="mt-3"><FormGrid<UnserviceableRow> fullscreenTitle={iirup} columnDefs={unserviceableColumns} rowData={u.rows} pageSize={ROWS_PER_SHEET}
+                onRowClicked={(row) => row.documentId && navigate(`/documents/${row.documentId}`)} /></div>}
         </section>
       )}
       {officerId && <OfficerForms officerId={officerId} name={officers.find((o) => o.id === officerId)?.fullName ?? ''} />}

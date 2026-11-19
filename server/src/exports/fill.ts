@@ -93,11 +93,11 @@ export async function buildRegistry(s: Settings, d: RegistryData) {
 }
 
 // ───────────────────────── Officer report (RPCPPE, Appendix 73) ─────────────────────────
-// On Hand per Count and Shortage/Overage are printed blank: they are filled in by hand at the inventory.
+// On Hand per Count is the quantity a QR count found (decision 2026-11-19); blank when no count is chosen. Shortage/Overage stay blank: filled in by hand.
 export type CountData = {
   category: 'semi' | 'ppe'; typeLabel: string; asAt: string; fundCluster: string; officerName: string; officerPosition: string
   signatories: { role: string; name: string; position: string | null }[]
-  rows: { article: string; description: string; propertyNos: string[]; unit: string; unitValueCentavos: number; balancePerCard: number; remarks: string | null }[]
+  rows: { article: string; description: string; propertyNos: string[]; unit: string; unitValueCentavos: number; balancePerCard: number; remarks: string | null; countedUnits?: number | null }[]
 }
 const namesOf = (d: CountData, role: string) => d.signatories.filter((x) => x.role === role).map((x) => x.name).join('\n')
 
@@ -127,6 +127,7 @@ export async function buildRpcppe(s: Settings, d: CountData) {
     put(ws, `${c.unit}${r}`, x.unit)
     put(ws, `${c.unitValue}${r}`, pesos(x.unitValueCentavos), MONEY)
     put(ws, `${c.balance}${r}`, x.balancePerCard)
+    if (x.countedUnits !== null && x.countedUnits !== undefined) put(ws, `${c.onHand}${r}`, x.countedUnits)
     put(ws, `${c.remarks}${r}`, x.remarks ?? '')
     sizeRow(ws, r, [c.article, c.description, c.propertyNo, c.remarks], { perLine: 12 })
   })

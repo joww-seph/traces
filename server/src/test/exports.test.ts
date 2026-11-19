@@ -227,3 +227,52 @@ describe('ICS/PAR list export (decision 2026-11-18)', () => {
     expect(x.ws.pageSetup.printTitlesRow).toBe('3:3')
   })
 })
+
+describe('physical count and unserviceable property (decision 2026-11-19)', () => {
+  const tok = async (no: string) => (await testPool.query(`SELECT t.token FROM qr_tokens t JOIN properties p ON p.id=t.property_id WHERE p.property_no=$1 AND t.revoked_at IS NULL`, [no])).rows[0].token.trim() as string
+
+  it('RPCSP prints the found quantity in On Hand Per Count when a count is chosen; blank without one', async () => {
+    const { agent, ics } = await seed()
+    const c = (await agent.post('/api/counts').send({ officerId: ics.receiver.id, category: 'semi', asAt: '2026-12-31' })).body
+    await agent.post(`/api/counts/${c.id}/scans`).send({ token: await tok('S-1'), condition: 'serviceable' })
+    const withCount = await sheet(agent, `/api/exports/rpcsp?officerId=${ics.receiver.id}&asAt=2026-12-31&countId=${c.id}`)
+    expect(withCount.ws.getCell('G11').value).toBe(1)
+    const blank = await sheet(agent, `/api/exports/rpcsp?officerId=${ics.receiver.id}&asAt=2026-12-31`)
+    expect(blank.text('G11')).toBe('')
+  })
+
+  it('RPCPPE prints the found quantity too', async () => {
+    const { agent, ics } = await seed()
+    const c = (await agent.post('/api/counts').send({ officerId: ics.receiver.id, category: 'ppe', asAt: '2026-12-31' })).body
+    await agent.post(`/api/counts/${c.id}/scans`).send({ token: await tok('L-1'), condition: 'serviceable' })
+    const x = await sheet(agent, `/api/exports/rpcppe?officerId=${ics.receiver.id}&asAt=2026-12-31&countId=${c.id}`)
+    expect(x.ws.getCell('I15').value).toBe(1)
+  })
+
+  it('IIRUP lists the unserviceable PPE with its cost; the disposal and sale columns stay blank', async () => {
+    const { agent, ics } = await seed()
+    const c = (await agent.post('/api/counts').send({ officerId: ics.receiver.id, category: 'ppe', asAt: '2026-12-31' })).body
+    await agent.post(`/api/counts/${c.id}/scans`).send({ token: await tok('L-1'), condition: 'unserviceable' })
+    const x = await sheet(agent, `/api/exports/iirup?officerId=${ics.receiver.id}&asAt=2026-12-31`)
+    expect(x.res.headers['content-disposition']).toContain('IIRUP_')
+    expect(x.text('A1')).toBe('INVENTORY AND INSPECTION REPORT OF UNSERVICEABLE PROPERTY')
+    // row 11: date acquired, article + description, property no, qty, unit cost, total cost
+    expect(x.text('B11')).toContain('Laptop')
+    expect(x.text('C11')).toContain('L-1')
+    expect(x.ws.getCell('D11').value).toBe(1)
+    expect(x.ws.getCell('E11').value).toBe(96450)
+    expect(x.ws.getCell('F11').value).toBe(96450)
+    for (const col of ['G', 'H', 'I', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R']) expect(x.text(`${col}11`), col).toBe('')
+    // the semi chair is not on the PPE form
+    expect(x.text('B12')).toBe('')
+  })
+
+  it('IIRUSP is the semi-expendable version', async () => {
+    const { agent, ics } = await seed()
+    const c = (await agent.post('/api/counts').send({ officerId: ics.receiver.id, category: 'semi', asAt: '2026-12-31' })).body
+    await agent.post(`/api/counts/${c.id}/scans`).send({ token: await tok('S-1'), condition: 'unserviceable' })
+    const x = await sheet(agent, `/api/exports/iirusp?officerId=${ics.receiver.id}&asAt=2026-12-31`)
+    expect(x.text('A1')).toBe('INVENTORY AND INSPECTION REPORT OF UNSERVICEABLE SEMI-EXPENDABLE PROPERTY')
+    expect(x.text('B11')).toContain('Chair')
+  })
+})

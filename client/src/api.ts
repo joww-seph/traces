@@ -26,7 +26,7 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
 
   if (!res.ok) {
     const err = (await res.json().catch(() => null))?.error
-    if (res.status === 401 && !QUIET_401.includes(path) && location.pathname !== '/login') location.assign('/login')
+    if (res.status === 401 && !QUIET_401.includes(path) && location.pathname !== '/login' && !location.pathname.startsWith('/q/')) location.assign('/login') // the public scan page never sends anyone to the login
     throw new ApiError(res.status, err?.code ?? 'ERROR', err?.message ?? res.statusText, err?.details)
   }
   return (res.status === 204 ? undefined : await res.json()) as T

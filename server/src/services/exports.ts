@@ -1,18 +1,18 @@
 import { and, eq } from 'drizzle-orm'
 import { db } from '../db/client.js'
 import { propertyTypes } from '../db/schema.js'
-import { buildIcsParList, buildSpc, buildRpcsp } from '../exports/built.js'
+import { buildIcsParList, buildIirup, buildSpc, buildRpcsp } from '../exports/built.js'
 import { listDocuments } from './documents.js'
 import { buildPc, buildRegistry, buildRpcppe, type CountData } from '../exports/fill.js'
 import { AppError } from '../middleware/error.js'
 import { getSettings } from './settings.js'
-import { card, officerReportRows, registry } from './views.js'
+import { card, officerReportRows, registry, unserviceableRows } from './views.js'
 
 // ICS and PAR are no longer exported to Excel: TRACES generates the PDF forms (Update 02).
-export const FORMS = ['spc', 'pc', 'regspi', 'regppe', 'rpcsp', 'rpcppe', 'icspar'] as const
+export const FORMS = ['spc', 'pc', 'regspi', 'regppe', 'rpcsp', 'rpcppe', 'icspar', 'iirup', 'iirusp'] as const
 export type Form = (typeof FORMS)[number]
 export type ExportQuery = {
-  cardId?: string; typeId?: number; type?: 'ICS' | 'PAR'; status?: 'none' | 'generated' | 'signed' | 'unsigned'; q?: string; officerId?: string; asAt?: string; from?: string; to?: string
+  cardId?: string; typeId?: number; type?: 'ICS' | 'PAR'; status?: 'none' | 'generated' | 'signed' | 'unsigned'; q?: string; officerId?: string; countId?: string; asAt?: string; from?: string; to?: string
   signatories?: { role: string; name: string; position?: string | null }[]
 }
 
@@ -55,9 +55,19 @@ export async function exportForm(form: Form, q: ExportQuery): Promise<{ buffer: 
     }
   }
 
+  // IIRUP (PPE) / IIRUSP (semi-expendable): the unserviceable items an officer holds
+  if (form === 'iirup' || form === 'iirusp') {
+    const category = form === 'iirup' ? 'ppe' : 'semi'
+    const u = await unserviceableRows({ officerId: need(q.officerId, 'officerId'), category, typeId: q.typeId, asAt: q.asAt })
+    return {
+      buffer: await buildIirup({ category, entityName: s.entityName, asAt: u.asAt, fundCluster: s.defaultFundCluster, officerName: u.officer.fullName, officerPosition: u.officer.position, station: u.officer.office ?? '', rows: u.rows }),
+      filename: `${form.toUpperCase()}_${safe(u.officer.fullName)}_${u.asAt}.xlsx`,
+    }
+  }
+
   // rpcsp / rpcppe
   const want = form === 'rpcsp' ? 'semi' : 'ppe'
-  const report = await officerReportRows({ officerId: need(q.officerId, 'officerId'), category: want, typeId: q.typeId, asAt: q.asAt })
+  const report = await officerReportRows({ officerId: need(q.officerId, 'officerId'), category: want, typeId: q.typeId, asAt: q.asAt, countId: q.countId })
   const data: CountData = {
     category: want, typeLabel: report.type?.name ?? 'All types', asAt: report.asAt, fundCluster: s.defaultFundCluster,
     officerName: report.officer.fullName, officerPosition: report.officer.position,

@@ -101,7 +101,7 @@ export async function buildRpcsp(entityName: string, d: CountData) {
     const r = 11 + i
     const set = (col: string, v: ExcelJS.CellValue, numFmt?: string) => cell(ws, `${col}${r}`, v, { border: BOX, numFmt })
     set('A', x.article); set('B', x.description); set('C', x.propertyNos.join('\n')); set('D', x.unit)
-    set('E', pesos(x.unitValueCentavos), MONEY); set('F', x.balancePerCard); set('G', '')
+    set('E', pesos(x.unitValueCentavos), MONEY); set('F', x.balancePerCard); set('G', x.countedUnits ?? '')
     set('H', ''); set('I', '')
     set('J', x.remarks ?? '')
     set('K', i + 1)
@@ -143,5 +143,69 @@ export async function buildIcsParList(d: { entityName: string; rows: IcsParListR
   ruleAndNumber(ws, 3, 1, 3 + Math.max(1, d.rows.length), 6)
   ws.pageSetup = { ...ws.pageSetup, printTitlesRow: '3:3' }
   d.rows.forEach((_x, i) => { if (i < d.rows.length - 1 && (i + 1) % 20 === 0) ws.getRow(4 + i).addPageBreak() })
+  return toBuffer(wb)
+}
+
+// ───────────────────────── IIRUP (Appendix 74) / IIRUSP ─────────────────────────
+// Inventory and Inspection Report of Unserviceable Property. Accumulated depreciation, impairment, carrying amount and the whole
+// disposal side are not stored, so they print blank for the inspection; cost columns are worked out from the line.
+export type IirupData = {
+  category: 'semi' | 'ppe'; entityName: string; asAt: string; fundCluster: string; officerName: string; officerPosition: string; station: string
+  rows: { dateAcquired: string; article: string; description: string; propertyNos: string[]; qty: number; unitValueCentavos: number; totalCostCentavos: number; remarks: string | null }[]
+}
+export async function buildIirup(d: IirupData) {
+  const { wb, ws } = newSheet(d.category === 'ppe' ? 'IIRUP' : 'IIRUSP', [13, 34, 22, 6, 13, 14, 13, 13, 13, 22, 10, 10, 11, 11, 10, 12, 10, 12, 7])
+  const title = d.category === 'ppe' ? 'INVENTORY AND INSPECTION REPORT OF UNSERVICEABLE PROPERTY' : 'INVENTORY AND INSPECTION REPORT OF UNSERVICEABLE SEMI-EXPENDABLE PROPERTY'
+  cell(ws, 'A1', title, { merge: 'A1:S1', font: { ...heading, size: 12 }, alignment: center })
+  cell(ws, 'A2', `As at ${formatLongDate(d.asAt)}`, { merge: 'A2:S2', alignment: center })
+  cell(ws, 'A4', `Entity Name: ${d.entityName}`, { merge: 'A4:H4' })
+  cell(ws, 'P4', `Fund Cluster: ${d.fundCluster}`, { merge: 'P4:S4', font: heading })
+  cell(ws, 'A5', d.officerName, { merge: 'A5:C5', border: { bottom: thin } })
+  cell(ws, 'D5', d.officerPosition, { merge: 'D5:I5', border: { bottom: thin } })
+  cell(ws, 'J5', d.station, { merge: 'J5:O5', border: { bottom: thin } })
+  cell(ws, 'A6', '(Name of Accountable Officer)', { merge: 'A6:C6', font: { ...FONT, italic: true, size: 9 }, alignment: center })
+  cell(ws, 'D6', '(Designation)', { merge: 'D6:I6', font: { ...FONT, italic: true, size: 9 }, alignment: center })
+  cell(ws, 'J6', '(Station)', { merge: 'J6:O6', font: { ...FONT, italic: true, size: 9 }, alignment: center })
+
+  const head = (addr: string, text: string, merge?: string) => cell(ws, addr, text, { merge, font: heading, alignment: center })
+  head('A8', 'INVENTORY', 'A8:J8'); head('K8', 'INSPECTION and DISPOSAL', 'K8:R8'); head('S8', 'No.', 'S8:S10')
+  const single: [string, string][] = [['A', 'Date Acquired'], ['B', 'Particulars/ Articles'], ['C', 'Property No.'], ['D', 'Qty'], ['E', 'Unit Cost'], ['F', 'Total Cost'],
+    ['G', 'Accumulated Depreciation'], ['H', 'Accumulated Impairment Losses'], ['I', 'Carrying Amount'], ['J', 'Remarks'], ['P', 'Appraised Value']]
+  for (const [col, text] of single) head(`${col}9`, text, `${col}9:${col}10`)
+  head('K9', 'DISPOSAL', 'K9:O9'); head('Q9', 'RECORD OF SALES', 'Q9:R9')
+  for (const [col, text] of [['K', 'Sale'], ['L', 'Transfer'], ['M', 'Destruction'], ['N', 'Others (Specify)'], ['O', 'Total'], ['Q', 'OR No.'], ['R', 'Amount']]) head(`${col}10`, text)
+
+  const last = 10 + Math.max(MIN_BLANK_ROWS, d.rows.length)
+  boxRange(ws, 8, 1, last, 19)
+  const nos = d.rows.map((_x, i) => i + 1)
+  pageEvery(ws, [8, 10], 11, nos)
+  d.rows.forEach((x, i) => {
+    const r = 11 + i
+    const set = (col: string, v: ExcelJS.CellValue, numFmt?: string) => cell(ws, `${col}${r}`, v, { border: BOX, numFmt })
+    set('A', asDate(x.dateAcquired), 'mmm d, yyyy'); set('B', `${x.article}, ${x.description}`); set('C', x.propertyNos.join('\n')); set('D', x.qty)
+    set('E', pesos(x.unitValueCentavos), MONEY); set('F', pesos(x.totalCostCentavos), MONEY); set('J', x.remarks ?? ''); set('S', i + 1)
+    sizeRow(ws, r, ['B', 'C', 'J'], { perLine: 12.5 })
+  })
+
+  // the request, certifications and signatures, as on the form
+  const sig = last + 2
+  const block = (range: [string, string], text: string, lines: string[]) => {
+    cell(ws, `${range[0]}${sig}`, text, { merge: `${range[0]}${sig}:${range[1]}${sig}`, alignment: { vertical: 'top', wrapText: true } })
+    lines.forEach((caption, k) => {
+      const r = sig + 2 + k * 2
+      cell(ws, `${range[0]}${r}`, '', { merge: `${range[0]}${r}:${range[1]}${r}`, border: { bottom: thin } })
+      cell(ws, `${range[0]}${r + 1}`, caption, { merge: `${range[0]}${r + 1}:${range[1]}${r + 1}`, font: { ...FONT, size: 9 }, alignment: center })
+    })
+  }
+  block(['A', 'C'], 'I HEREBY request inspection and disposition, pursuant to Section 79 of PD 1445, of the property enumerated above. Requested by:',
+    ['(Signature over Printed Name of Accountable Officer)', '(Designation of Accountable Officer)'])
+  block(['D', 'J'], 'Approved by:', ['(Signature over Printed Name of Authorized Official)', '(Designation of Authorized Official)'])
+  block(['K', 'O'], 'I CERTIFY that I have inspected each and every article enumerated in this report, and that the disposition made thereof was, in my judgment, the best for the public interest.',
+    ['(Signature over Printed Name of Inspection Officer)'])
+  block(['P', 'S'], 'I CERTIFY that I have witnessed the disposition of the articles enumerated on this report this ____ day of ____________, ____.',
+    ['(Signature over Printed Name of Witness)'])
+  ws.getRow(sig).height = 60
+  ruleAndNumber(ws, 8, 1, last, 19)
+  ws.pageSetup.printArea = `A1:S${sig + 6}`
   return toBuffer(wb)
 }

@@ -18,10 +18,15 @@ export type CardRow = {
   issueItemNo: string | null; issueQty: number | null; officer: string | null; officerFullName: string | null
   balanceQty: number; amountCentavos: number; remarks: string | null
 }
-// RPCSP / RPCPPE row: On Hand per Count and Shortage/Overage are printed blank, so they are not in the data.
+// RPCSP / RPCPPE row. With a physical count chosen, countedUnits / counted say whether a scan found the row's units; without one both are null.
 export type ReportRow = {
   id: string; rowNo: number; documentId?: string; article: string; description: string; propertyNos: string[]; unit: string; unitValueCentavos: number
-  balancePerCard: number; reference: string; remarks: string | null
+  balancePerCard: number; reference: string; remarks: string | null; countedUnits?: number | null; counted?: boolean | null
+}
+// IIRUP / IIRUSP row: unserviceable items; the cost columns are worked out, the disposal side is blank
+export type UnserviceableRow = {
+  id: string; rowNo: number; documentId?: string; dateAcquired: string; article: string; description: string; propertyNos: string[]; unit: string
+  qty: number; unitValueCentavos: number; totalCostCentavos: number; reference: string; remarks: string | null
 }
 type Tab<H, R> = { header: H; rows: R[]; highlightRowId: string | null }
 export type PropertyView = {
@@ -115,7 +120,7 @@ export const cardColumns = (category: 'semi' | 'ppe', editRemarks = false): Cols
   { headerName: editRemarks ? 'Remarks (edit)' : 'Remarks', field: 'remarks', minWidth: 180, flex: 1, editable: editRemarks, cellClass: editRemarks ? 'traces-editable' : undefined },
 ] as Cols<CardRow>
 
-// The officer report (RPCSP / RPCPPE): "On Hand per Count" and "Shortage/Overage" stay empty, they are filled in by hand when printed.
+// The officer report (RPCSP / RPCPPE): "On Hand per Count" shows what a QR count found (empty with no count); "Shortage/Overage" stays empty, it is filled in by hand.
 export const reportColumns: Cols<ReportRow> = [
   rowNoCol() as ColDef<ReportRow>,
   { headerName: 'Article', field: 'article', width: 150 },
@@ -124,7 +129,27 @@ export const reportColumns: Cols<ReportRow> = [
   { headerName: 'Unit of Measure', field: 'unit', width: 110 },
   moneyCol('unitValueCentavos', 'Unit Value', { width: 140 }) as ColDef<ReportRow>,
   { headerName: 'Balance per Card', children: [num('Qty.', 'balancePerCard', { width: 90 })] },
-  { headerName: 'On Hand per Count', children: [{ headerName: 'Qty.', width: 100, valueGetter: () => '' }] },
+  { headerName: 'On Hand per Count', children: [{ headerName: 'Qty.', width: 100, valueGetter: (p) => p.data?.countedUnits ?? '' }] },
   { headerName: 'Shortage/Overage', children: [{ headerName: 'Qty.', width: 90, valueGetter: () => '' }, { headerName: 'Value', width: 110, valueGetter: () => '' }] },
   { headerName: 'Remarks', field: 'remarks', minWidth: 200, flex: 1, cellClass: 'traces-pre', valueFormatter: (p) => p.value ?? '' },
+]
+
+// the Counted / Not counted column, only when a physical count is chosen; a row with several units reads "Not counted (1 of 2)" until all are found
+export const countStatus = (r: ReportRow) =>
+  r.counted === null || r.counted === undefined ? '' : r.counted ? 'Counted' : r.countedUnits ? `Not counted (${r.countedUnits} of ${r.balancePerCard})` : 'Not counted'
+export const reportColumnsWithCount: Cols<ReportRow> = [
+  ...reportColumns,
+  { headerName: 'Count', width: 190, valueGetter: (p) => (p.data ? countStatus(p.data) : ''), cellClass: (p) => (p.data?.counted ? 'font-medium text-emerald-700' : 'font-medium text-amber-700') },
+]
+
+// IIRUP (Appendix 74) / IIRUSP: accumulated depreciation, impairment, carrying amount and the disposal columns are not stored, so they are left out here and print blank
+export const unserviceableColumns: Cols<UnserviceableRow> = [
+  rowNoCol() as ColDef<UnserviceableRow>,
+  { ...date('dateAcquired'), headerName: 'Date Acquired' } as ColDef<UnserviceableRow>,
+  { headerName: 'Particulars/Articles', valueGetter: (p) => (p.data ? `${p.data.article}, ${p.data.description}` : ''), flex: 2, minWidth: 240, cellClass: 'traces-pre' },
+  { headerName: 'Property No.', valueGetter: (p) => p.data?.propertyNos.join('\n'), cellClass: 'traces-pre', minWidth: 190 },
+  num('Qty', 'qty', { width: 80 }),
+  moneyCol('unitValueCentavos', 'Unit Cost', { width: 130 }) as ColDef<UnserviceableRow>,
+  moneyCol('totalCostCentavos', 'Total Cost', { width: 140 }) as ColDef<UnserviceableRow>,
+  { headerName: 'Remarks', field: 'remarks', minWidth: 180, flex: 1, cellClass: 'traces-pre', valueFormatter: (p) => p.value ?? '' },
 ]

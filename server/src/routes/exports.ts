@@ -9,7 +9,8 @@ import { db } from '../db/client.js'
 import { ctx } from './ctx.js'
 
 const query = z.object({
-  cardId: uuid.optional(), officerId: uuid.optional(), typeId: z.coerce.number().int().positive().optional(),
+  cardId: uuid.optional(), officerId: uuid.optional(), countId: uuid.optional(), // countId: rpcsp/rpcppe print the found quantity
+  typeId: z.coerce.number().int().positive().optional(),
   asAt: isoDate.optional(), from: isoDate.optional(), to: isoDate.optional(),
   // icspar: the list page's filters
   type: z.enum(['ICS', 'PAR']).optional(), status: z.enum(['none', 'generated', 'signed', 'unsigned']).optional(), q: z.string().trim().min(1).optional(),
@@ -24,7 +25,7 @@ const query = z.object({
 })
 const XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
 
-// GET /api/exports/:form  spc|pc (?cardId) · regspi|regppe (?typeId&from&to) · rpcsp|rpcppe (?officerId&typeId&asAt&signatories) · icspar (?type&from&to&officerId&q&status)
+// GET /api/exports/:form  spc|pc (?cardId) · regspi|regppe (?typeId&from&to) · rpcsp|rpcppe (?officerId&typeId&asAt&countId&signatories) · iirup|iirusp (?officerId&typeId&asAt) · icspar (?type&from&to&officerId&q&status)
 export function exportsRouter() {
   const r = Router()
   r.use('/exports', requireRole('supply_admin'))

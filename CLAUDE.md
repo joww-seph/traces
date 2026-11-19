@@ -20,7 +20,7 @@
 
 ## Hard rules
 - The database enforces integrity (FK, UNIQUE, CHECK, partial unique index). Never weaken a constraint to make a test pass.
-- **Normalized (3NF).** Card = `v_property_card` (one card per **property**, decision 2026-11-18), Registry = `v_registry` (per category + property type), RPCSP/RPCPPE = `fn_officer_report(as_at)`. Never store their rows or any calculated column (totals, amounts, balances, shortages). There are no count tables; count columns are printed blank.
+- **Normalized (3NF).** Card = `v_property_card` (one card per **property**, decision 2026-11-18), Registry = `v_registry` (per category + property type), RPCSP/RPCPPE = `fn_officer_report(as_at)`. Never store their rows or any calculated column (totals, amounts, balances, shortages). The only count data is `physical_counts` + `count_scans` (which units a QR scan found, decision 2026-11-19); counted/not counted and the IIRUP/IIRUSP lists are derived from them, and Shortage/Overage stay blank.
 - A **line** carries its item (property type, category from the cost, article, unit, one description); every main unit gets its own card. Serials show in brackets after the description, N/A when none. Quantities count **main units only**; components (`component_label` set) share their line's row everywhere but get their own QR.
 - Property numbers are **suggested** (`YYYY-MM{TYPE}-NNNN`, counter per year + type), never forced; the unique index is the guard.
 - A document has up to two PDFs (`document_files`: `generated` by TRACES, `uploaded` signed copy). An uploaded copy locks the entries (409 `DOCUMENT_SIGNED`).

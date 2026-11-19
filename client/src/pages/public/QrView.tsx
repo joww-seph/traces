@@ -3,6 +3,7 @@ import { ShieldAlert, TimerReset, Trash2 } from 'lucide-react'
 import { useParams } from 'react-router'
 import { ApiError, api } from '@/api'
 import { TracesMark } from '@/components/Brand'
+import { CountPanel } from '@/components/CountPanel'
 import { PropertySummary, PropertyTabs } from '@/components/PropertyTabs'
 import { TypeBadge } from '@/components/TypeBadge'
 import type { PropertyView } from '@/lib/propertyView'
@@ -59,6 +60,7 @@ export default function QrView() {
           <h1 className="mt-2 text-2xl font-bold break-words">{l.article}</h1>
           <p className="figures text-sm text-muted-foreground">{p.propertyNo}{p.componentLabel ? ` · ${p.componentLabel}${p.partOfSetNo ? `, part of set ${p.partOfSetNo}` : ''}` : ''} · {d.type} {d.docNo}</p>
         </div>
+        <CountPanel token={token} />
         <PropertySummary view={data} />
         <PropertyTabs view={data} />
       </main>
