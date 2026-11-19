@@ -278,7 +278,7 @@ test.describe('phone width (360 px)', () => {
 
   test('nothing scrolls sideways and the menu opens', async ({ page }) => {
     await login(page)
-    for (const p of ['/', '/documents', '/issue', '/cards', '/reports', '/account/password']) {
+    for (const p of ['/', '/documents', '/issue', '/cards', '/reports', '/unserviceable', '/account/password']) {
       await page.goto(p)
       await page.waitForLoadState('networkidle')
       expect(await noHorizontalScroll(page), p).toBe(0)
@@ -299,7 +299,7 @@ test.describe('accessibility (WCAG 2.1 A and AA)', () => {
 
   test('signed-in pages', async ({ page }) => {
     await login(page)
-    for (const p of ['/', '/documents', '/issue', '/cards', '/reports', '/account/password']) {
+    for (const p of ['/', '/documents', '/issue', '/cards', '/reports', '/unserviceable', '/account/password']) {
       await page.goto(p)
       await page.waitForLoadState('networkidle')
       expect(await a11y(page), p).toEqual([])

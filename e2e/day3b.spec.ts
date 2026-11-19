@@ -269,8 +269,12 @@ test('physical count by QR scan: counted rows, unserviceable items go to the IIR
   await expect(page.getByRole('status').filter({ hasText: 'counted as unserviceable' })).toContainText('IIRUSP')
   await openReport()
   await expect(report.getByText('2026-05CNT-0002')).toHaveCount(0)
-  const iirusp = page.getByRole('region', { name: 'Unserviceable property (IIRUSP)' })
-  await expect(iirusp.getByText('2026-05CNT-0002')).toBeVisible()
+  // it is on its own page, the Unserviceable page
+  await page.getByRole('link', { name: 'Unserviceable' }).click()
+  await pickOfficer(page, 'u-officer', 'Maria Santos')
+  await page.getByLabel('Report', { exact: true }).selectOption('semi')
+  await expect(page.getByRole('region', { name: 'IIRUSP, unserviceable property' }).getByText('2026-05CNT-0002')).toBeVisible()
+  await openReport()
 
   // another browser, signed in or not, does not get the panel
   const other = await browser.newContext()

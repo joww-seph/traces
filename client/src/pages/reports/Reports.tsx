@@ -13,7 +13,7 @@ import { Button, buttonVariants } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { reportColumns, reportColumnsWithCount, ROWS_PER_SHEET, unserviceableColumns, type ReportRow, type UnserviceableRow } from '@/lib/propertyView'
+import { reportColumns, reportColumnsWithCount, ROWS_PER_SHEET, type ReportRow } from '@/lib/propertyView'
 import { getActiveCountId, setActiveCountId, useActiveCountId, type Count } from '@/lib/counts'
 import { TypeBadge } from '@/components/TypeBadge'
 import { usePropertyTypes, useReceivers, useSettings } from '@/lib/queries'
@@ -26,7 +26,6 @@ type Report = {
   officer: { id: string; fullName: string; position: string; office: string }
   category: 'semi' | 'ppe'; type: { id: number; name: string } | null; asAt: string; countId: string | null; rows: ReportRow[]; signatories: Signatory[]
 }
-type Unserviceable = { officer: { fullName: string }; category: 'semi' | 'ppe'; asAt: string; rows: UnserviceableRow[] }
 const ROLES: { role: Role; label: string; caption: string }[] = [
   { role: 'committee', label: 'Certified correct by', caption: 'Inventory Committee Chair and Members, one name per line' },
   { role: 'head_of_agency', label: 'Approved by', caption: 'Head of Agency or Authorized Representative' },
@@ -35,7 +34,7 @@ const ROLES: { role: Role; label: string; caption: string }[] = [
 const today = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' })
 
 // RPCSP / RPCPPE: what an accountable officer holds on a date, to print and count by hand, or to count by scanning the QR stickers
-// (decision 2026-11-19). With a count the report shows Counted / Not counted; unserviceable items move to the IIRUP / IIRUSP below.
+// (decision 2026-11-19). With a count the report shows Counted / Not counted; unserviceable items move to the Unserviceable page (IIRUP / IIRUSP).
 export default function Reports() {
   const qc = useQueryClient()
   const { data: settings } = useSettings()
@@ -58,7 +57,6 @@ export default function Reports() {
   const qs = current ? `${base}&countId=${current.id}` : base
   const open = !!current && !current.closedAt
   const report = useQuery({ queryKey: ['report', qs], enabled: ready, retry: false, queryFn: () => api.get<Report>(`/api/reports/rpc?${qs}`), refetchInterval: open ? 5000 : false })
-  const unserviceable = useQuery({ queryKey: ['unserviceable', base], enabled: ready, retry: false, queryFn: () => api.get<Unserviceable>(`/api/reports/unserviceable?${base}`), refetchInterval: open ? 5000 : false })
   const [show, setShow] = useState<'all' | 'counted' | 'not'>('all')
 
   const startCount = useMutation({
@@ -94,15 +92,12 @@ export default function Reports() {
   const exportPath = () => `/api/exports/${category === 'semi' ? 'rpcsp' : 'rpcppe'}?${new URLSearchParams({
     officerId, asAt, ...(typeId && { typeId }), ...(current && { countId: current.id }), signatories: JSON.stringify(signatories),
   })}`
-  const exportUnserviceable = async () => { try { toast.success(`Saved ${await downloadExport(`/api/exports/${category === 'semi' ? 'iirusp' : 'iirup'}?${base}`)}`) } catch (e) { toast.error((e as Error).message) } }
   const exportIt = async () => { try { toast.success(`Saved ${await downloadExport(exportPath())}`) } catch (e) { toast.error((e as Error).message) } }
 
   const r = report.data
   const title = category === 'semi' ? 'REPORT ON THE PHYSICAL COUNT OF SEMI-EXPENDABLE PROPERTY' : 'REPORT ON THE PHYSICAL COUNT OF PROPERTY, PLANT AND EQUIPMENT'
   const total = r?.rows.reduce((s, x) => s + x.balancePerCard * x.unitValueCentavos, 0) ?? 0
   const shown = (r?.rows ?? []).filter((x) => show === 'all' || (show === 'counted' ? x.counted : x.counted === false))
-  const u = unserviceable.data
-  const iirup = category === 'semi' ? 'IIRUSP' : 'IIRUP'
 
   return (
     <>
@@ -143,7 +138,7 @@ export default function Reports() {
             </div>
             {!current ? (
               <>
-                <p className="mt-2 text-sm text-muted-foreground">Start a count for this officer and date. Then scan each item's QR sticker with a phone signed in to TRACES; it asks whether the item is serviceable.</p>
+                <p className="mt-2 text-sm text-muted-foreground">Start a count for this officer and date. Then scan each item's QR sticker with a phone signed in to TRACES; it asks whether the item is serviceable. Unserviceable items are listed on the Unserviceable page.</p>
                 <Button className="mt-3" size="sm" onClick={() => startCount.mutate()} disabled={startCount.isPending}>Start the count</Button>
               </>
             ) : (
@@ -205,19 +200,6 @@ export default function Reports() {
           <div className="mt-3 print:hidden">
             <Button variant="outline" size="sm" onClick={() => saveDefault.mutate()} disabled={saveDefault.isPending}><Save /> Save these names as the default</Button>
           </div>
-        </section>
-      )}
-      {ready && u && (
-        <section aria-labelledby="iirup-h" className="mt-8 rounded-xl border bg-card p-4 print:hidden">
-          <div className="flex flex-wrap items-center gap-2">
-            <h2 id="iirup-h" className="text-base font-semibold">Unserviceable property ({iirup})</h2>
-            <Button className="ml-auto" size="sm" variant="outline" onClick={exportUnserviceable} disabled={!u.rows.length}><FileDown /> Export {iirup} to Excel</Button>
-          </div>
-          <p className="mt-1 text-xs text-muted-foreground">Items marked unserviceable during a count leave the count report and are listed here for inspection and disposal. Accumulated depreciation, impairment and the disposal columns print blank.</p>
-          {!u.rows.length
-            ? <p className="mt-3 text-sm text-muted-foreground">No unserviceable {category === 'semi' ? 'semi-expendable' : 'PPE'} items held by {u.officer.fullName}.</p>
-            : <div className="mt-3"><FormGrid<UnserviceableRow> fullscreenTitle={iirup} columnDefs={unserviceableColumns} rowData={u.rows} pageSize={ROWS_PER_SHEET}
-                onRowClicked={(row) => row.documentId && navigate(`/documents/${row.documentId}`)} /></div>}
         </section>
       )}
       {officerId && <OfficerForms officerId={officerId} name={officers.find((o) => o.id === officerId)?.fullName ?? ''} />}

@@ -1,5 +1,5 @@
 import {
-  BookOpen, Building2, ClipboardList, FilePlus2, FileText, FolderTree, History, Layers, KeyRound, LayoutDashboard, LogOut, Menu, QrCode, Settings, UserCog, Users, X,
+  BookOpen, Building2, ClipboardList, FilePlus2, PackageX, FileText, FolderTree, History, Layers, KeyRound, LayoutDashboard, LogOut, Menu, QrCode, Settings, UserCog, Users, X,
   type LucideIcon,
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
@@ -15,6 +15,7 @@ const RECORDS: Item[] = [
   { to: '/cards', label: 'Cards', Icon: Layers },
   { to: '/registry', label: 'Registry', Icon: BookOpen },
   { to: '/reports', label: 'Reports', Icon: ClipboardList },
+  { to: '/unserviceable', label: 'Unserviceable', Icon: PackageX },
   { to: '/stickers', label: 'Stickers', Icon: QrCode },
 ]
 const ADMIN: Item[] = [

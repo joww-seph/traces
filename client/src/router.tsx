@@ -18,6 +18,7 @@ import Card from '@/pages/cards/Card'
 import Cards from '@/pages/cards/List'
 import IssueForm from '@/pages/issue/IssueForm'
 import Reports from '@/pages/reports/Reports'
+import Unserviceable from '@/pages/unserviceable/Unserviceable'
 import PropertyTypes from '@/pages/types/PropertyTypes'
 import PropertyDetail from '@/pages/properties/Detail'
 import QrView from '@/pages/public/QrView'
@@ -60,6 +61,7 @@ export const router = createBrowserRouter([
             { path: 'cards', element: <Cards /> },
             { path: 'cards/:propertyId', element: <Card /> }, // one card per property
             { path: 'reports', element: <Reports /> },
+            { path: 'unserviceable', element: <Unserviceable /> },
             { path: 'stickers', element: <StickerSheet /> },
           ],
         },
