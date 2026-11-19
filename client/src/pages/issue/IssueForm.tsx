@@ -66,14 +66,18 @@ export default function IssueForm() {
   const [result, setResult] = useState<Result | null>(null)
 
   // defaults that come from settings, once
+  // returns the same header when nothing changes: allOfficers is a new [] on every render while it loads, so a new
+  // object here would loop forever (Maximum update depth exceeded)
   useEffect(() => {
     if (!settings) return
-    setHeader((h) => ({
-      ...h, fundCluster: h.fundCluster || settings.defaultFundCluster,
-      ...(!h.issuedBy && settings.defaultIssuedByOfficerId
-        ? { issuedBy: settings.defaultIssuedByOfficerId, issuedByPosition: h.issuedByPosition || (allOfficers.find((o) => o.id === settings.defaultIssuedByOfficerId)?.position ?? '') }
-        : {}),
-    }))
+    setHeader((h) => {
+      const fundCluster = h.fundCluster || settings.defaultFundCluster
+      const issuerId = settings.defaultIssuedByOfficerId
+      const issuer = !h.issuedBy && issuerId
+        ? { issuedBy: issuerId, issuedByPosition: h.issuedByPosition || (allOfficers.find((o) => o.id === issuerId)?.position ?? '') }
+        : { issuedBy: h.issuedBy, issuedByPosition: h.issuedByPosition }
+      return fundCluster === h.fundCluster && issuer.issuedBy === h.issuedBy && issuer.issuedByPosition === h.issuedByPosition ? h : { ...h, fundCluster, ...issuer }
+    })
   }, [settings, allOfficers])
 
   const threshold = settings?.ppeThresholdCentavos

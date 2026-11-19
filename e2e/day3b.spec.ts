@@ -20,6 +20,19 @@ test('exports: registry and a model card download an .xlsx', async ({ page }) =>
   expect(card.suggestedFilename()).toMatch(/\.xlsx$/)
 })
 
+test('issuance form opens when the officer list arrives after the settings', async ({ page }) => {
+  await login(page)
+  const loops: string[] = []
+  page.on('console', (m) => { if (m.text().includes('Maximum update depth')) loops.push(m.text()) })
+  await page.route('**/api/officers?active=true', async (route) => { await new Promise((r) => setTimeout(r, 1500)); await route.continue() })
+  await page.goto('/issue')
+  await page.waitForTimeout(2000)
+  await expect(page.getByText('Unexpected Application Error')).toHaveCount(0)
+  expect(loops).toEqual([])
+  await expect(page.getByLabel('Row 1, article')).toBeVisible()
+  await page.unroute('**/api/officers?active=true')
+})
+
 test('delete form: an unsigned ICS can be deleted after confirming; a signed PAR has no delete button', async ({ page }) => {
   await login(page)
   const nos = { main: '2026-05DEL-0001', part: '2026-05DEL-0001a', semi: '2026-05DEL-0002' }
