@@ -78,6 +78,13 @@
       "when": 1794997096189,
       "tag": "0010_card_per_property",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1795047629732,
+      "tag": "0011_physical_counts",
+      "breakpoints": true
     }
   ]
 }

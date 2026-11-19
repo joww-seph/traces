@@ -89,17 +89,20 @@ export type OfficerReportRow = {
   officerId: string; lineId: string; documentId: string; category: 'semi' | 'ppe'; propertyTypeId: number
   article: string; description: string; propertyNos: string; serialNos: string; unit: string; unitValueCentavos: number
   balancePerCard: number; docType: 'ICS' | 'PAR'; docNo: string; issuedDate: string
+  condition: 'serviceable' | 'unserviceable'
+  countedUnits: number | null // main units a scan found in the given count; null = no count (printed blank)
 }
 
-// RPCSP / RPCPPE rows as at a date. A function, not a view, so it goes through raw SQL.
-export async function officerReport(asAt: string, d: Pick<typeof db, 'execute'> = db): Promise<OfficerReportRow[]> {
+// RPCSP / RPCPPE / IIRUP / IIRUSP rows as at a date (all held items, both conditions). A function, not a view, so it goes through raw SQL.
+export async function officerReport(asAt: string, d: Pick<typeof db, 'execute'> = db, countId: string | null = null): Promise<OfficerReportRow[]> {
   const r = await d.execute(sql`SELECT officer_id, line_id, document_id, category, property_type_id, article, description,
-    property_nos, serial_nos, unit, unit_value_centavos, balance_per_card, doc_type, doc_no, issued_date::text AS issued_date
-    FROM fn_officer_report(${asAt}::date)`)
+    property_nos, serial_nos, unit, unit_value_centavos, balance_per_card, doc_type, doc_no, issued_date::text AS issued_date, condition, counted_units
+    FROM fn_officer_report(${asAt}::date, ${countId}::uuid)`)
   return r.rows.map((x) => ({
     officerId: String(x.officer_id), lineId: String(x.line_id), documentId: String(x.document_id), category: x.category as 'semi' | 'ppe',
     propertyTypeId: Number(x.property_type_id), article: String(x.article), description: String(x.description),
     propertyNos: String(x.property_nos), serialNos: String(x.serial_nos ?? ''), unit: String(x.unit), unitValueCentavos: Number(x.unit_value_centavos),
     balancePerCard: Number(x.balance_per_card), docType: x.doc_type as 'ICS' | 'PAR', docNo: String(x.doc_no), issuedDate: String(x.issued_date),
+    condition: x.condition as 'serviceable' | 'unserviceable', countedUnits: x.counted_units === null ? null : Number(x.counted_units),
   }))
 }

@@ -143,39 +143,76 @@ export async function getSignatories() {
   return db.select().from(reportSignatories).orderBy(asc(reportSignatories.role), asc(reportSignatories.sortOrder))
 }
 
-export async function officerReportRows(q: { officerId: string; category: Category; typeId?: number; asAt?: string }) {
+// who the report is for, the type filter and the as-at date, shared by the RPC and the IIRUP/IIRUSP
+async function reportScope(q: { officerId: string; typeId?: number; asAt?: string }) {
   const officer = (await db.select({ id: officers.id, fullName: officers.fullName, position: officers.position, office: officers.office })
     .from(officers).where(eq(officers.id, q.officerId)))[0]
   if (!officer) throw new AppError('OFFICER_NOT_FOUND', 404, 'Officer not found')
   const type = q.typeId ? (await db.select().from(propertyTypes).where(eq(propertyTypes.id, q.typeId)))[0] ?? null : null
   if (q.typeId && !type) throw new AppError('PROPERTY_TYPE_NOT_FOUND', 404, 'Property type not found')
-  const asAt = q.asAt ?? todayManila()
+  return { officer, type, asAt: q.asAt ?? todayManila() }
+}
 
-  const rows = (await officerReport(asAt))
-    .filter((r) => r.officerId === q.officerId && r.category === q.category && (!q.typeId || r.propertyTypeId === q.typeId))
-    .sort((a, b) => a.article.localeCompare(b.article) || a.docNo.localeCompare(b.docNo) || a.propertyNos.localeCompare(b.propertyNos))
-
-  // a legacy number is printed in Remarks automatically (decision 2026-11-14)
-  const lineIds = rows.map((r) => r.lineId)
+// a legacy number is printed in Remarks automatically (decision 2026-11-14)
+async function oldNumberRemarks(lineIds: string[]) {
   const old = lineIds.length
     ? await db.select({ lineId: properties.lineId, no: properties.propertyNo, old: properties.oldPropertyNo }).from(properties)
       .where(and(inArray(properties.lineId, lineIds), isNotNull(properties.oldPropertyNo), isNull(properties.voidedAt)))
       .orderBy(asc(properties.propertyNo))
     : []
+  return (lineId: string) => {
+    const o = old.filter((x) => x.lineId === lineId)
+    return o.length ? `Old P#: ${o.length === 1 ? o[0].old : o.map((x) => `${x.old} (${x.no})`).join(', ')}` : null
+  }
+}
+
+const byArticle = (a: { article: string; docNo: string; propertyNos: string }, b: typeof a) =>
+  a.article.localeCompare(b.article) || a.docNo.localeCompare(b.docNo) || a.propertyNos.localeCompare(b.propertyNos)
+
+// RPCSP / RPCPPE: the serviceable items the officer holds. With a count (decision 2026-11-19) each row also says whether its
+// units were found: `counted` is true when every main unit was scanned; `countedUnits` says how many. Without one both are null.
+export async function officerReportRows(q: { officerId: string; category: Category; typeId?: number; asAt?: string; countId?: string }) {
+  const { officer, type, asAt } = await reportScope(q)
+  const rows = (await officerReport(asAt, db, q.countId ?? null))
+    .filter((r) => r.officerId === q.officerId && r.category === q.category && r.condition === 'serviceable' && (!q.typeId || r.propertyTypeId === q.typeId))
+    .sort(byArticle)
+  const remarks = await oldNumberRemarks(rows.map((r) => r.lineId))
+  return {
+    officer, category: q.category, type, asAt, countId: q.countId ?? null,
+    rows: rows.map((r, i) => ({
+      id: r.lineId, // the line: the row a QR scan highlights
+      rowNo: i + 1, // the row's number on this report, on screen and on paper
+      documentId: r.documentId,
+      article: r.article, description: withSerials(r.description, serialsOf(r.serialNos)), propertyNos: r.propertyNos.split('\n'),
+      unit: r.unit, unitValueCentavos: r.unitValueCentavos, balancePerCard: r.balancePerCard,
+      reference: `${r.docType} ${r.docNo}`,
+      remarks: remarks(r.lineId),
+      countedUnits: r.countedUnits,
+      counted: r.countedUnits === null ? null : r.countedUnits >= r.balancePerCard,
+    })),
+    signatories: await getSignatories(),
+  }
+}
+
+// IIRUP (PPE) and IIRUSP (semi-expendable): the unserviceable items the officer holds. Cost columns are worked out here;
+// accumulated depreciation, impairment, carrying amount and the disposal columns are not stored, so they print blank.
+export async function unserviceableRows(q: { officerId: string; category: Category; typeId?: number; asAt?: string }) {
+  const { officer, type, asAt } = await reportScope(q)
+  const rows = (await officerReport(asAt))
+    .filter((r) => r.officerId === q.officerId && r.category === q.category && r.condition === 'unserviceable' && (!q.typeId || r.propertyTypeId === q.typeId))
+    .sort(byArticle)
+  const remarks = await oldNumberRemarks(rows.map((r) => r.lineId))
   return {
     officer, category: q.category, type, asAt,
-    rows: rows.map((r, i) => {
-      const o = old.filter((x) => x.lineId === r.lineId)
-      return {
-        id: r.lineId, // the line: the row a QR scan highlights
-        rowNo: i + 1, // the row's number on this report, on screen and on paper
-        documentId: r.documentId,
-        article: r.article, description: withSerials(r.description, serialsOf(r.serialNos)), propertyNos: r.propertyNos.split('\n'),
-        unit: r.unit, unitValueCentavos: r.unitValueCentavos, balancePerCard: r.balancePerCard,
-        reference: `${r.docType} ${r.docNo}`,
-        remarks: o.length ? `Old P#: ${o.length === 1 ? o[0].old : o.map((x) => `${x.old} (${x.no})`).join(', ')}` : null,
-      }
-    }),
-    signatories: await getSignatories(),
+    rows: rows.map((r, i) => ({
+      id: r.lineId,
+      rowNo: i + 1,
+      documentId: r.documentId,
+      dateAcquired: r.issuedDate, // the card date is the ICS/PAR issue date (decision 2026-11-18)
+      article: r.article, description: withSerials(r.description, serialsOf(r.serialNos)), propertyNos: r.propertyNos.split('\n'),
+      unit: r.unit, qty: r.balancePerCard, unitValueCentavos: r.unitValueCentavos, totalCostCentavos: r.balancePerCard * r.unitValueCentavos,
+      reference: `${r.docType} ${r.docNo}`,
+      remarks: remarks(r.lineId),
+    })),
   }
 }

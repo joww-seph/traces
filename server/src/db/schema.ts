@@ -233,6 +233,26 @@ export const movements = pgTable('movements', {
   index('movements_officer_idx').on(t.officerId, t.type),
 ])
 
+// ───────────── Physical count (decision 2026-11-19) ─────────────
+// A count is one accountable officer + one category + an "as at" date. A scan marks one main unit as found; "counted" is that
+// row existing, "not counted" is the holdings without one. Nothing calculated is stored. The condition found is kept on the property.
+export const physicalCounts = pgTable('physical_counts', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  officerId: uuid('officer_id').notNull().references(() => officers.id),
+  category: itemCategory('category').notNull(),
+  asAt: day('as_at').notNull(),
+  closedAt: tstz('closed_at'),
+  createdBy: uuid('created_by').references(() => users.id),
+  createdAt: tstz('created_at').notNull().defaultNow(),
+}, (t) => [uniqueIndex('physical_counts_officer_category_as_at_uq').on(t.officerId, t.category, t.asAt)])
+
+export const countScans = pgTable('count_scans', {
+  countId: uuid('count_id').notNull().references(() => physicalCounts.id),
+  propertyId: uuid('property_id').notNull().references(() => properties.id),
+  scannedBy: uuid('scanned_by').references(() => users.id),
+  scannedAt: tstz('scanned_at').notNull().defaultNow(),
+}, (t) => [primaryKey({ columns: [t.countId, t.propertyId] })])
+
 // ───────────── Report footers (RPCSP / RPCPPE) ─────────────
 // default names printed under the report; editable on the page before printing
 export const reportSignatories = pgTable('report_signatories', {

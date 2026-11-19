@@ -47,10 +47,10 @@ describe('mutating routes check the Origin (CSRF)', () => {
   })
 })
 
-describe('the old count routes are gone', () => {
-  it.each(['/api/counts', `/api/counts/${ID}`] as const)('%s -> 404', async (path) => {
+describe('the count routes are for the supply unit only', () => {
+  it.each(['/api/counts', `/api/counts/${ID}`] as const)('the IT account gets 403 on %s', async (path) => {
     const { agent } = await loginAs('superadmin')
-    expect((await agent.get(path)).status).toBe(404)
+    expect((await agent.get(path)).status).toBe(403)
   })
 })
 

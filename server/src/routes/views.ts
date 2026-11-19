@@ -5,7 +5,7 @@ import { requireRole } from '../middleware/auth.js'
 import { validate } from '../middleware/validate.js'
 import { replaceSignatories } from '../services/reportSignatories.js'
 import { officerForms, officerFormsPdf } from '../services/officerForms.js'
-import { card, getSignatories, listCards, officerReportRows, registry, setCardRemarks } from '../services/views.js'
+import { card, getSignatories, listCards, officerReportRows, registry, setCardRemarks, unserviceableRows } from '../services/views.js'
 import { ctx } from './ctx.js'
 
 const registryQuery = z.object({
@@ -44,6 +44,8 @@ export function viewsRouter() {
   })
 
   r.get('/reports/rpc', async (req, res) => res.json(await officerReportRows(reportQuery.parse(req.query))))
+  // IIRUP (ppe) / IIRUSP (semi): the unserviceable items an officer holds
+  r.get('/reports/unserviceable', async (req, res) => res.json(await unserviceableRows(reportQuery.parse(req.query))))
   r.get('/report-signatories', async (_req, res) => res.json(await getSignatories()))
   r.put('/report-signatories', validate(signatoriesInput), async (req, res) => res.json(await replaceSignatories(req.body, ctx(req))))
   return r

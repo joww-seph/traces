@@ -195,8 +195,4 @@ describe('officer report (RPCSP / RPCPPE)', () => {
     expect((await PDFDocument.load(pdf.body as Buffer)).getPageCount()).toBe(3) // 2 signed + 1 generated
   })
 
-  it('no /api/counts route exists any more', async () => {
-    const { agent } = await setup()
-    expect((await agent.get('/api/counts')).status).toBe(404)
-  })
 })

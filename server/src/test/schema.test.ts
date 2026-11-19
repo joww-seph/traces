@@ -2,8 +2,9 @@ import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 import { resetDb, testPool as pool } from './db.js'
 
 const TABLES = ['users', 'session', 'settings', 'officers', 'officer_designations', 'property_types', 'documents',
-  'document_files', 'lines', 'line_pdf_regions', 'properties', 'qr_tokens', 'movements', 'report_signatories', 'audit_logs']
-const GONE_TABLES = ['physical_counts', 'count_items', 'count_signatories', 'items']
+  'document_files', 'lines', 'line_pdf_regions', 'properties', 'qr_tokens', 'movements', 'physical_counts', 'count_scans', 'report_signatories', 'audit_logs']
+// the count is back as scans only (decision 2026-11-19); the per-row count tables and the items table stay gone
+const GONE_TABLES = ['count_items', 'count_signatories', 'items']
 const VIEWS = ['v_active_properties', 'v_property_card', 'v_custody', 'v_registry']
 const GONE_VIEWS = ['v_card_movements', 'v_holdings', 'v_count_rows', 'v_item_card']
 const ENUMS = ['user_role', 'doc_type', 'item_category', 'movement_type', 'item_condition', 'card_row_mode', 'signatory_role', 'pdf_kind']
@@ -26,7 +27,7 @@ const names = async (sql: string) => (await pool.query(sql)).rows.map((r) => Obj
 afterAll(() => pool.end())
 
 describe('structure', () => {
-  it('has every table and none of the count tables', async () => {
+  it('has every table and none of the old count-row tables', async () => {
     const got = await names(`SELECT table_name FROM information_schema.tables WHERE table_schema='public'`)
     expect(got).toEqual(expect.arrayContaining(TABLES))
     for (const t of GONE_TABLES) expect(got).not.toContain(t)

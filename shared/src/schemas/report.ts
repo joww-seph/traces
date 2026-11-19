@@ -7,6 +7,7 @@ export const reportQuery = z.object({
   category,
   typeId: z.coerce.number().int().positive().optional(),
   asAt: isoDate.optional(),
+  countId: uuid.optional(), // a physical count: the report then shows Counted / Not counted
 })
 
 export const signatory = z.object({
@@ -19,3 +20,8 @@ export const signatoriesInput = z.array(signatory).max(30)
 
 // a card row's Remarks (for later transfers); blank clears it
 export const cardRemarksInput = z.strictObject({ remarks: z.string().trim().max(500).nullable().transform((v) => v || null) })
+
+// Physical count by QR scan (decision 2026-11-19)
+export const countStartInput = z.strictObject({ officerId: uuid, category, asAt: isoDate })
+export const condition = z.enum(['serviceable', 'unserviceable'])
+export const countScanInput = z.strictObject({ token: z.string().regex(/^[0-9A-Za-z]{10}$/), condition })

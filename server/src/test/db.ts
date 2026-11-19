@@ -6,7 +6,7 @@ if (!url) throw new Error('TEST_DATABASE_URL is not set')
 export const testPool = new pg.Pool({ connectionString: url })
 
 const TABLES = [
-  'audit_logs', 'movements', 'qr_tokens', 'properties', 'line_pdf_regions', 'lines', 'documents',
+  'audit_logs', 'count_scans', 'physical_counts', 'movements', 'qr_tokens', 'properties', 'line_pdf_regions', 'lines', 'documents',
   'property_types', 'units', 'officer_designations', 'report_signatories', 'officers', 'settings', 'session', 'users',
 ]
 
