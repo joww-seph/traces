@@ -35,7 +35,7 @@ export default function Registry() {
   return (
     <>
       <PageHeader title="Registry" description="One row per ICS or PAR line."
-        actions={<ExportButton path={`/api/exports/${category === 'semi' ? 'regspi' : 'regppe'}?${new URLSearchParams({ ...(typeId && { typeId }), ...(from && { from }), ...(to && { to }) })}`} label={category === 'semi' ? 'Export RegSPI' : 'Export registry'} />} />
+        actions={<ExportButton path={`/api/exports/${category === 'semi' ? 'registry-semi' : 'registry-ppe'}?${new URLSearchParams({ ...(typeId && { typeId }), ...(from && { from }), ...(to && { to }) })}`} label={category === 'semi' ? 'Export registry' : 'Export registry'} />} />
 
       <div className="mb-4 flex flex-wrap items-end gap-x-6 gap-y-3">
         <div role="radiogroup" aria-label="Category" className="inline-flex rounded-lg bg-muted p-1">

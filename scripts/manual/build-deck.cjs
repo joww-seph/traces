@@ -104,7 +104,7 @@ textSlide('Words used in TRACES', [
   ['Card (SPC or PC)', 'the property card of one item, for example laptop 2026-11ICT-0017. Its first row is the issue; later rows and remarks record transfers. The parts of a set are listed on the set’s card.'],
   ['Serial number', 'the maker’s number of one item. TRACES prints it after the description in brackets, or N/A when there is none.'],
   ['No. and Sheet No.', 'the row’s number in the registry, report or slip list, and the printed sheet (20 rows each) it is on, so a row is quick to find on paper.'],
-  ['Registry', 'the list of everything issued (RegSPI for semi-expendable property, the PPE registry for PPE).'],
+  ['Registry', 'the list of everything issued (semi-expendable and PPE).'],
   ['Report (RPCSP or RPCPPE)', 'the physical count report: everything one officer holds on a date, printed for the inventory count.'],
   ['Property number', 'the number that identifies one item, like 2026-11ICT-0017 (year, month, type, running number). TRACES suggests it.'],
   ['Component', 'a part of a set, like the monitor of a desktop set. It has its own number (main number plus a letter) and its own sticker.'],

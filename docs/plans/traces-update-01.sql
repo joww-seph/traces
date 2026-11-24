@@ -135,7 +135,7 @@ WINDOW w AS (PARTITION BY ev.item_id ORDER BY ev.date, ev.first_movement_id);
 -- Who holds each property now (unchanged logic)
 -- (v_custody from v1 is kept; it does not depend on changed columns)
 
--- Registry (RegSPI / Reg-PPE): one row per line, filterable by category AND property type [U-03]
+-- Registry: one row per line, filterable by category AND property type [U-03]
 CREATE VIEW v_registry AS
 SELECT l.id AS line_id, l.category, i.property_type_id, pt.code AS property_type_code,
        i.id AS item_id, d.issued_date AS date, d.type AS doc_type, d.doc_no,

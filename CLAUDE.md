@@ -37,4 +37,4 @@
 The GitHub repo is **public**. Never commit secrets, real PDFs, signatures or personal data; `docs/ACCOUNTS.md`, `docs/references/`, `.env*`, `storage*` stay ignored. Use made-up names in code, tests and samples. See `docs/DEPLOY.md`.
 
 ## Domain words
-ICS (semi issuance slip) · PAR (PPE issuance receipt) · SPC/PC (property cards, one per model) · RegSPI (registry) · RPCSP/RPCPPE (physical count reports, printed blank for hand count) · property no. (one physical unit; `component_label` set = part of a set, doesn't count toward quantities) · accountable officer (custodian of the issued item).
+ICS (semi issuance slip) · PAR (PPE issuance receipt) · SPC/PC (property cards, one per model) · Registry · RPCSP/RPCPPE (physical count reports, printed blank for hand count) · property no. (one physical unit; `component_label` set = part of a set, doesn't count toward quantities) · accountable officer (custodian of the issued item).

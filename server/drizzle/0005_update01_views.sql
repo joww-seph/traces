@@ -44,7 +44,7 @@ LEFT JOIN documents rd ON rd.id = ev.reference_document_id
 WINDOW w AS (PARTITION BY ev.item_id ORDER BY ev.date, ev.first_movement_id);
 --> statement-breakpoint
 
--- Registry (RegSPI / Reg-PPE): one row per line, filterable by category and property type
+-- Registry: one row per line, filterable by category and property type
 CREATE VIEW v_registry AS
 SELECT l.id AS line_id, l.category, i.property_type_id, pt.code AS property_type_code,
        i.id AS item_id, d.issued_date AS date, d.type AS doc_type, d.doc_no,

@@ -16,7 +16,7 @@ Client: Supply Unit, DOST Region 1 · Stack: **PERN** (PostgreSQL, Express, Reac
 The normal paper flow at the Supply Unit is:
 
 ```
-Stock/Property Card → Registry (RegSPI) → RPCSP/RPCPPE → ICS/PAR → Sticker
+Stock/Property Card → Registry → RPCSP/RPCPPE → ICS/PAR → Sticker
 ```
 
 TRACES **reverses** it. The admin enters each **ICS/PAR line once** and uploads the signed ICS/PAR PDF. The Card, Registry and physical count report then come out of that entry automatically, and every property number gets a **QR sticker**. Scanning the QR opens a public page with four tabs: the ICS/PAR PDF with the item's row highlighted, plus the Report, Registry and Card, each with the item's row highlighted.
@@ -40,7 +40,7 @@ TRACES **reverses** it. The admin enters each **ICS/PAR line once** and uploads 
 **In scope**
 - ICS/PAR entry form plus PDF upload
 - Semi-expendable and PPE categories, set automatically by a ₱50,000 threshold
-- Card (SPC for semi, PC for PPE), Registry (RegSPI, plus a Registry of PPE Issued using the same layout), RPCSP/RPCPPE
+- Card (SPC for semi, PC for PPE), Registry (plus a Registry of PPE Issued using the same layout), RPCSP/RPCPPE
 - Spreadsheet-style grid views with the target row highlighted
 - QR tokens, a public view, 1x1 and passport-size sticker sheets
 - Physical count sessions with "on hand per count" entry
@@ -65,8 +65,8 @@ TRACES **reverses** it. The admin enters each **ICS/PAR line once** and uploads 
 | **PAR** | Property Acknowledgment Receipt (Appendix 71) | Issuance slip for PPE | **Input** document + PDF |
 | **SPC** | Semi-Expendable Property Card | Per-property ledger card for semi items | View `v_card_movements` |
 | **PC** | Property Card (Appendix 69) | Per-property ledger card for PPE | View `v_card_movements` |
-| **RegSPI** | Registry of Semi-Expendable Property Issued (Annex A.4) | Issuance log, one row per ICS line | View `v_registry` |
-| **Reg-PPE** | "Registry of PPE Issued" (not an official COA form) | RegSPI layout reused for PPE, at the stakeholder's request | View `v_registry` |
+| **Registry (semi)** | Registry of Semi-Expendable Property Issued (Annex A.4) | Issuance log, one row per ICS line | View `v_registry` |
+| **Reg-PPE** | "Registry of PPE Issued" (not an official COA form) | Registry layout reused for PPE, at the stakeholder's request | View `v_registry` |
 | **RPCSP** | Report on the Physical Count of Semi-Expendable Property | Count per accountable officer | View `v_count_rows` |
 | **RPCPPE** | Report on the Physical Count of PPE (Appendix 73) | Same, for PPE | View `v_count_rows` |
 
@@ -76,7 +76,7 @@ TRACES **reverses** it. The admin enters each **ICS/PAR line once** and uploads 
 **PAR line:** Quantity · Unit · Description · Property Number · Date Acquired · Amount
 **SPC:** Date · Reference · Receipt (Qty, Unit Cost, Total Cost) · Issue/Transfer/Disposal (Item No., Qty, Office/Officer) · Balance Qty · Amount · Remarks
 **PC:** Date · Reference/PAR No. · Receipt Qty · Issue/Transfer/Disposal (Qty, Office/Officer) · Balance Qty · Amount · Remarks
-**RegSPI / Reg-PPE:** Date · Reference (ICS/RRSP No.) · Property No. · Item Description · Estimated Useful Life · Issued (Qty, Office/Officer) · Returned (Qty, Office/Officer) · Re-issued (Qty, Office/Officer) · Disposed Qty · Balance Qty · Amount · Remarks
+**Registry:** Date · Reference (ICS/RRSP No.) · Property No. · Item Description · Estimated Useful Life · Issued (Qty, Office/Officer) · Returned (Qty, Office/Officer) · Re-issued (Qty, Office/Officer) · Disposed Qty · Balance Qty · Amount · Remarks
 **RPCSP / RPCPPE:** Article · Description · Property No. · Unit of Measure · Unit Value · Balance per Card (Qty) · On Hand per Count (Qty) · Shortage/Overage (Qty, Value) · Remarks
 **RPC header:** Type of property · As at · Fund Cluster · Accountable Officer · Official Designation · Entity Name · Date of Assumption · Signatories (Inventory Committee, Head of Agency, COA Representative)
 
@@ -355,7 +355,7 @@ Conventions:
 | POST | `/api/counts/:id/refresh` | add new holdings |
 | PATCH | `/api/counts/:id/items/:no` | `{ qtyOnHand, remarks }` |
 | GET | `/api/stickers` | `?documentId=` or `?nos=` → `[{ propertyNo, url }]` |
-| GET | `/api/exports/:form` | `ics,par,spc,pc,regspi,regppe,rpcsp,rpcppe` + params → `.xlsx` |
+| GET | `/api/exports/:form` | `ics,par,spc,pc,registry-semi,registry-ppe,rpcsp,rpcppe` + params → `.xlsx` |
 
 ### Superadmin (`requireRole('superadmin')`)
 | Method | Path | Notes |
@@ -544,9 +544,9 @@ traces/
 
 ## 19. Reference findings (docs/references, studied 2026-11-13)
 
-Sources: photos of a signed ICS (Appendix 59) and PAR (Appendix 71), a filled RPCPPE, the blank RPCSP and SPC forms, the COA inventory tag, the Stock Card, `2026 ICT.xlsx` (RegSPI + ICS + PTR sheets) and the official `.xls` templates for PC (69), PAR (71) and RPCPPE (73). Logos are in `docs/assets/`.
+Sources: photos of a signed ICS (Appendix 59) and PAR (Appendix 71), a filled RPCPPE, the blank RPCSP and SPC forms, the COA inventory tag, the Stock Card, `2026 ICT.xlsx` (registry + ICS + PTR sheets) and the official `.xls` templates for PC (69), PAR (71) and RPCPPE (73). Logos are in `docs/assets/`.
 
-**Confirmed as specified:** column maps in §4 match the official forms. The RegSPI sheet lists issued-to by officer short name (e.g. `DPLibunao`) and uses the purpose as remarks, as `v_registry` does.
+**Confirmed as specified:** column maps in §4 match the official forms. The registry sheet lists issued-to by officer short name (e.g. `DPLibunao`) and uses the purpose as remarks, as `v_registry` does.
 
 **Changes made from the references**
 - **Old property number:** `properties.old_property_no` (nullable). The filled RPCPPE carries legacy numbers in Remarks (`Old P#: 10605140-00-7`); exports print it there automatically.
@@ -555,10 +555,10 @@ Sources: photos of a signed ICS (Appendix 59) and PAR (Appendix 71), a filled RP
 - **Form codes** are printed in the corner of ICS and PAR exports (decided 2026-11-14): ICS `FM-FAS-SUPPLY-07-10 Rev. 1/07-25-22`, PAR `FM-FAS-SUPPLY-07-09 Rev. 1/07-25-22`. They are editable settings (`ics_form_code`, `ics_form_revision`, `par_form_code`, `par_form_revision`); the templates hold them in cells (F2:G3 on ICS, E2:F2 on PAR), not drawing shapes, which ExcelJS would drop. No other form carries a code.
 - **Sticker:** the sticker is the QR code only (1x1 and passport sizes, §12). The COA inventory tag is not part of TRACES.
 - **Branding:** TRACES logo (frame `#004AAD`, letters `#4C70FC`) as primary colour, favicon and header; DOST logo on the login page. Typeface: Montserrat (Medium base weight), a free stand-in for Gotham, which is not redistributable.
-- **Export templates** are saved in `server/src/exports/templates/` (`ics`, `regspi`, `par`, `pc`, `rpcppe` as `.xlsx`, converted from the official files). SPC and RPCSP are still built from the form images in Task 20.
+- **Export templates** are saved in `server/src/exports/templates/` (`ics`, `registry`, `par`, `pc`, `rpcppe` as `.xlsx`, converted from the official files). SPC and RPCSP are still built from the form images in Task 20.
 
 **Decided to keep as specified**
-- **Category rule (BR-01) stays threshold-based.** Known difference: the office's own RegSPI lists the SARAi laptops (₱96,450) and LCD TV (₱98,200) issued on ICS 2026-03SARAi-005. Under BR-01 TRACES categorises them as PPE (PC card, Reg-PPE, RPCPPE) and shows the ICS mismatch warning.
+- **Category rule (BR-01) stays threshold-based.** Known difference: the office's own registry lists the SARAi laptops (₱96,450) and LCD TV (₱98,200) issued on ICS 2026-03SARAi-005. Under BR-01 TRACES categorises them as PPE (PC card, Reg-PPE, RPCPPE) and shows the ICS mismatch warning.
 - **RPCPPE columns follow the official Appendix 73** (no "Total Value" column, which appears only on the office's locally modified sheet).
 - **Stock Card (consumables)** stays out of scope.
 

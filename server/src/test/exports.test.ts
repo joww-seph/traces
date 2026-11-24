@@ -73,24 +73,24 @@ describe('cards (PC / SPC), one per property', () => {
 })
 
 describe('registries (per category and type)', () => {
-  it('RegSPI: one row per semi line from row 11; the header names the type; PPE swaps the title; filters; empty is fine', async () => {
+  it('Registry: one row per semi line from row 11; the header names the type; PPE swaps the title; filters; empty is fine', async () => {
     const { agent } = await seed()
-    const semi = await sheet(agent, '/api/exports/regspi?typeId=2')
+    const semi = await sheet(agent, '/api/exports/registry-semi?typeId=2')
     expect(semi.text('C4')).toBe('REGISTRY OF SEMI-EXPENDABLE PROPERTY ISSUED')
     expect(semi.text('A7')).toBe('Semi-expendable Property: Furniture and Fixtures')
     expect(semi.text('L6')).toBe('Fund Cluster: RAF')
     expect([semi.text('B11'), semi.text('C11'), semi.text('D11'), semi.ws.getCell('F11').value, semi.text('G11'), semi.ws.getCell('M11').value, semi.ws.getCell('N11').value, semi.text('O11')])
       .toEqual(['ICS 2026-03SARAi-005', 'S-1', 'Office chair (S/N: N/A)', 1, 'Maria Santos', 1, 4500, ''])
     expect(semi.ws.getCell('A11').value).toEqual(new Date(Date.UTC(2026, 2, 19)))
-    const ppe = await sheet(agent, '/api/exports/regppe?typeId=1')
+    const ppe = await sheet(agent, '/api/exports/registry-ppe?typeId=1')
     expect(ppe.text('C4')).toBe('REGISTRY OF PROPERTY, PLANT AND EQUIPMENT ISSUED')
     expect(ppe.text('A7')).toBe(`Property, Plant and Equipment: ${ICT}`)
     expect(ppe.text('C10')).toBe('Property No.')
     expect(ppe.text('C11')).toBe('L-1\nL-1a')
     expect(ppe.ws.getCell('N11').value).toBe(96450)
-    expect((await sheet(agent, '/api/exports/regspi?typeId=1')).text('B11')).toBe('')
-    expect((await sheet(agent, '/api/exports/regspi?from=2030-01-01')).text('B11')).toBe('')
-    expect((await sheet(agent, '/api/exports/regspi')).text('A7')).toBe('Semi-expendable Property: All types')
+    expect((await sheet(agent, '/api/exports/registry-semi?typeId=1')).text('B11')).toBe('')
+    expect((await sheet(agent, '/api/exports/registry-semi?from=2030-01-01')).text('B11')).toBe('')
+    expect((await sheet(agent, '/api/exports/registry-semi')).text('A7')).toBe('Semi-expendable Property: All types')
   })
 })
 
@@ -149,7 +149,7 @@ describe('request checks', () => {
     expect((await agent.get('/api/exports/pc')).status).toBe(400)
     expect((await agent.get('/api/exports/rpcppe')).status).toBe(400)
     expect((await agent.get('/api/exports/pc?cardId=00000000-0000-4000-8000-0000000000ff')).status).toBe(404)
-    expect((await agentFor().get('/api/exports/regspi')).status).toBe(401)
+    expect((await agentFor().get('/api/exports/registry-semi')).status).toBe(401)
   })
 
   it('malformed signatories -> 400, not a server error', async () => {
@@ -160,8 +160,8 @@ describe('request checks', () => {
 
   it('every export writes an audit row', async () => {
     const { agent } = await seed()
-    await agent.get('/api/exports/regspi')
-    expect((await testPool.query(`SELECT action FROM audit_logs WHERE action LIKE 'export.%'`)).rows).toEqual([{ action: 'export.regspi' }])
+    await agent.get('/api/exports/registry-semi')
+    expect((await testPool.query(`SELECT action FROM audit_logs WHERE action LIKE 'export.%'`)).rows).toEqual([{ action: 'export.registry-semi' }])
   })
 })
 
@@ -172,7 +172,7 @@ describe('every export prints ruled and numbered', () => {
     const forms: [string, number, number, number, number][] = [
       [`/api/exports/pc?cardId=${laptopItem}`, 11, 30, 2, 10],
       [`/api/exports/spc?cardId=${chairItem}`, 6, 21, 1, 11],
-      ['/api/exports/regspi', 9, 11, 1, 17],
+      ['/api/exports/registry-semi', 9, 11, 1, 17],
       [`/api/exports/rpcppe?officerId=${officerId}&asAt=2026-12-31`, 12, 34, 3, 13],
       [`/api/exports/rpcsp?officerId=${officerId}&asAt=2026-12-31`, 9, 22, 1, 11],
     ]
@@ -193,7 +193,7 @@ describe('20 rows per printed sheet, with No. and Sheet No. (decision 2026-11-18
     for (let i = 2; i <= 25; i++) {
       await agent.post(`/api/documents/${ics.doc.id}/lines`).send(lineBody(450000, [{ propertyNo: `S-${String(i).padStart(2, '0')}` }], card(2, 'Chair', `Chair ${i}`)))
     }
-    const { ws, text, res } = await sheet(agent, '/api/exports/regspi?typeId=2')
+    const { ws, text, res } = await sheet(agent, '/api/exports/registry-semi?typeId=2')
     expect([text('P9'), text('Q9')]).toEqual(['No.', 'Sheet No.'])
     expect([ws.getCell('P11').value, ws.getCell('Q11').value, ws.getCell('P30').value, ws.getCell('Q30').value, ws.getCell('P31').value, ws.getCell('Q31').value])
       .toEqual([1, 1, 20, 1, 21, 2])

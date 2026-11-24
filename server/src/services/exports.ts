@@ -8,7 +8,7 @@ import { AppError } from '../middleware/error.js'
 import { getSettings } from './settings.js'
 import { card, officerReportRows, registry, unserviceableRows } from './views.js'
 
-export const FORMS = ['spc', 'pc', 'regspi', 'regppe', 'rpcsp', 'rpcppe', 'icspar', 'iirup', 'iirusp'] as const
+export const FORMS = ['spc', 'pc', 'registry-semi', 'registry-ppe', 'rpcsp', 'rpcppe', 'icspar', 'iirup', 'iirusp'] as const
 export type Form = (typeof FORMS)[number]
 export type ExportQuery = {
   cardId?: string; typeId?: number; type?: 'ICS' | 'PAR'; status?: 'none' | 'generated' | 'signed' | 'unsigned'; q?: string; officerId?: string; countId?: string; asAt?: string; from?: string; to?: string
@@ -44,8 +44,8 @@ export async function exportForm(form: Form, q: ExportQuery): Promise<{ buffer: 
   const typeName = q.typeId ? (await db.select({ name: propertyTypes.name }).from(propertyTypes).where(eq(propertyTypes.id, q.typeId)))[0]?.name ?? null : null
   if (q.typeId && !typeName) throw new AppError('PROPERTY_TYPE_NOT_FOUND', 404, 'Property type not found')
 
-  if (form === 'regspi' || form === 'regppe') {
-    const category = form === 'regspi' ? 'semi' : 'ppe'
+  if (form === 'registry-semi' || form === 'registry-ppe') {
+    const category = form === 'registry-semi' ? 'semi' : 'ppe'
     const rows = await registry(category, { typeId: q.typeId, from: q.from, to: q.to })
     const span = q.from || q.to ? `${q.from ?? 'start'}_${q.to ?? 'today'}` : 'all'
     return {

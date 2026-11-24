@@ -65,7 +65,7 @@ export default function Dashboard() {
       </section>
 
       <section aria-label="Totals" className="grid overflow-hidden rounded-xl border bg-card md:grid-cols-[1fr_1fr_minmax(0,0.7fr)] md:divide-x max-md:divide-y">
-        <Category name="Semi-expendable" form="ICS, RegSPI, RPCSP" stat={s?.categories.semi} share={share(s?.categories.semi.valueCentavos)} tone="bg-cyan" />
+        <Category name="Semi-expendable" form="ICS, Registry, RPCSP" stat={s?.categories.semi} share={share(s?.categories.semi.valueCentavos)} tone="bg-cyan" />
         <Category name="Property and equipment" form="PAR, PC, RPCPPE" stat={s?.categories.ppe} share={share(s?.categories.ppe.valueCentavos)} tone="bg-primary" />
         <div className="grid content-start gap-3 bg-muted/40 p-5 sm:p-6">
           <h2 className="text-base font-semibold">Documents</h2>

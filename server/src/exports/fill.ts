@@ -50,7 +50,7 @@ export type RegistryData = {
 }
 
 export async function buildRegistry(s: Settings, d: RegistryData) {
-  const { wb, ws } = await loadTemplate('regspi')
+  const { wb, ws } = await loadTemplate('registry')
   put(ws, REGISTRY.entity, entityLine(s))
   put(ws, REGISTRY.fund, `Fund Cluster: ${d.fundCluster}`)
   const typeName = d.typeName ?? 'All types'

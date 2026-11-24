@@ -251,7 +251,7 @@ JOIN v_custody c ON c.property_id = ap.property_id AND c.holder_officer_id IS NO
 WHERE (SELECT COALESCE(SUM(CASE m.type WHEN 'RECEIPT' THEN m.qty WHEN 'DISPOSE' THEN -m.qty ELSE 0 END), 0)
        FROM movements m WHERE m.property_id = ap.property_id) > 0;
 
--- Registry rows (RegSPI / Reg-PPE): one per line  [BR-09]
+-- Registry rows: one per line  [BR-09]
 CREATE VIEW v_registry AS
 SELECT l.id AS line_id, l.category, d.issued_date AS date, d.type AS doc_type, d.doc_no,
        pn.property_nos,

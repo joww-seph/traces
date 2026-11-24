@@ -165,7 +165,7 @@ await shot(page, {
     'New issuance: record property given to an officer. TRACES makes the ICS or PAR for you.',
     'ICS and PAR: every slip and receipt, printed or signed.',
     'Cards: one property card for every property number (SPC or PC).',
-    'Registry: the registry of property issued (RegSPI and the PPE registry).',
+    'Registry: the registry of property issued (semi-expendable and PPE).',
     'Reports: what one officer holds on a date (RPCSP or RPCPPE), for the physical count.',
     'Stickers: print QR stickers.',
   ],

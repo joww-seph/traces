@@ -372,7 +372,7 @@ Day 3 exit criteria: every acceptance criterion in spec §18 passes.
 
 ### Task 20: Excel exports
 **Steps**
-1. Convert the provided `.xls` templates with `soffice --headless --convert-to xlsx` (Appendix 69 PC, 71 PAR, 73 RPCPPE). Copy the ICS and RegSPI sheets from `2026 ICT.xlsx`. Build SPC and RPCSP from the form screenshots. Save them all in `server/src/exports/templates/`.
+1. Convert the provided `.xls` templates with `soffice --headless --convert-to xlsx` (Appendix 69 PC, 71 PAR, 73 RPCPPE). Copy the ICS and registry sheets from `2026 ICT.xlsx`. Build SPC and RPCSP from the form screenshots. Save them all in `server/src/exports/templates/`.
 2. `fill.ts` loads a template with ExcelJS, writes header cells using a per-form map (`map.ts`), and inserts data rows from the first data row, copying that row's style.
 3. `GET /api/exports/:form` → `Content-Disposition: attachment; filename="RPCPPE_DPLibunao_2026-12-31.xlsx"`.
 4. Add an Export button on every grid page.
