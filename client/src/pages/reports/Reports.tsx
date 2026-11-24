@@ -1,21 +1,21 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { formatLongDate, formatPeso, isIsoDate } from '@traces/shared'
-import { ClipboardCheck, FileDown, Printer, Save } from 'lucide-react'
+import { ClipboardCheck, FileText, Printer, Save } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate } from 'react-router'
+import { useNavigate } from 'react-router'
 import { toast } from 'sonner'
 import { ApiError, api } from '@/api'
 import { downloadExport } from '@/components/ExportButton'
 import { FormGrid } from '@/components/FormGrid'
 import { NativeSelect } from '@/components/NativeSelect'
 import { EmptyState, PageHeader } from '@/components/PageHeader'
-import { Button, buttonVariants } from '@/components/ui/button'
+import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { reportColumns, reportColumnsWithCount, ROWS_PER_SHEET, type ReportRow } from '@/lib/propertyView'
 import { getActiveCountId, setActiveCountId, useActiveCountId, type Count } from '@/lib/counts'
-import { TypeBadge } from '@/components/TypeBadge'
+import { OfficerFormsPanel } from '@/components/OfficerFormsPanel'
 import { usePropertyTypes, useReceivers, useSettings } from '@/lib/queries'
 import { BlockSkeleton } from '@/components/Loading'
 import { OfficerPicker } from '@/components/OfficerPicker'
@@ -55,6 +55,7 @@ export default function Reports() {
   const open = !!current && !current.closedAt
   const report = useQuery({ queryKey: ['report', qs], enabled: ready, retry: false, queryFn: () => api.get<Report>(`/api/reports/rpc?${qs}`), refetchInterval: open ? 5000 : false })
   const [show, setShow] = useState<'all' | 'counted' | 'not'>('all')
+  const [formsOpen, setFormsOpen] = useState(false)
 
   const startCount = useMutation({
     mutationFn: () => api.post<Count>('/api/counts', { officerId, category, asAt }),
@@ -100,6 +101,7 @@ export default function Reports() {
       <div className="print:hidden">
         <PageHeader title="Reports" description="The physical count report of one accountable officer on a date."
           actions={<>
+            <Button variant="outline" onClick={() => setFormsOpen((v) => !v)} disabled={!officerId} aria-expanded={formsOpen}><FileText /> ICS and PAR</Button>
             <Button variant="outline" onClick={exportIt} disabled={!r}>Export to Excel</Button>
             <Button onClick={() => window.print()} disabled={!r}><Printer /> Print</Button>
           </>} />
@@ -127,29 +129,27 @@ export default function Reports() {
         </div>
 
         {ready && (
-          <section aria-labelledby="count-h" className="mb-5 rounded-xl border bg-card p-4">
-            <div className="flex flex-wrap items-center gap-2">
-              <ClipboardCheck className="size-5 text-primary" aria-hidden />
-              <h2 id="count-h" className="text-base font-semibold">Physical count by QR scan</h2>
-            </div>
+          <section aria-labelledby="count-h" className="mb-5 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border bg-card px-4 py-2.5">
+            <ClipboardCheck className="size-4 text-primary" aria-hidden />
+            <h2 id="count-h" className="text-sm font-semibold">Count by QR scan</h2>
             {!current ? (
               <>
-                <p className="mt-2 text-sm text-muted-foreground">Start a count for this officer and date. Then scan each item's QR sticker with a phone signed in to TRACES; it asks whether the item is serviceable. Unserviceable items are listed on the Unserviceable page.</p>
-                <Button className="mt-3" size="sm" onClick={() => startCount.mutate()} disabled={startCount.isPending}>Start the count</Button>
+                <p className="text-xs text-muted-foreground">Scan each item's sticker with a signed-in phone.</p>
+                <Button className="ml-auto" size="sm" onClick={() => startCount.mutate()} disabled={startCount.isPending}>Start the count</Button>
               </>
             ) : (
               <>
-                <p className="figures mt-2 text-sm" aria-live="polite">
+                <p className="figures text-sm" aria-live="polite">
                   <span className="font-semibold">{current.counted} of {current.total}</span> counted
                   {current.unserviceable ? ` · ${current.unserviceable} unserviceable` : ''}
                   {current.closedAt ? ' · closed' : ''}
                 </p>
-                <div className="mt-3 flex flex-wrap gap-2">
+                {!current.closedAt && phoneCountId === current.id && <p role="status" className="text-xs text-muted-foreground">This phone is counting.</p>}
+                <div className="ml-auto flex flex-wrap gap-2">
                   {!current.closedAt && phoneCountId !== current.id && <Button size="sm" onClick={() => { setActiveCountId(current.id); toast.success('This phone now counts for this officer') }}>Count with this phone</Button>}
                   {!current.closedAt && phoneCountId === current.id && <Button size="sm" variant="outline" onClick={() => setActiveCountId(null)}>Stop counting on this phone</Button>}
                   {!current.closedAt && <Button size="sm" variant="outline" onClick={() => { if (window.confirm('Close this count? A closed count takes no more scans and cannot be reopened.')) closeCount.mutate(current.id) }} disabled={closeCount.isPending}>Close the count</Button>}
                 </div>
-                {!current.closedAt && phoneCountId === current.id && <p role="status" className="mt-2 text-xs text-muted-foreground">This phone is counting. Scan an item's QR sticker with its camera.</p>}
               </>
             )}
           </section>
@@ -198,42 +198,7 @@ export default function Reports() {
           </div>
         </section>
       )}
-      {officerId && <OfficerForms officerId={officerId} name={officers.find((o) => o.id === officerId)?.fullName ?? ''} />}
+      {officerId && formsOpen && <OfficerFormsPanel officerId={officerId} name={officers.find((o) => o.id === officerId)?.fullName ?? ''} onClose={() => setFormsOpen(false)} />}
     </>
-  )
-}
-
-type OfficerForm = { id: string; type: 'ICS' | 'PAR'; docNo: string; issuedDate: string; hasPdf: boolean; signed: boolean }
-
-function OfficerForms({ officerId, name }: { officerId: string; name: string }) {
-  const { data = [], isLoading } = useQuery({ queryKey: ['officer-forms', officerId], queryFn: () => api.get<OfficerForm[]>(`/api/reports/forms?officerId=${officerId}`) })
-  const missing = data.filter((f) => !f.hasPdf)
-  return (
-    <section aria-labelledby="officer-forms" className="mt-8 rounded-xl border bg-card p-4 print:hidden">
-      <div className="flex flex-wrap items-center gap-2">
-        <h2 id="officer-forms" className="text-base font-semibold">ICS and PAR held by {name || 'this officer'}</h2>
-        {data.some((f) => f.hasPdf) && (
-          <a href={`/api/reports/forms.pdf?officerId=${officerId}`} target="_blank" rel="noreferrer" className={`ml-auto ${buttonVariants({ size: 'sm' })}`}><FileDown /> Download all as one PDF</a>
-        )}
-      </div>
-      {isLoading ? <p className="mt-2 text-sm text-muted-foreground">Loading</p>
-        : !data.length ? <p className="mt-2 text-sm text-muted-foreground">This officer holds no property today.</p>
-        : (
-          <>
-            {missing.length > 0 && <p role="status" className="mt-2 text-sm text-amber-800">Left out of the PDF (no copy yet): {missing.map((f) => `${f.type} ${f.docNo}`).join(', ')}.</p>}
-            <ol className="mt-3 grid gap-1.5">
-              {data.map((f, i) => (
-                <li key={f.id} className="flex flex-wrap items-center gap-2 text-sm">
-                  <span className="figures w-6 text-right text-muted-foreground">{i + 1}.</span>
-                  <TypeBadge type={f.type} />
-                  <Link to={`/documents/${f.id}`} className="figures font-medium hover:underline">{f.docNo}</Link>
-                  <span className="text-muted-foreground">{formatLongDate(f.issuedDate)}</span>
-                  <span className="text-xs text-muted-foreground">{f.signed ? 'signed copy' : f.hasPdf ? 'unsigned copy' : 'no PDF'}</span>
-                </li>
-              ))}
-            </ol>
-          </>
-        )}
-    </section>
   )
 }

@@ -47,9 +47,16 @@ test('reports: one row per line, balance per card filled, the count columns blan
   await expect(page.locator('.ag-cell[col-id="article"]')).toHaveCount(4)
   await expect(page.getByRole('columnheader', { name: 'No.', exact: true })).toBeVisible()
 
-  const forms = page.getByRole('region', { name: /ICS and PAR held by Maria Santos/ })
+  const forms = page.getByRole('complementary', { name: /ICS and PAR held by Maria Santos/ })
+  await expect(forms).toHaveCount(0)
+  await page.getByRole('button', { name: 'ICS and PAR' }).click()
   await expect(forms.getByRole('link', { name: 'Download all as one PDF' })).toHaveAttribute('href', `/api/reports/forms.pdf?officerId=${receiver.id}`)
   await expect(forms.getByRole('listitem').first()).toBeVisible()
+  await forms.getByRole('listitem').first().getByRole('button').click()
+  await expect(forms.locator('canvas')).toBeVisible()
+  await forms.getByRole('button', { name: 'Back to the list' }).click()
+  await forms.getByRole('button', { name: 'Close' }).click()
+  await expect(forms).toHaveCount(0)
   const pdf = await page.request.get(`/api/reports/forms.pdf?officerId=${receiver.id}`)
   expect(pdf.headers()['content-type']).toContain('application/pdf')
 
