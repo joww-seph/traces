@@ -1,7 +1,7 @@
 import { withSerials } from '@traces/shared'
 import { and, asc, eq, gte, ilike, inArray, isNotNull, isNull, lte, or, sql } from 'drizzle-orm'
 import { db } from '../db/client.js'
-import { movements, officers, properties, propertyTypes, reportSignatories } from '../db/schema.js'
+import { lines, movements, officers, properties, propertyTypes, reportSignatories } from '../db/schema.js'
 import { officerReport, vActiveProperties, vPropertyCard, vRegistry } from '../db/views.js'
 import { AppError } from '../middleware/error.js'
 import { mergeCardRows, type CardEvent } from '../projections/card.js'
@@ -202,13 +202,15 @@ export async function unserviceableRows(q: { officerId: string; category: Catego
     .filter((r) => r.officerId === q.officerId && r.category === q.category && r.condition === 'unserviceable' && (!q.typeId || r.propertyTypeId === q.typeId))
     .sort(byArticle)
   const remarks = await oldNumberRemarks(rows.map((r) => r.lineId))
+  // Appendix 74: Date Acquired is the acquisition date of the property (the line's), not the ICS/PAR date; the issue date stands in when none was entered
+  const acquired = new Map((rows.length ? await db.select({ id: lines.id, d: lines.dateAcquired }).from(lines).where(inArray(lines.id, rows.map((r) => r.lineId))) : []).map((x) => [x.id, x.d]))
   return {
     officer, category: q.category, type, asAt,
     rows: rows.map((r, i) => ({
       id: r.lineId,
       rowNo: i + 1,
       documentId: r.documentId,
-      dateAcquired: r.issuedDate, // the card date is the ICS/PAR issue date (decision 2026-11-18)
+      dateAcquired: acquired.get(r.lineId) ?? r.issuedDate,
       article: r.article, description: withSerials(r.description, serialsOf(r.serialNos)), propertyNos: r.propertyNos.split('\n'),
       unit: r.unit, qty: r.balancePerCard, unitValueCentavos: r.unitValueCentavos, totalCostCentavos: r.balancePerCard * r.unitValueCentavos,
       reference: `${r.docType} ${r.docNo}`,

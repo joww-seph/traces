@@ -27,7 +27,7 @@ async function sheet(agent: Agent, url: string) {
 
 const card = (propertyTypeId: number, article: string, description: string) => ({ propertyTypeId, article, description })
 const lineBody = (cost: number, nos: { propertyNo: string; componentLabel?: string; serialNo?: string }[], item: object, extra: object = {}) => ({
-  line: { ...ITEM, qty: 1, unitCostCentavos: cost, description: 'Described', estUsefulLifeYears: 5, dateAcquired: '2026-03-19', ...item, ...extra }, properties: nos,
+  line: { ...ITEM, qty: 1, unitCostCentavos: cost, description: 'Described', estUsefulLifeYears: 5, dateAcquired: '2026-02-10', ...item, ...extra }, properties: nos,
 })
 const propertyId = async (no: string) => (await testPool.query(`SELECT id FROM properties WHERE property_no=$1`, [no])).rows[0].id as string
 
@@ -260,7 +260,8 @@ describe('physical count and unserviceable property (decision 2026-11-19)', () =
     // row 11 numbers the columns (1) to (18), as on the form; rows start at 12
     expect(x.text('A11')).toBe('(1)')
     expect(x.text('R11')).toBe('(18)')
-    // row 12: date acquired, article + description, property no, qty, unit cost, total cost
+    // row 12: date acquired (Appendix 74: the acquisition date, not the ICS/PAR date), article + description, property no, qty, unit cost, total cost
+    expect(x.ws.getCell('A12').value).toEqual(new Date(Date.UTC(2026, 1, 10)))
     expect(x.text('B12')).toContain('Laptop')
     expect(x.text('C12')).toContain('L-1')
     expect(x.ws.getCell('D12').value).toBe(1)
