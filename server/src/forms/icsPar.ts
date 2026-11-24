@@ -133,7 +133,14 @@ export async function renderIcsPar(doc: FormDoc, fonts: FormFonts): Promise<{ by
     return { page, y: hTop - hH }
   }
 
-  const FOOTER_H = 106
+  const half = tableW / 2
+  const NAME_LH = 11, POS_LH = 10
+  const sides = [{ label: L.from, ...doc.from }, { label: L.to, ...doc.to }].map((side) => ({
+    ...side,
+    nameLines: wrapText(side.name, bold, 9, half - 4 * PAD),
+    positionLines: wrapText(side.position, bold, 8.5, half - 4 * PAD),
+  }))
+  const FOOTER_H = 106 + Math.max(...sides.map((s) => (s.nameLines.length - 1) * NAME_LH + (s.positionLines.length - 1) * POS_LH))
   let { page, y } = newPage()
   const bottomLimit = M.b + 12
 
@@ -181,19 +188,19 @@ export async function renderIcsPar(doc: FormDoc, fonts: FormFonts): Promise<{ by
   }
 
   const fy = y - 6
-  const half = tableW / 2
   page.drawRectangle({ x: M.l, y: fy - FOOTER_H + 8, width: tableW, height: FOOTER_H - 8, borderColor: black, borderWidth: 0.8 })
   page.drawLine({ start: { x: M.l + half, y: fy }, end: { x: M.l + half, y: fy - FOOTER_H + 8 }, thickness: 0.5 })
-  const sides = [{ label: L.from, ...doc.from }, { label: L.to, ...doc.to }]
   sides.forEach((side, i) => {
     const x = M.l + i * half
     page.drawText(side.label, { x: x + PAD, y: fy - 11, size: 8, font })
-    cell(page, side.name, x, half, fy - 38, 'center', bold, 9)
-    cell(page, 'Signature Over Printed Name', x, half, fy - 48, 'center', font, 7.5)
-    cell(page, side.position, x, half, fy - 60, 'center', bold, 8.5)
-    cell(page, 'Position/Office', x, half, fy - 70, 'center', font, 7.5)
-    cell(page, longDate(doc.issuedDate), x, half, fy - 83, 'center', bold, 8.5)
-    cell(page, 'Date', x, half, fy - 93, 'center', font, 7.5)
+    side.nameLines.forEach((t, k) => cell(page, t, x, half, fy - 38 - k * NAME_LH, 'center', bold, 9))
+    const nameEnd = fy - 38 - (side.nameLines.length - 1) * NAME_LH
+    cell(page, 'Signature Over Printed Name', x, half, nameEnd - 10, 'center', font, 7.5)
+    side.positionLines.forEach((t, k) => cell(page, t, x, half, nameEnd - 22 - k * POS_LH, 'center', bold, 8.5))
+    const positionEnd = nameEnd - 22 - (side.positionLines.length - 1) * POS_LH
+    cell(page, 'Position/Office', x, half, positionEnd - 10, 'center', font, 7.5)
+    cell(page, longDate(doc.issuedDate), x, half, positionEnd - 23, 'center', bold, 8.5)
+    cell(page, 'Date', x, half, positionEnd - 33, 'center', font, 7.5)
   })
   pages.forEach((p, i) => cell(p, `Page ${i + 1} of ${pages.length}`, M.l, tableW, M.b - 4, 'center', font, 7.5))
 

@@ -42,6 +42,20 @@ describe('renderIcsPar layout', () => {
     expect((await renderIcsPar(doc(21), fonts)).pageCount).toBeGreaterThanOrEqual(2)
   })
 
+  it('a long name or position wraps inside its signature cell instead of running past it', async () => {
+    const position = 'Chief Science Research Specialist / Provincial Director, Pangasinan'
+    const name = 'Maria Consolacion Santos-Dela Cruz Villanueva-Reyes'
+    const r = await renderIcsPar(doc(2, { to: { name, position } }), fonts)
+    const { items } = await textItems(r.bytes)
+    const half = 0.5
+    const inRight = items.filter((it) => it.x >= half)
+    expect(inRight.some((it) => it.text.includes('Pangasinan'))).toBe(true)
+    expect(inRight.some((it) => it.text.includes('Chief Science Research Specialist /') && it.text.includes('Pangasinan'))).toBe(false)
+    expect(inRight.some((it) => it.text.includes('Consolacion') && it.text.includes('Reyes'))).toBe(false)
+    for (const it of items) expect(it.x).toBeLessThan(1)
+    expect((await renderIcsPar(doc(2, { to: { name, position } }), fonts)).pageCount).toBe(1)
+  })
+
   it('returns one region per line, inside the page, top to bottom and never overlapping on a page', async () => {
     const r = await renderIcsPar(doc(21), fonts)
     expect(r.regions).toHaveLength(21)
