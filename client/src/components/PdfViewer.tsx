@@ -76,3 +76,47 @@ export function PdfViewer({ url, page, onPageChange, onPageRender, children }: P
     </div>
   )
 }
+
+function LazyPage({ pageNumber, width }: { pageNumber: number; width: number }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [near, setNear] = useState(pageNumber <= 2)
+  useEffect(() => {
+    const el = ref.current
+    if (!el || near) return
+    const io = new IntersectionObserver(([e]) => { if (e.isIntersecting) setNear(true) }, { rootMargin: '600px 0px' })
+    io.observe(el)
+    return () => io.disconnect()
+  }, [near])
+  return (
+    <div ref={ref} className="overflow-hidden rounded border bg-white shadow-sm" style={{ width, minHeight: width * A4 }}>
+      {near && <Page pageNumber={pageNumber} width={width} renderTextLayer={false} renderAnnotationLayer={false} loading={<PageSkeleton width={width} />} />}
+    </div>
+  )
+}
+
+export function PdfPages({ url }: { url: string }) {
+  const box = useRef<HTMLDivElement>(null)
+  const [width, setWidth] = useState(0)
+  const [pages, setPages] = useState(0)
+  const [error, setError] = useState(false)
+  const file = useMemo(() => ({ url, withCredentials: true }), [url])
+
+  useEffect(() => {
+    const el = box.current
+    if (!el) return
+    const ro = new ResizeObserver(() => setWidth(el.clientWidth))
+    ro.observe(el)
+    setWidth(el.clientWidth)
+    return () => ro.disconnect()
+  }, [])
+
+  return (
+    <div ref={box} className="grid gap-3">
+      {error ? <p className="p-6 text-center text-sm text-destructive">Could not load the PDF.</p> : (
+        <Document file={file} loading={<PageSkeleton width={width} />} onLoadSuccess={(d) => setPages(d.numPages)} onLoadError={() => setError(true)}>
+          {width > 0 && Array.from({ length: pages }, (_, i) => <LazyPage key={i} pageNumber={i + 1} width={width} />)}
+        </Document>
+      )}
+    </div>
+  )
+}
