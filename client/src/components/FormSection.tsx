@@ -1,7 +1,6 @@
 import type { ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 
-// A titled block of a long form: what the fields are for on the left, the fields on the right.
 export function FormSection({ title, hint, children, className }: { title: string; hint?: ReactNode; children: ReactNode; className?: string }) {
   return (
     <section className={cn('grid gap-x-10 gap-y-4 border-b py-6 first:pt-0 last:border-b-0 md:grid-cols-[14rem_1fr]', className)}>

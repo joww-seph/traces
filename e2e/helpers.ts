@@ -6,11 +6,10 @@ import { expect, type Page } from '@playwright/test'
 import { PDFDocument, StandardFonts } from 'pdf-lib'
 import { E2E } from '../playwright.config'
 
-// Types into an officer field and picks the officer whose full name starts the option.
 export async function pickOfficer(page: Page, id: string, fullName: string) {
   await page.locator(`#${id}`).fill(fullName)
   await page.getByRole('listbox', { name: 'Officers' }).getByRole('option', { name: `${fullName} (` }).first().click()
-  await expect(page.locator(`#${id}`)).toHaveValue(new RegExp(`^${fullName} [(]`)) // test names are plain letters, no escaping needed
+  await expect(page.locator(`#${id}`)).toHaveValue(new RegExp(`^${fullName} [(]`))
 }
 
 export async function login(page: Page, who: { email: string; password: string } = E2E.supply) {
@@ -18,11 +17,9 @@ export async function login(page: Page, who: { email: string; password: string }
   await page.getByLabel('Email address').fill(who.email)
   await page.getByLabel('Password', { exact: true }).fill(who.password)
   await page.getByRole('button', { name: 'Sign in' }).click()
-  // the IT officer starts on User accounts; a supply admin on the dashboard
   await expect(page.getByRole('heading', { name: who === E2E.superadmin ? 'User accounts' : 'Dashboard' })).toBeVisible()
 }
 
-// A two-page signed-form stand-in, written to a temp file the upload field can take.
 export async function samplePdf(name = 'ics.pdf', pages = 2) {
   const pdf = await PDFDocument.create()
   const font = await pdf.embedFont(StandardFonts.Helvetica)
@@ -38,7 +35,6 @@ export async function samplePdf(name = 'ics.pdf', pages = 2) {
   return file
 }
 
-// Accessibility scan: WCAG 2 A and AA. Returns the violations so a test can assert on them.
 export async function a11y(page: Page, exclude: string[] = []) {
   let b = new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
   for (const sel of exclude) b = b.exclude(sel)
@@ -56,8 +52,6 @@ export async function officerIds(page: Page) {
   return { issuer: officers.find((o) => o.shortName === 'JDelaCruz')!, receiver: officers.find((o) => o.shortName === 'MSantos')! }
 }
 
-// One issuance through the API, signed in as the page's user: a PPE laptop set (laptop + mouse) and a semi chair, so it
-// makes a PAR (`${docNo}-P`) and an ICS (`docNo`) with generated PDFs. Officers JDelaCruz and MSantos must already exist.
 export async function apiSeed(page: Page, docNo: string, nos: { main: string; part: string; semi: string }, over: { generate?: boolean; model?: string } = {}) {
   const { issuer, receiver } = await officerIds(page)
   const model = over.model ?? `MSI Katana ${docNo}`
@@ -82,13 +76,10 @@ export async function apiSeed(page: Page, docNo: string, nos: { main: string; pa
   if (res.status() !== 201) throw new Error(`issuance: ${res.status()} ${JSON.stringify(body)}`)
   const docs = body.documents as { id: string; type: 'ICS' | 'PAR'; docNo: string }[]
   const token = async (no: string) => ((await (await page.request.get(`/api/properties/${no}`)).json()) as { token: string }).token.trim()
-  // the card of a property (one card per property): a part opens its unit's card
   const cardId = async (no: string) => ((await (await page.request.get(`/api/properties/${no}/view`)).json()) as { line: { cardId: string } }).line.cardId
   return { icsId: docs.find((d) => d.type === 'ICS')!.id, parId: docs.find((d) => d.type === 'PAR')!.id, token, cardId }
 }
 
-// Attaches a signed copy through the API (locks the document's entries).
-// `pages` should equal the generated form's page count for its highlight boxes to be copied onto the signed scan.
 export async function apiSign(page: Page, documentId: string, pages = 2) {
   const res = await page.request.put(`/api/documents/${documentId}/pdf`, {
     headers: headers(), multipart: { pdf: { name: 'signed.pdf', mimeType: 'application/pdf', buffer: readFileSync(await samplePdf(`signed-${documentId}.pdf`, pages)) } },

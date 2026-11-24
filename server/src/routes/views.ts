@@ -23,7 +23,6 @@ export function viewsRouter() {
     res.json(await registry(category, f))
   })
   r.get('/views/cards', async (req, res) => res.json(await listCards(cardsQuery.parse(req.query))))
-  // :propertyId is the card's property (a component's id opens its unit's card)
   r.get('/views/card/:propertyId', async (req, res) => {
     const { highlightLineId } = cardQuery.parse(req.query)
     const c = await card(uuid.parse(req.params.propertyId))
@@ -33,7 +32,6 @@ export function viewsRouter() {
   r.patch('/views/card-rows/:movementId', validate(cardRemarksInput), async (req, res) =>
     res.json(await setCardRemarks(z.coerce.number().int().positive().parse(req.params.movementId), req.body.remarks, ctx(req))))
 
-  // the officer's ICS/PAR (decision 2026-11-18): the list, and all of them as one PDF
   r.get('/reports/forms', async (req, res) => res.json(await officerForms(z.object({ officerId: uuid }).parse(req.query).officerId)))
   r.get('/reports/forms.pdf', async (req, res) => {
     const { officerId } = z.object({ officerId: uuid }).parse(req.query)
@@ -44,7 +42,6 @@ export function viewsRouter() {
   })
 
   r.get('/reports/rpc', async (req, res) => res.json(await officerReportRows(reportQuery.parse(req.query))))
-  // IIRUP (ppe) / IIRUSP (semi): the unserviceable items an officer holds
   r.get('/reports/unserviceable', async (req, res) => res.json(await unserviceableRows(reportQuery.parse(req.query))))
   r.get('/report-signatories', async (_req, res) => res.json(await getSignatories()))
   r.put('/report-signatories', validate(signatoriesInput), async (req, res) => res.json(await replaceSignatories(req.body, ctx(req))))

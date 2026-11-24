@@ -12,13 +12,12 @@ import { cardHeader, cardPropertyId, cardRows, findPropertyByNo, officerReportRo
 
 type Prop = typeof properties.$inferSelect
 
-// Property + line + card + document, the document's lines, the card, the registry and the holder's report.
 async function load(p: Prop, token: string | null): Promise<PropertyViewData> {
   const line = (await db.select().from(lines).where(and(eq(lines.id, p.lineId), isNull(lines.deletedAt))))[0]
   const doc = line && (await db.select().from(documents).where(and(eq(documents.id, line.documentId), isNull(documents.deletedAt))))[0]
   if (!line || !doc) throw new AppError('ITEM_REMOVED', 410, 'This item was removed')
   const typeName = (await db.select({ name: propertyTypes.name }).from(propertyTypes).where(eq(propertyTypes.id, line.propertyTypeId)))[0].name
-  const cardId = await cardPropertyId(p.id) // a component shows its unit's card
+  const cardId = await cardPropertyId(p.id)
 
   const [issuer, receiver] = await Promise.all([
     db.select().from(officers).where(eq(officers.id, doc.issuedByOfficerId)),
@@ -68,7 +67,6 @@ async function load(p: Prop, token: string | null): Promise<PropertyViewData> {
 const activeToken = async (propertyId: string) =>
   (await db.select({ token: qrTokens.token }).from(qrTokens).where(and(eq(qrTokens.propertyId, propertyId), isNull(qrTokens.revokedAt))))[0]?.token ?? null
 
-// Admin: by property number (case-insensitive).
 export async function adminPropertyView(propertyNo: string) {
   const p = await findPropertyByNo(propertyNo)
   try { return buildPropertyView(await load(p, await activeToken(p.id)), 'admin') } catch (e) {
@@ -77,7 +75,6 @@ export async function adminPropertyView(propertyNo: string) {
   }
 }
 
-// Public: by QR token. 404 unknown, 410 replaced or removed. Nothing here touches the database for a malformed token (route checks the format).
 export async function resolveToken(token: string) {
   const t = (await db.select().from(qrTokens).where(eq(qrTokens.token, token)))[0]
   if (!t) throw new AppError('NOT_FOUND', 404, 'Not found')
@@ -92,7 +89,6 @@ export async function publicPropertyView(token: string) {
   return buildPropertyView(await load(p, token), 'public')
 }
 
-// The signed PDF behind a QR token.
 export async function publicPdfRef(token: string) {
   const p = await resolveToken(token)
   const line = (await db.select().from(lines).where(and(eq(lines.id, p.lineId), isNull(lines.deletedAt))))[0]

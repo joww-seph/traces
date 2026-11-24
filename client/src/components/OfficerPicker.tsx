@@ -7,26 +7,22 @@ import { cn } from '@/lib/utils'
 type Props = {
   id: string
   officers: Officer[]
-  value: string // officer id, '' when none is chosen
+  value: string
   onChange: (officer: Officer | null) => void
   placeholder?: string
-  /** A first choice that clears the field, e.g. "None, choose on each issuance". */
   noneLabel?: string
   invalid?: boolean
   className?: string
 }
 
 const label = (o: Officer) => `${o.fullName} (${o.shortName})`
-// what a typed word may match: the name, short name, position, office and the programs (e.g. "SARAi")
 const haystack = (o: Officer) => [o.fullName, o.shortName, o.position, o.office, ...o.designations].join(' ').toLowerCase()
 
-// One field to search and choose an officer: type part of a name or a program, then pick from the list.
-// Follows the ARIA combobox pattern: arrows move, Enter picks, Escape closes.
 export function OfficerPicker({ id, officers, value, onChange, placeholder = 'Type a name or program, e.g. SARAi', noneLabel, invalid, className }: Props) {
   const listId = useId()
   const input = useRef<HTMLInputElement>(null)
   const [open, setOpen] = useState(false)
-  const [query, setQuery] = useState<string | null>(null) // null: not typing, the field shows the chosen officer
+  const [query, setQuery] = useState<string | null>(null)
   const [active, setActive] = useState(0)
   const chosen = officers.find((o) => o.id === value)
 
@@ -63,7 +59,7 @@ export function OfficerPicker({ id, officers, value, onChange, placeholder = 'Ty
             <li key={o?.id ?? 'none'} id={`${listId}-${i}`} role="option" aria-selected={(o?.id ?? '') === value}
               className={cn('flex cursor-pointer items-start gap-2 rounded-md px-2 py-1.5', i === active && 'bg-accent')}
               onMouseEnter={() => setActive(i)}
-              onMouseDown={(e) => e.preventDefault()} // keep focus in the field so the click lands before the list closes
+              onMouseDown={(e) => e.preventDefault()}
               onClick={() => pick(o)}>
               <Check aria-hidden className={cn('mt-0.5 size-4 shrink-0', (o?.id ?? '') === value ? 'text-primary' : 'invisible')} />
               {o ? (

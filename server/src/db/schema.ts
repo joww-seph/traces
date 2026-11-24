@@ -1,12 +1,9 @@
-// Must produce the same tables/constraints/indexes as docs/plans/traces-schema.sql.
-// Views live in a hand-written migration (see drizzle/*_views.sql) and are typed in views.ts.
 import { sql } from 'drizzle-orm'
 import {
   type AnyPgColumn, bigint, boolean, char, check, date, index, inet, integer, json, jsonb, numeric, pgEnum, pgTable,
   primaryKey, smallint, text, timestamp, unique, uniqueIndex, uuid, varchar,
 } from 'drizzle-orm/pg-core'
 
-// ───────────── Enums ─────────────
 export const userRole = pgEnum('user_role', ['supply_admin', 'superadmin'])
 export const docType = pgEnum('doc_type', ['ICS', 'PAR'])
 export const itemCategory = pgEnum('item_category', ['semi', 'ppe'])
@@ -20,7 +17,6 @@ const tstz = (name: string) => timestamp(name, { withTimezone: true })
 const money = (name: string) => bigint(name, { mode: 'number' })
 const day = (name: string) => date(name, { mode: 'string' })
 
-// ───────────── Accounts ─────────────
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
   email: text('email').notNull(),
@@ -33,14 +29,12 @@ export const users = pgTable('users', {
   updatedAt: tstz('updated_at').notNull().defaultNow(),
 }, (t) => [uniqueIndex('users_email_lower_uq').on(sql`lower(${t.email})`)])
 
-// Session store (shape required by connect-pg-simple)
 export const session = pgTable('session', {
   sid: varchar('sid').primaryKey(),
   sess: json('sess').notNull(),
   expire: timestamp('expire', { precision: 6 }).notNull(),
 }, (t) => [index('session_expire_idx').on(t.expire)])
 
-// ───────────── Settings (single row) ─────────────
 export const settings = pgTable('settings', {
   id: smallint('id').primaryKey().default(1),
   entityName: text('entity_name').notNull(),
@@ -49,12 +43,10 @@ export const settings = pgTable('settings', {
   cardRowMode: cardRowMode('card_row_mode').notNull().default('merged'),
   publicBaseUrl: text('public_base_url').notNull(),
   ppeRegistryTitle: text('ppe_registry_title').notNull().default('REGISTRY OF PROPERTY, PLANT AND EQUIPMENT ISSUED'),
-  // document-control box printed in the corner of the ICS / PAR exports; edit when the quality office issues a new revision
   icsFormCode: text('ics_form_code').notNull().default('FM-FAS-SUPPLY-07-10'),
   icsFormRevision: text('ics_form_revision').notNull().default('Rev. 1/07-25-22'),
   parFormCode: text('par_form_code').notNull().default('FM-FAS-SUPPLY-07-09'),
   parFormRevision: text('par_form_revision').notNull().default('Rev. 1/07-25-22'),
-  // default "Received from / Issued by" on generated ICS/PAR (the supply officer)
   defaultIssuedByOfficerId: uuid('default_issued_by_officer_id').references((): AnyPgColumn => officers.id),
   updatedAt: tstz('updated_at').notNull().defaultNow(),
   updatedBy: uuid('updated_by').references(() => users.id),
@@ -63,9 +55,8 @@ export const settings = pgTable('settings', {
   check('settings_threshold_positive', sql`${t.ppeThresholdCentavos} > 0`),
 ])
 
-// office units / projects whose code goes inside ICS/PAR numbers (YYYY-MM{code}-NNN); kept by the IT officer
 export const units = pgTable('units', {
-  code: text('code').primaryKey(), // never renamed: the numbers already issued carry it
+  code: text('code').primaryKey(),
   name: text('name').notNull(),
   active: boolean('active').notNull().default(true),
 }, (t) => [
@@ -73,28 +64,25 @@ export const units = pgTable('units', {
   uniqueIndex('units_code_lower_uq').on(sql`lower(${t.code})`),
 ])
 
-// ───────────── People ─────────────
 export const officers = pgTable('officers', {
   id: uuid('id').primaryKey().defaultRandom(),
   fullName: text('full_name').notNull(),
   shortName: text('short_name').notNull(),
   position: text('position').notNull(),
   office: text('office').notNull().default(''),
-  canReceive: boolean('can_receive').notNull().default(false), // may appear as "Received by" / on the officer report
+  canReceive: boolean('can_receive').notNull().default(false),
   active: boolean('active').notNull().default(true),
 }, (t) => [uniqueIndex('officers_short_name_uq').on(sql`lower(${t.shortName})`)])
 
-// programs / projects the officer is focal person of ("SARAi CENTRO, Focal Person"); searched by the officer dropdown
 export const officerDesignations = pgTable('officer_designations', {
   officerId: uuid('officer_id').notNull().references(() => officers.id, { onDelete: 'cascade' }),
   sortOrder: smallint('sort_order').notNull(),
   designation: text('designation').notNull(),
 }, (t) => [primaryKey({ columns: [t.officerId, t.sortOrder] })])
 
-// ───────────── Property types and items (cards) ─────────────
 export const propertyTypes = pgTable('property_types', {
   id: smallint('id').primaryKey().generatedAlwaysAsIdentity(),
-  code: text('code').notNull(), // letters inside property numbers, e.g. ICT
+  code: text('code').notNull(),
   name: text('name').notNull(),
   active: boolean('active').notNull().default(true),
 }, (t) => [
@@ -103,7 +91,6 @@ export const propertyTypes = pgTable('property_types', {
   uniqueIndex('property_types_name_uq').on(sql`lower(${t.name})`),
 ])
 
-// ───────────── ICS / PAR ─────────────
 export const documents = pgTable('documents', {
   id: uuid('id').primaryKey().defaultRandom(),
   type: docType('type').notNull(),
@@ -111,9 +98,9 @@ export const documents = pgTable('documents', {
   fundCluster: text('fund_cluster').notNull(),
   issuedDate: day('issued_date').notNull(),
   issuedByOfficerId: uuid('issued_by_officer_id').notNull().references(() => officers.id),
-  issuedByPosition: text('issued_by_position').notNull(), // as printed on the form (historical fact)
+  issuedByPosition: text('issued_by_position').notNull(),
   receivedByOfficerId: uuid('received_by_officer_id').notNull().references(() => officers.id),
-  receivedByPosition: text('received_by_position').notNull(), // as printed on the form (historical fact)
+  receivedByPosition: text('received_by_position').notNull(),
   purpose: text('purpose'),
   createdBy: uuid('created_by').notNull().references(() => users.id),
   createdAt: tstz('created_at').notNull().defaultNow(),
@@ -124,12 +111,11 @@ export const documents = pgTable('documents', {
   index('documents_received_by_idx').on(t.receivedByOfficerId),
 ])
 
-// Up to two PDFs per document: the one TRACES generated and the uploaded one (signed scan or an existing file)
 export const documentFiles = pgTable('document_files', {
   documentId: uuid('document_id').notNull().references(() => documents.id),
   kind: pdfKind('kind').notNull(),
   storedName: text('stored_name').notNull(),
-  originalName: text('original_name'), // NULL for generated files
+  originalName: text('original_name'),
   sizeBytes: integer('size_bytes').notNull(),
   pageCount: smallint('page_count').notNull(),
   createdBy: uuid('created_by').notNull().references(() => users.id),
@@ -145,14 +131,13 @@ export const lines = pgTable('lines', {
   id: uuid('id').primaryKey().defaultRandom(),
   documentId: uuid('document_id').notNull().references(() => documents.id),
   lineNo: integer('line_no').notNull(),
-  // the item (decision 2026-11-18: one card per property, so the line carries what the model card used to)
   propertyTypeId: smallint('property_type_id').notNull().references(() => propertyTypes.id),
-  category: itemCategory('category').notNull(), // from the cost when the line is entered (BR-01), then frozen
-  article: text('article').notNull(), // general term: "Laptop"
+  category: itemCategory('category').notNull(),
+  article: text('article').notNull(),
   unit: text('unit').notNull(),
   qty: integer('qty').notNull(),
   unitCostCentavos: money('unit_cost_centavos').notNull(),
-  description: text('description').notNull(), // the one description, as printed (model and specs); serials are added when shown
+  description: text('description').notNull(),
   estUsefulLifeYears: smallint('est_useful_life_years'),
   dateAcquired: day('date_acquired'),
   iarNo: text('iar_no'),
@@ -169,7 +154,6 @@ export const lines = pgTable('lines', {
   check('lines_useful_life_positive', sql`${t.estUsefulLifeYears} > 0`),
 ])
 
-// x/y/w/h are fractions (0-1) of the page. One box per line on each kind of PDF.
 export const linePdfRegions = pgTable('line_pdf_regions', {
   lineId: uuid('line_id').notNull().references(() => lines.id, { onDelete: 'cascade' }),
   kind: pdfKind('kind').notNull(),
@@ -192,8 +176,8 @@ export const properties = pgTable('properties', {
   propertyNo: text('property_no').notNull(),
   lineId: uuid('line_id').notNull().references(() => lines.id),
   serialNo: text('serial_no'),
-  oldPropertyNo: text('old_property_no'), // legacy number from earlier inventories (printed in RPC remarks)
-  componentLabel: text('component_label'), // NULL = main unit
+  oldPropertyNo: text('old_property_no'),
+  componentLabel: text('component_label'),
   condition: itemCondition('condition').notNull().default('serviceable'),
   voidedAt: tstz('voided_at'),
 }, (t) => [
@@ -209,11 +193,9 @@ export const qrTokens = pgTable('qr_tokens', {
   revokedAt: tstz('revoked_at'),
 }, (t) => [
   check('qr_tokens_token_format', sql`${t.token} ~ '^[0-9A-Za-z]{10}$'`),
-  // at most one active token per property
   uniqueIndex('qr_tokens_one_active_uq').on(t.propertyId).where(sql`revoked_at IS NULL`),
 ])
 
-// ───────────── Ledger ─────────────
 export const movements = pgTable('movements', {
   id: bigint('id', { mode: 'number' }).primaryKey().generatedAlwaysAsIdentity(),
   propertyId: uuid('property_id').notNull().references(() => properties.id),
@@ -233,9 +215,6 @@ export const movements = pgTable('movements', {
   index('movements_officer_idx').on(t.officerId, t.type),
 ])
 
-// ───────────── Physical count (decision 2026-11-19) ─────────────
-// A count is one accountable officer + one category + an "as at" date. A scan marks one main unit as found; "counted" is that
-// row existing, "not counted" is the holdings without one. Nothing calculated is stored. The condition found is kept on the property.
 export const physicalCounts = pgTable('physical_counts', {
   id: uuid('id').primaryKey().defaultRandom(),
   officerId: uuid('officer_id').notNull().references(() => officers.id),
@@ -253,8 +232,6 @@ export const countScans = pgTable('count_scans', {
   scannedAt: tstz('scanned_at').notNull().defaultNow(),
 }, (t) => [primaryKey({ columns: [t.countId, t.propertyId] })])
 
-// ───────────── Report footers (RPCSP / RPCPPE) ─────────────
-// default names printed under the report; editable on the page before printing
 export const reportSignatories = pgTable('report_signatories', {
   role: signatoryRole('role').notNull(),
   sortOrder: smallint('sort_order').notNull().default(1),
@@ -262,11 +239,10 @@ export const reportSignatories = pgTable('report_signatories', {
   position: text('position'),
 }, (t) => [primaryKey({ columns: [t.role, t.sortOrder] })])
 
-// ───────────── Audit ─────────────
 export const auditLogs = pgTable('audit_logs', {
   id: bigint('id', { mode: 'number' }).primaryKey().generatedAlwaysAsIdentity(),
   actorId: uuid('actor_id').references(() => users.id),
-  action: text('action').notNull(), // 'line.create', 'qr.rotate', 'user.deactivate'
+  action: text('action').notNull(),
   entity: text('entity').notNull(),
   entityId: text('entity_id').notNull(),
   before: jsonb('before'),

@@ -12,7 +12,6 @@ import { assertCanReceive } from './officers.js'
 type Tx = Pick<typeof db, 'select' | 'insert' | 'update'>
 type Doc = typeof documents.$inferSelect
 
-// Clients get the file summary (status, page counts), never the stored names.
 export const present = (doc: Doc, files: { generated?: typeof documentFiles.$inferSelect; uploaded?: typeof documentFiles.$inferSelect } = {}) =>
   ({ ...doc, ...filesSummary(files) })
 
@@ -22,7 +21,6 @@ async function positionOf(tx: Tx, officerId: string) {
   return o.position
 }
 
-// The unique index also covers soft-deleted rows, so a deleted number stays reserved.
 export function duplicateNo(e: unknown, type: string, docNo: string): never {
   if (pgErrorOf(e)?.constraint === 'documents_type_doc_no_uq') {
     throw new AppError('DUPLICATE_DOCUMENT_NO', 409, `${type} ${docNo} already exists (numbers of deleted documents stay reserved)`, { type, docNo })
@@ -30,7 +28,6 @@ export function duplicateNo(e: unknown, type: string, docNo: string): never {
   throw e
 }
 
-// `file` is an existing PDF to store as the uploaded copy; without it the document starts with no PDF (it can be generated or attached later).
 export async function createDocument(meta: z.infer<typeof documentMeta>, file: DocFile | null, userId: string, ctx: Ctx) {
   try {
     return await db.transaction(async (tx) => {
@@ -54,13 +51,11 @@ export async function createDocument(meta: z.infer<typeof documentMeta>, file: D
 }
 
 export type ListFilter = { type?: 'ICS' | 'PAR'; from?: string; to?: string; officerId?: string; q?: string; status?: DocStatus | 'unsigned'; page: number }
-const PAGE_SIZE = 20 // rows per page on screen and per printed sheet (decision 2026-11-18)
+const PAGE_SIZE = 20
 
-// none = no PDF · generated = only the TRACES copy · signed = an uploaded copy exists · unsigned = none + generated
 const hasFile = (kind: 'generated' | 'uploaded') =>
   sql`exists (select 1 from ${documentFiles} f where f.document_id = ${documents.id} and f.kind = ${kind})`
 
-// all: every matching form (the Excel export), not one page
 export async function listDocuments(f: ListFilter, all = false) {
   const status = {
     none: sql`not exists (select 1 from ${documentFiles} f where f.document_id = ${documents.id})`,
@@ -78,7 +73,6 @@ export async function listDocuments(f: ListFilter, all = false) {
     f.status ? status[f.status] : undefined,
   )
   const [{ total }] = await db.select({ total: count() }).from(documents).where(where)
-  // No.: the form's place among all live forms of its type in issue order; filters never renumber it
   const rowNo = sql<number>`(select count(*) from ${documents} d2 where d2.type = ${documents.type} and d2.deleted_at is null
     and (d2.issued_date, d2.created_at, d2.id) <= (${documents.issuedDate}, ${documents.createdAt}, ${documents.id}))::int`
   const rows = await db.select({ doc: documents, receivedByShort: officers.shortName, receivedByName: officers.fullName, rowNo })
@@ -106,7 +100,6 @@ export async function getDocument(id: string) {
   const types = await db.select({ id: propertyTypes.id, code: propertyTypes.code }).from(propertyTypes)
   const region = (lineId: string, kind: 'generated' | 'uploaded') => regionOut(regions.find((r) => r.lineId === lineId && r.kind === kind))
   const files = (await filesOf([id])).get(id)!
-  // the generated form no longer matches the entries once a line or the header changed after it was made
   const gen = files.generated
   const generatedOutdated = gen ? Boolean((await db.execute(sql`SELECT EXISTS (
       SELECT 1 FROM audit_logs a WHERE a.at > ${gen.createdAt} AND a.action <> 'line.region' AND (
@@ -117,8 +110,8 @@ export async function getDocument(id: string) {
     lines: lineRows.map((l) => ({
       ...l,
       propertyTypeCode: types.find((t) => t.id === l.propertyTypeId)?.code ?? '',
-      region: region(l.id, 'uploaded'), // the box drawn on the uploaded (signed) copy
-      generatedRegion: region(l.id, 'generated'), // computed from the layout of the TRACES copy
+      region: region(l.id, 'uploaded'),
+      generatedRegion: region(l.id, 'generated'),
       properties: props.filter((p) => p.lineId === l.id),
     })),
   }
@@ -129,21 +122,18 @@ export async function patchDocument(id: string, patch: z.infer<typeof documentPa
     return await db.transaction(async (tx) => {
       const before = (await tx.select().from(documents).where(and(eq(documents.id, id), isNull(documents.deletedAt))).for('update'))[0]
       if (!before) throw new AppError('DOCUMENT_NOT_FOUND', 404, 'Document not found')
-      if (Object.keys(patch).length) await assertNotSigned(tx, id) // the printed form says what it says
+      if (Object.keys(patch).length) await assertNotSigned(tx, id)
       const set: Partial<typeof documents.$inferInsert> = { ...patch }
       if (patch.receivedByOfficerId) await assertCanReceive(tx, patch.receivedByOfficerId)
-      // new officer without an explicit position -> snapshot that officer's current position
       if (patch.issuedByOfficerId && !patch.issuedByPosition) set.issuedByPosition = await positionOf(tx, patch.issuedByOfficerId)
       if (patch.receivedByOfficerId && !patch.receivedByPosition) set.receivedByPosition = await positionOf(tx, patch.receivedByOfficerId)
       const after = Object.keys(set).length
         ? (await tx.update(documents).set(set).where(eq(documents.id, id)).returning())[0]
         : before
-      // the ISSUE movements are this document's facts: a corrected receiver or date moves them too (custody, card, report)
       if (patch.receivedByOfficerId || patch.issuedDate) {
         await tx.update(movements).set({ officerId: after.receivedByOfficerId, date: after.issuedDate })
           .where(and(eq(movements.referenceDocumentId, id), eq(movements.type, 'ISSUE')))
       }
-      // the card's date is the date issued (decision 2026-11-18), so the receipts of its properties follow it
       if (patch.issuedDate) {
         await tx.update(movements).set({ date: after.issuedDate }).where(and(eq(movements.type, 'RECEIPT'), inArray(movements.propertyId,
           tx.select({ id: properties.id }).from(properties).innerJoin(lines, eq(lines.id, properties.lineId)).where(eq(lines.documentId, id)))))
@@ -164,13 +154,12 @@ export async function patchDocument(id: string, patch: z.infer<typeof documentPa
 export async function softDeleteDocument(id: string, ctx: Ctx) {
   await db.transaction(async (tx) => {
     const doc = await findLive(tx, id)
-    await assertNotSigned(tx, id) // V-06: a signed form is a record; remove the signed copy (with a reason) first
+    await assertNotSigned(tx, id)
     await tx.update(documents).set({ deletedAt: new Date() }).where(eq(documents.id, id))
     await audit(tx, ctx, 'document.delete', 'documents', id, present(doc, (await filesOf([id], tx)).get(id)), null)
   })
 }
 
-// The ICS/PAR page's History (decision 2026-11-18): every audit entry about the form, its lines, its properties and their card rows.
 export async function documentHistory(id: string) {
   await findLive(db, id)
   const rows = await db.select({

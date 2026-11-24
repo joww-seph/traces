@@ -16,10 +16,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     queryKey: ['me'],
     retry: false,
     staleTime: Infinity,
-    enabled: !window.location.pathname.startsWith('/q/'), // the public scan page never needs a login, so it does not ask
+    enabled: !window.location.pathname.startsWith('/q/'),
     queryFn: () =>
       api.get<User>('/api/me').catch((e) => {
-        if (e instanceof ApiError && e.status === 401) return null // not logged in is a normal answer
+        if (e instanceof ApiError && e.status === 401) return null
         throw e
       }),
   })

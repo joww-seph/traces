@@ -31,7 +31,6 @@ const lineBody = (cost: number, nos: { propertyNo: string; componentLabel?: stri
 })
 const propertyId = async (no: string) => (await testPool.query(`SELECT id FROM properties WHERE property_no=$1`, [no])).rows[0].id as string
 
-// A PPE laptop set (ICT) and a semi chair (Furniture and Fixtures) issued to MSantos on 2026-03-19.
 async function seed() {
   const { agent } = await loginAs('supply_admin')
   const ics = await makeDocument(agent, { issuedDate: '2026-03-19' })
@@ -51,7 +50,6 @@ describe('cards (PC / SPC), one per property', () => {
     expect(x.text('B10')).toContain('Lenovo ThinkPad E14 (S/N: LT-9, N/A)')
     expect(x.ws.getCell('B13').value).toEqual(new Date(Date.UTC(2026, 2, 19)))
     expect(x.text('C13')).toBe('ICS 2026-03SARAi-005')
-    // receipt and issue on the same day merge; the Supply Unit holds nothing after the issue
     expect([x.ws.getCell('D13').value, x.ws.getCell('E13').value, x.text('F13'), x.ws.getCell('H13').value, x.ws.getCell('I13').value]).toEqual([1, 1, 'Maria Santos', 0, 0])
     expect(x.ws.model.merges).toContain('F13:G13')
   })
@@ -90,7 +88,7 @@ describe('registries (per category and type)', () => {
     expect(ppe.text('C10')).toBe('Property No.')
     expect(ppe.text('C11')).toBe('L-1\nL-1a')
     expect(ppe.ws.getCell('N11').value).toBe(96450)
-    expect((await sheet(agent, '/api/exports/regspi?typeId=1')).text('B11')).toBe('') // no ICT semi lines
+    expect((await sheet(agent, '/api/exports/regspi?typeId=1')).text('B11')).toBe('')
     expect((await sheet(agent, '/api/exports/regspi?from=2030-01-01')).text('B11')).toBe('')
     expect((await sheet(agent, '/api/exports/regspi')).text('A7')).toBe('Semi-expendable Property: All types')
   })
@@ -108,9 +106,9 @@ describe('officer reports (RPCPPE / RPCSP): count columns are printed blank', ()
     expect(x.text('C9')).toBe('Fund Cluster : RAF')
     expect(x.text('C10')).toBe('For which Maria Santos, Engineer II, DEPARTMENT OF SCIENCE AND TECHNOLOGY - REGION 1 is accountable, having assumed such accountability on ________')
     expect([x.text('C15'), x.text('E15'), x.text('F15'), x.ws.getCell('G15').value, x.ws.getCell('H15').value]).toEqual(['Laptop', 'L-1\nL-1a', 'unit', 96450, 1])
-    expect([x.text('I15'), x.text('J15'), x.text('K15')]).toEqual(['', '', '']) // On Hand, Shortage/Overage: blank
+    expect([x.text('I15'), x.text('J15'), x.text('K15')]).toEqual(['', '', ''])
     expect(x.text('L15')).toBe('Old P#: 10605140-00-7')
-    expect(x.text('C16')).toBe('') // the chair is not ICT PPE
+    expect(x.text('C16')).toBe('')
     expect([x.text('D38'), x.text('G38'), x.text('K38')]).toEqual(['Chair A\nMember B', 'The Director', 'COA Rep'])
   })
 
@@ -137,9 +135,9 @@ describe('officer reports (RPCPPE / RPCSP): count columns are printed blank', ()
       await agent.post(`/api/documents/${ics.doc.id}/lines`).send(lineBody(9000000, [{ propertyNo: `P-${String(i).padStart(2, '0')}` }], card(1, `Monitor ${String(i).padStart(2, '0')}`, 'Dell')))
     }
     await agent.put('/api/report-signatories').send([{ role: 'head_of_agency', name: 'The Director' }])
-    const x = await sheet(agent, `/api/exports/rpcppe?officerId=${ics.receiver.id}`) // 23 PPE lines -> 3 extra rows
-    expect(x.text('E37')).toBe('P-21') // 23rd row
-    expect(x.text('G41')).toBe('The Director') // was G38
+    const x = await sheet(agent, `/api/exports/rpcppe?officerId=${ics.receiver.id}`)
+    expect(x.text('E37')).toBe('P-21')
+    expect(x.text('G41')).toBe('The Director')
   })
 })
 
@@ -171,7 +169,6 @@ describe('every export prints ruled and numbered', () => {
   it('the table (header and every row) has all four borders, and each printed page says "Page N of M"', async () => {
     const { agent, laptopItem, chairItem } = await seed()
     const officerId = (await testPool.query(`SELECT id FROM officers WHERE short_name='MSantos'`)).rows[0].id
-    // [url, first table row, last table row, first column, last column]
     const forms: [string, number, number, number, number][] = [
       [`/api/exports/pc?cardId=${laptopItem}`, 11, 30, 2, 10],
       [`/api/exports/spc?cardId=${chairItem}`, 6, 21, 1, 11],
@@ -201,7 +198,6 @@ describe('20 rows per printed sheet, with No. and Sheet No. (decision 2026-11-18
     expect([ws.getCell('P11').value, ws.getCell('Q11').value, ws.getCell('P30').value, ws.getCell('Q30').value, ws.getCell('P31').value, ws.getCell('Q31').value])
       .toEqual([1, 1, 20, 1, 21, 2])
     expect(ws.pageSetup.printTitlesRow).toBe('9:10')
-    // ExcelJS writes page breaks but does not read them back: look in the sheet XML (jszip comes with ExcelJS)
     const xml = await (await JSZip.loadAsync(res.body as Buffer)).file('xl/worksheets/sheet1.xml')!.async('string')
     expect([...xml.matchAll(/<brk id="(\d+)"/g)].map((m) => Number(m[1]))).toEqual([30])
   })
@@ -222,7 +218,7 @@ describe('ICS/PAR list export (decision 2026-11-18)', () => {
     expect(x.text('A1')).toBe('ICS AND PAR')
     expect([x.text('A3'), x.text('B3'), x.text('C3'), x.text('D3'), x.text('E3'), x.text('F3')]).toEqual(['No.', 'Form', 'Number', 'Date issued', 'Received by', 'Status'])
     expect([x.ws.getCell('A4').value, x.text('B4'), x.text('C4'), x.text('E4'), x.text('F4')]).toEqual([1, 'ICS', '2026-03SARAi-005', 'Maria Santos', 'No PDF'])
-    expect([x.ws.getCell('A5').value, x.text('B5'), x.text('C5')]).toEqual([1, 'PAR', 'PAR-9']) // No. counts per form type
+    expect([x.ws.getCell('A5').value, x.text('B5'), x.text('C5')]).toEqual([1, 'PAR', 'PAR-9'])
     expect((await sheet(agent, '/api/exports/icspar?type=PAR')).text('C4')).toBe('PAR-9')
     expect(x.ws.pageSetup.printTitlesRow).toBe('3:3')
   })
@@ -257,10 +253,8 @@ describe('physical count and unserviceable property (decision 2026-11-19)', () =
     expect(x.res.headers['content-disposition']).toContain('IIRUP_')
     expect(x.text('A1')).toBe('INVENTORY AND INSPECTION REPORT OF UNSERVICEABLE PROPERTY')
     expect(x.text('P1')).toBe('Appendix 74')
-    // row 11 numbers the columns (1) to (18), as on the form; rows start at 12
     expect(x.text('A11')).toBe('(1)')
     expect(x.text('R11')).toBe('(18)')
-    // row 12: date acquired (Appendix 74: the acquisition date, not the ICS/PAR date), article + description, property no, qty, unit cost, total cost
     expect(x.ws.getCell('A12').value).toEqual(new Date(Date.UTC(2026, 1, 10)))
     expect(x.text('B12')).toContain('Laptop')
     expect(x.text('C12')).toContain('L-1')
@@ -268,7 +262,6 @@ describe('physical count and unserviceable property (decision 2026-11-19)', () =
     expect(x.ws.getCell('E12').value).toBe(96450)
     expect(x.ws.getCell('F12').value).toBe(96450)
     for (const col of ['G', 'H', 'I', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R']) expect(x.text(`${col}12`), col).toBe('')
-    // the semi chair is not on the PPE form
     expect(x.text('B13')).toBe('')
   })
 
@@ -279,6 +272,6 @@ describe('physical count and unserviceable property (decision 2026-11-19)', () =
     const x = await sheet(agent, `/api/exports/iirusp?officerId=${ics.receiver.id}&asAt=2026-12-31`)
     expect(x.text('A1')).toBe('INVENTORY AND INSPECTION REPORT OF UNSERVICEABLE SEMI-EXPENDABLE PROPERTY')
     expect(x.text('B12')).toContain('Chair')
-    expect(x.ws.model.merges).toContain('A1:S1') // the title spans the sheet: no "Appendix 74" label, it is the PPE form's
+    expect(x.ws.model.merges).toContain('A1:S1')
   })
 })

@@ -24,7 +24,7 @@ export function StatusBadge({ status }: { status: DocStatus }) {
 export type DocRow = {
   id: string; type: 'ICS' | 'PAR'; docNo: string; fundCluster: string; issuedDate: string
   receivedByName: string; status: DocStatus
-  rowNo: number // the form's number among its type in issue order (decision 2026-11-18)
+  rowNo: number
 }
 type Page = { rows: DocRow[]; total: number; page: number; pageSize: number }
 

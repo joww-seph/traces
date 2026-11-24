@@ -41,7 +41,6 @@ function NavGroup({ title, items }: { title: string; items: Item[] }) {
           )}>
           {({ isActive }) => (
             <>
-              {/* the current page is marked with a quarter circle, the shape of the DOST mark */}
               <span aria-hidden className={cn('absolute top-1/2 -left-3 size-3 -translate-y-1/2 rounded-tr-full bg-cyan transition-opacity', isActive ? 'opacity-100' : 'opacity-0')} />
               <Icon className="size-4 shrink-0 opacity-90" />
               {label}
@@ -104,12 +103,10 @@ export default function AdminLayout() {
         Skip to content
       </a>
 
-      {/* desktop sidebar */}
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 overflow-y-auto bg-sidebar lg:block print:hidden">
         <SidebarContents onLogout={onLogout} />
       </aside>
 
-      {/* phone / tablet top bar with a slide-down menu */}
       <header className="sticky top-0 z-30 flex items-center gap-3 bg-sidebar px-4 py-2.5 lg:hidden print:hidden">
         <button type="button" onClick={() => setMenuOpen((o) => !o)} aria-expanded={menuOpen} aria-controls="mobile-nav"
           aria-label={menuOpen ? 'Close menu' : 'Open menu'}
@@ -128,7 +125,6 @@ export default function AdminLayout() {
       <main id="main" className="lg:pl-64 print:pl-0">
         <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-10 lg:py-8 print:max-w-none print:p-0">
           <Outlet />
-          {/* a new page opens at the top (and Back returns to where you were) */}
           <ScrollRestoration />
         </div>
       </main>

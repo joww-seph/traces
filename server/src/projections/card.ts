@@ -1,13 +1,10 @@
-// Pure: turns v_item_card rows (one per event per line, running balance already computed in SQL)
-// into the rows of a model card (SPC / PC). BR-07 decides whether a RECEIPT and an ISSUE of the same line share a row.
-
 export type CardEvent = {
   itemId: string
   lineId: string
   type: 'RECEIPT' | 'ISSUE' | 'RETURN' | 'REISSUE' | 'DISPOSE'
-  date: string // YYYY-MM-DD
-  qty: number // main units only; a component-only event is 0
-  itemNos: string // every property number of the event, one per line of text (components included)
+  date: string
+  qty: number
+  itemNos: string
   firstMovementId: number
   officerId: string | null
   officerName: string | null
@@ -18,19 +15,19 @@ export type CardEvent = {
   referenceText: string | null
   remarks: string | null
   unitCostCentavos: number
-  balanceQty: number // stock held by the Supply Unit after this event
+  balanceQty: number
   balanceAmountCentavos: number
 }
 
 export type CardRow = {
-  id: string // first movement id; a merged row uses its ISSUE event's id
-  lineId: string // the line (ICS/PAR row) this row belongs to: what a QR scan highlights
+  id: string
+  lineId: string
   date: string
   reference: string | null
   receiptQty: number | null
   unitCostCentavos: number
   totalCostCentavos: number | null
-  issueItemNo: string | null // SPC only shows it; the PC ignores it
+  issueItemNo: string | null
   issueQty: number | null
   officer: string | null
   officerFullName: string | null
@@ -55,7 +52,7 @@ function toRow(m: CardEvent): CardRow {
     totalCostCentavos: isReceipt ? m.qty * m.unitCostCentavos : null,
     issueItemNo: isReceipt ? null : m.itemNos,
     issueQty: isReceipt ? null : m.qty,
-    officer: m.officerName, // the Office/Officer column shows the full name
+    officer: m.officerName,
     officerFullName: m.officerName,
     balanceQty: m.balanceQty,
     amountCentavos: m.balanceAmountCentavos,
@@ -63,14 +60,12 @@ function toRow(m: CardEvent): CardRow {
   }
 }
 
-// `events` must be one card's rows ordered by (date, firstMovementId).
 export function mergeCardRows(events: CardEvent[], mode: 'merged' | 'split'): CardRow[] {
   if (mode === 'split') return events.map(toRow)
-  // a RECEIPT folds into the ISSUE of the same line on the same date; the merged row sits at the ISSUE's place
   const receipts = new Map<string, CardEvent>()
   for (const e of events) if (e.type === 'RECEIPT' && !receipts.has(`${e.lineId}|${e.date}`)) receipts.set(`${e.lineId}|${e.date}`, e)
-  const pairOf = new Map<CardEvent, CardEvent>() // ISSUE -> its RECEIPT
-  const folded = new Set<CardEvent>() // RECEIPTs shown inside an ISSUE row
+  const pairOf = new Map<CardEvent, CardEvent>()
+  const folded = new Set<CardEvent>()
   for (const e of events) {
     const r = e.type === 'ISSUE' ? receipts.get(`${e.lineId}|${e.date}`) : undefined
     if (r && !folded.has(r)) { pairOf.set(e, r); folded.add(r) }

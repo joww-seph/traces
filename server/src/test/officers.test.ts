@@ -24,7 +24,7 @@ describe('officers', () => {
     expect((await agent.delete(`/api/officers/${created.body.id}`)).status).toBe(200)
     expect((await agent.get('/api/officers?active=true')).body).toHaveLength(0)
     expect((await agent.get('/api/officers?active=false')).body).toHaveLength(1)
-    expect((await agent.get('/api/officers')).body).toHaveLength(1) // no filter = all
+    expect((await agent.get('/api/officers')).body).toHaveLength(1)
 
     const actions = (await testPool.query(`SELECT action FROM audit_logs WHERE entity='officers' ORDER BY id`)).rows
     expect(actions.map((r) => r.action)).toEqual(['officer.create', 'officer.update', 'officer.deactivate'])
@@ -34,10 +34,8 @@ describe('officers', () => {
     const { agent } = await loginAs('superadmin')
     const a = await agent.post('/api/officers').send({ ...officer, fullName: 'ANA MARIE B. DELA CRUZ', shortName: 'Typed' })
     expect(a.body).toMatchObject({ fullName: 'Ana Marie B. Dela Cruz', shortName: 'ABDelaCruz' })
-    // the same initials and surname get a number instead of being refused
     expect((await agent.post('/api/officers').send(officer)).body.shortName).toBe('MSantos')
     expect((await agent.post('/api/officers').send({ ...officer, fullName: 'Mario Santos' })).body.shortName).toBe('MSantos2')
-    // a corrected name corrects the short name
     const p = await agent.patch(`/api/officers/${a.body.id}`).send({ fullName: 'Ana Maria B. Dela Cruz-Reyes' })
     expect(p.body).toMatchObject({ fullName: 'Ana Maria B. Dela Cruz-Reyes', shortName: 'ABDelaCruz-Reyes' })
   })
@@ -66,7 +64,7 @@ describe('settings', () => {
 
   it('superadmin PATCH updates the row, clears the cache and audits', async () => {
     const { agent, user } = await loginAs('superadmin')
-    expect((await agent.get('/api/settings')).body.cardRowMode).toBe('merged') // primes the cache
+    expect((await agent.get('/api/settings')).body.cardRowMode).toBe('merged')
     const res = await agent.patch('/api/admin/settings').send({ cardRowMode: 'split', ppeThresholdCentavos: 6000000 })
     expect(res.status).toBe(200)
     const after = await agent.get('/api/settings')
@@ -99,15 +97,15 @@ describe('accountable officers (update 01 U-06)', () => {
     const found = (await agent.get('/api/officers?q=sarai')).body.map((o: { shortName: string }) => o.shortName)
     expect(found).toEqual(['AOne', 'BTwo'])
     expect((await agent.get('/api/officers?q=cy%20thr')).body).toHaveLength(1)
-    expect((await agent.get('/api/officers?q=100%25')).body).toHaveLength(0) // % is literal, not a wildcard
+    expect((await agent.get('/api/officers?q=100%25')).body).toHaveLength(0)
     const patched = await agent.patch(`/api/officers/${a.body.id}`).send({ designations: ['Other'] })
     expect(patched.body.designations).toEqual(['Other'])
-    expect((await agent.patch(`/api/officers/${a.body.id}`).send({ position: 'X' })).body.designations).toEqual(['Other']) // untouched when omitted
+    expect((await agent.patch(`/api/officers/${a.body.id}`).send({ position: 'X' })).body.designations).toEqual(['Other'])
     expect((await agent.get('/api/officers?q=sarai')).body.map((o: { shortName: string }) => o.shortName)).toEqual(['BTwo'])
   })
 
   it('a document cannot be received by an officer who may not receive (400 OFFICER_CANNOT_RECEIVE)', async () => {
-    const { agent: it_ } = await loginAs('superadmin') // the IT officer keeps the officers; the supply admin issues
+    const { agent: it_ } = await loginAs('superadmin')
     const issuer = await mk(it_, { fullName: 'Issuer One', canReceive: true })
     const staff = await mk(it_, { fullName: 'Staff One' })
     const { agent } = await loginAs('supply_admin')
@@ -116,7 +114,6 @@ describe('accountable officers (update 01 U-06)', () => {
       .attach('pdf', await samplePdf(), { filename: 'a.pdf', contentType: 'application/pdf' })
     expect(res.status).toBe(400)
     expect(res.body.error.code).toBe('OFFICER_CANNOT_RECEIVE')
-    // the issuer need not be a receiver
     const ok = await agent.post('/api/documents')
       .field('meta', JSON.stringify({ type: 'ICS', docNo: 'X-2', fundCluster: 'RAF', issuedDate: '2026-03-01', issuedByOfficerId: staff.body.id, receivedByOfficerId: issuer.body.id }))
       .attach('pdf', await samplePdf(), { filename: 'a.pdf', contentType: 'application/pdf' })
@@ -140,10 +137,10 @@ describe('seed-officers script', () => {
     expect(first.notes).toEqual([{ shortName: 'BSCruz', note: 'first name unclear; confirm' }])
     await seedOfficers(csv)
     const rows = (await testPool.query(`SELECT short_name, full_name, position, can_receive, active FROM officers ORDER BY short_name`)).rows
-    expect(rows).toHaveLength(3) // the existing arreyes was updated, not duplicated
+    expect(rows).toHaveLength(3)
     expect(rows.every((r) => r.can_receive && r.active)).toBe(true)
     expect(rows.find((r) => r.full_name === 'Ana R. Reyes')).toMatchObject({ position: 'Regional Director' })
-    expect(rows.find((r) => r.short_name === 'CDiaz')).toMatchObject({ full_name: 'Cy "CJ" Diaz', position: 'Science Research Specialist II' }) // SRS written out
+    expect(rows.find((r) => r.short_name === 'CDiaz')).toMatchObject({ full_name: 'Cy "CJ" Diaz', position: 'Science Research Specialist II' })
     const des = (await testPool.query(`SELECT d.designation FROM officer_designations d JOIN officers o ON o.id=d.officer_id WHERE lower(o.short_name)='arreyes' ORDER BY d.sort_order`)).rows
     expect(des.map((d) => d.designation)).toEqual(['ORD, Regional Director', 'SARAi CENTRO, Focal Person'])
   })

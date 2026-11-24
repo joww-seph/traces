@@ -6,7 +6,6 @@ import { pool } from '../db/client.js'
 import { testPool, resetDb } from './db.js'
 import { agentFor, ITEM, loginAs, makeDocument, signDocument, makeOfficer } from './helpers.js'
 
-// the made-up people of these tests; their short names are made from these names (MSantos, JDelaCruz, ...)
 const FULL_NAME: Record<string, string> = { JDelaCruz: 'Juan Dela Cruz', MSantos: 'Maria Santos', Staffer: 'Sam Staffer', Iss: 'Ivan Issuer', Rcv: 'Rita Receiver' }
 
 const PDF_DIR = path.resolve(process.env.STORAGE_DIR!, 'pdfs')
@@ -142,7 +141,6 @@ describe('read, patch, delete', () => {
     expect((await agent.get('/api/documents?from=2026-01-01')).body.total).toBe(1)
     expect((await agent.get(`/api/documents?officerId=${a.receivedByOfficerId}`)).body.total).toBe(2)
 
-    // its uploaded PDF locks it like a signed copy; removing that copy (with a reason) comes first
     expect((await agent.delete(`/api/documents/${a.id}/pdf`).send({ reason: 'Entered twice' })).status).toBe(200)
     expect((await agent.delete(`/api/documents/${a.id}`)).status).toBe(200)
     const list = await agent.get('/api/documents')
@@ -188,7 +186,6 @@ describe('read, patch, delete', () => {
     const { agent, meta } = await setup()
     const doc = (await upload(agent, meta())).body
     const hdr = await agent.patch(`/api/documents/${doc.id}`).send({ purpose: 'New purpose' })
-    // a signed document is locked: its header says what the printed form says
     expect(hdr.status).toBe(409)
     expect(hdr.body.error.code).toBe('DOCUMENT_SIGNED')
     const unsigned = (await upload(agent, meta({ docNo: 'EDIT-1' }), null)).body
@@ -234,7 +231,7 @@ describe('signed copy: attach, replace, remove (update 01 U-07, update 02 V-04..
     expect((await att(agent, doc.id, samplePdf, 'x.pdf', 'text/plain')).status).toBe(400)
     expect(files()).toHaveLength(0)
     expect((await agent.get(`/api/documents/${doc.id}`)).body.status).toBe('none')
-    expect((await agent.put(`/api/documents/${doc.id}/pdf`)).status).toBe(400) // no file
+    expect((await agent.put(`/api/documents/${doc.id}/pdf`)).status).toBe(400)
     expect((await att(agentFor(), doc.id)).status).toBe(401)
   })
 
@@ -245,7 +242,7 @@ describe('signed copy: attach, replace, remove (update 01 U-07, update 02 V-04..
     expect((await att(agent, doc.id, samplePdf, 'new.pdf')).status).toBe(200)
     expect(files()).toHaveLength(1)
     expect(files()[0]).not.toBe(oldFile)
-    expect(archived()).toEqual([oldFile]) // the signed original is kept, not deleted
+    expect(archived()).toEqual([oldFile])
   })
 
   it('a generated copy with the same page count lends its boxes; a different page count does not', async () => {
@@ -265,7 +262,7 @@ describe('signed copy: attach, replace, remove (update 01 U-07, update 02 V-04..
     expect((await testPool.query(`SELECT page, x::float FROM line_pdf_regions WHERE line_id=$1 AND kind='uploaded'`, [lineSame])).rows).toEqual([{ page: 2, x: 0.1 }])
 
     const diff = (await upload(agent, meta({ docNo: 'DIFF-1' }), null)).body
-    const lineDiff = await seedGenerated(diff.id, 3) // generated 3 pages, signed scan has 2
+    const lineDiff = await seedGenerated(diff.id, 3)
     expect((await att(agent, diff.id)).body.regionsCopied).toBe(0)
     expect((await testPool.query(`SELECT 1 FROM line_pdf_regions WHERE line_id=$1 AND kind='uploaded'`, [lineDiff])).rowCount).toBe(0)
   })
@@ -316,7 +313,7 @@ describe('signed copy: attach, replace, remove (update 01 U-07, update 02 V-04..
     expect(log).toHaveLength(1)
     expect(log[0].after.reason).toBe('Wrong receiver typed')
     expect((await agent.patch(`/api/lines/${line.lineId}`).send({ line: { ...ITEM, description: 'fixed' } })).status).toBe(200)
-    expect((await agent.delete(`/api/documents/${doc.id}/pdf`).send({ reason: 'again' })).status).toBe(404) // nothing left to remove
+    expect((await agent.delete(`/api/documents/${doc.id}/pdf`).send({ reason: 'again' })).status).toBe(404)
   })
 
   it('the list filters by status: none, generated, signed, unsigned', async () => {

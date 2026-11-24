@@ -23,7 +23,6 @@ type Form = Omit<z.input<typeof officerInput>, 'designations' | 'canReceive'> & 
 function OfficerDialog({ officer, onClose }: { officer: Officer | 'new' | null; onClose: () => void }) {
   const qc = useQueryClient()
   const editing = officer && officer !== 'new' ? officer : null
-  // one program or project per line in the form; the API takes a list
   const form = useForm<Form>({
     resolver: zodResolver(officerInput.extend({ designations: z.string() }) as never),
     values: editing

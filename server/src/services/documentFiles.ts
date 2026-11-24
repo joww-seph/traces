@@ -16,10 +16,9 @@ export type DocFile = { storedName: string; originalName: string; size: number; 
 export type FileRow = typeof documentFiles.$inferSelect
 export type DocStatus = 'none' | 'generated' | 'signed'
 
-// SEC-09 happens in the upload middleware (type, size, %PDF- header); this reads the page count and refuses unreadable files.
 export async function readPdfMeta(file: Express.Multer.File): Promise<DocFile> {
   let pageCount = 0
-  try { pageCount = (await PDFDocument.load(await readFile(file.path))).getPageCount() } catch { /* handled below */ }
+  try { pageCount = (await PDFDocument.load(await readFile(file.path))).getPageCount() } catch { }
   if (pageCount < 1) throw new AppError('INVALID_PDF', 400, 'Could not read the PDF')
   return { storedName: file.filename, originalName: file.originalname, size: file.size, pageCount }
 }
@@ -27,7 +26,6 @@ export async function readPdfMeta(file: Express.Multer.File): Promise<DocFile> {
 export const statusOf = (files: { generated?: unknown; uploaded?: unknown }): DocStatus =>
   files.uploaded ? 'signed' : files.generated ? 'generated' : 'none'
 
-// Both files of each document: { [documentId]: { generated?, uploaded? } }
 export async function filesOf(documentIds: string[], d: Reader = db) {
   const out = new Map<string, { generated?: FileRow; uploaded?: FileRow }>(documentIds.map((id) => [id, {}]))
   if (!documentIds.length) return out
@@ -49,7 +47,6 @@ export async function isSigned(tx: Reader, documentId: string) {
     .where(and(eq(documentFiles.documentId, documentId), eq(documentFiles.kind, 'uploaded'))))[0] !== undefined
 }
 
-// V-06: once the signed copy is uploaded the entries are locked. Remove the signed copy (with a reason) to correct them.
 export async function assertNotSigned(tx: Reader, documentId: string) {
   if (await isSigned(tx, documentId)) {
     throw new AppError('DOCUMENT_SIGNED', 409, 'This form has a signed copy, so its entries are locked. Remove the signed copy first to correct them.')
@@ -62,7 +59,6 @@ async function liveDocument(tx: Tx, id: string) {
   return doc
 }
 
-// PUT /pdf: store the uploaded copy (signed scan or an existing PDF). The old uploaded copy is archived, never deleted.
 export async function attachUploaded(documentId: string, file: DocFile, userId: string, ctx: Ctx) {
   const { replaced, copied } = await db.transaction(async (tx) => {
     await liveDocument(tx, documentId)
@@ -71,7 +67,6 @@ export async function attachUploaded(documentId: string, file: DocFile, userId: 
     await tx.insert(documentFiles).values({
       documentId, kind: 'uploaded', storedName: file.storedName, originalName: file.originalName, sizeBytes: file.size, pageCount: file.pageCount, createdBy: userId,
     })
-    // print -> sign -> scan keeps the layout: when the page counts match, the generated boxes are the starting boxes
     let copied = 0
     if (files.generated && files.generated.pageCount === file.pageCount) {
       const r = await tx.execute(sql`
@@ -86,11 +81,10 @@ export async function attachUploaded(documentId: string, file: DocFile, userId: 
       { originalName: file.originalName, pageCount: file.pageCount, replaced: files.uploaded?.storedName ?? null, regionsCopied: copied })
     return { replaced: files.uploaded?.storedName ?? null, copied }
   })
-  if (replaced) await archivePdf(replaced) // only after commit
+  if (replaced) await archivePdf(replaced)
   return { ...filesSummary((await filesOf([documentId])).get(documentId)!), regionsCopied: copied }
 }
 
-// DELETE /pdf: the signed copy is moved to archive/ (never deleted), its boxes dropped, the entries unlocked.
 export async function removeUploaded(documentId: string, reason: string, ctx: Ctx) {
   const stored = await db.transaction(async (tx) => {
     await liveDocument(tx, documentId)
@@ -108,7 +102,6 @@ export async function removeUploaded(documentId: string, reason: string, ctx: Ct
   return filesSummary((await filesOf([documentId])).get(documentId)!)
 }
 
-// Which file to show: an explicit kind, else the signed copy, else the generated one.
 export async function getPdfFile(documentId: string, kind?: PdfKind) {
   const doc = (await db.select({ id: documents.id }).from(documents).where(and(eq(documents.id, documentId), isNull(documents.deletedAt))))[0]
   if (!doc) throw new AppError('DOCUMENT_NOT_FOUND', 404, 'Document not found')

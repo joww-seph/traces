@@ -1,13 +1,11 @@
 import { categorize, isIsoDate, nextComponentSuffix, pesoToCentavos, suggestNumbers, type NumberSlot } from '@traces/shared'
 
-// One row of the issuance form: the item (type, article, unit and its one description), how many, and the property
-// numbers and serials of its units. Every unit gets its own card (decision 2026-11-18).
 export type Entry = {
   key: string
   typeId: string; article: string; unit: string
   description: string; qty: string; cost: string; dateAcquired: string; life: string
-  mains: { no: string; serial: string }[] // one per unit; an empty number takes the suggestion; serial "N/A" = none
-  comps: { label: string; no: string; serial: string }[] // parts of a set: they share the row and get their own stickers
+  mains: { no: string; serial: string }[]
+  comps: { label: string; no: string; serial: string }[]
 }
 
 let counter = 0
@@ -20,10 +18,8 @@ export const blankEntry = (from?: Entry): Entry => ({
   description: '', qty: '1', cost: '', dateAcquired: from?.dateAcquired ?? '', life: '', mains: [{ no: '', serial: NO_SERIAL }], comps: [],
 })
 
-// Ctrl+D: the same row again (item, description, cost and date), with numbers left to the suggestion
 export const duplicate = (e: Entry): Entry => ({ ...e, key: uid(), mains: e.mains.map(() => ({ no: '', serial: NO_SERIAL })), comps: e.comps.map((c) => ({ ...c, no: '', serial: NO_SERIAL })) })
 
-// an untouched row: nothing typed yet
 export const isBlank = (e: Entry) => !e.description.trim() && !e.cost.trim() && !e.article.trim()
 
 export const centavosOf = (e: Entry) => { try { return e.cost.trim() ? pesoToCentavos(e.cost) : null } catch { return null } }
@@ -31,10 +27,8 @@ export const categoryOf = (e: Entry, threshold: number | undefined) => { const c
 export const typeIdOf = (e: Entry) => Number(e.typeId) || undefined
 export const unitOf = (e: Entry) => e.unit.trim()
 export const articleOf = (e: Entry) => e.article.trim()
-// a PPE row makes one PAR per main unit
 export const parCountOf = (entries: Entry[], threshold: number | undefined) => entries.reduce((n, e) => n + (categoryOf(e, threshold) === 'ppe' ? e.mains.length : 0), 0)
 
-// qty decides how many main units there are; the form keeps that many number boxes
 export function withQty(e: Entry, qty: string): Entry {
   const n = Math.min(Math.max(Number.parseInt(qty, 10) || 1, 1), 300)
   const mains = Number.isInteger(Number(qty)) && Number(qty) >= 1 ? e.mains.slice(0, n) : e.mains
@@ -42,7 +36,6 @@ export function withQty(e: Entry, qty: string): Entry {
   return { ...e, qty, mains }
 }
 
-// The series slot of every main unit, form order. Rows without a type or a valid date acquired cannot be suggested.
 export type Slot = { entry: number; unit: number; group: string | null; year: number; month: number; code: string }
 export function slotsOf(entries: Entry[], codes: Record<number, string>): Slot[] {
   return entries.flatMap((e, entry) => e.mains.map((_, unit) => {
@@ -52,8 +45,7 @@ export function slotsOf(entries: Entry[], codes: Record<number, string>): Slot[]
   }))
 }
 
-// Final main numbers (typed or suggested) and component numbers, per row. `bases` = first free running number per "year|type".
-const NO_SERIES = '\u0000' // a unit without a type or a date acquired is never given a suggestion
+const NO_SERIES = '\u0000'
 export function numbersOf(entries: Entry[], slots: Slot[], bases: Record<string, number>) {
   const slotList: NumberSlot[] = slots.map((s) => ({
     groupKey: s.group ?? 'none', year: s.year, month: s.month, code: s.code,

@@ -1,7 +1,5 @@
 import { defineConfig } from '@playwright/test'
 
-// Browser tests run the real API and the real client on their own ports against the traces_test database,
-// so they never touch development data (traces_dev) or the dev servers (3000 / 5173).
 export const E2E = {
   apiPort: 3100,
   webPort: 5273,
@@ -13,7 +11,7 @@ const origin = `http://localhost:${E2E.webPort}`
 
 export default defineConfig({
   testDir: './e2e',
-  fullyParallel: false, // one shared database
+  fullyParallel: false,
   workers: 1,
   timeout: 60_000,
   expect: { timeout: 10_000 },

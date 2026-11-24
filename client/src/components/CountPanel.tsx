@@ -7,8 +7,6 @@ import { ApiError, api } from '@/api'
 import { Button } from '@/components/ui/button'
 import { setActiveCountId, useActiveCountId, type Count, type ScanResult } from '@/lib/counts'
 
-// Shown on the scan page only to a signed-in staff member whose phone has an open count (started or resumed in Reports).
-// Anyone else sees the normal page: no count id on the device, or the count request is refused, means no panel.
 export function CountPanel({ token }: { token: string }) {
   const id = useActiveCountId()
   const qc = useQueryClient()

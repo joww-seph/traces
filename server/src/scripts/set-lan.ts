@@ -8,10 +8,6 @@ import { settings } from '../db/schema.js'
 import { audit } from '../services/audit.js'
 import { clearSettingsCache } from '../services/settings.js'
 
-// Development helper: point the app at this machine's LAN address so phones on the same Wi-Fi can open it
-// (and scan stickers). Re-run it whenever the laptop gets a new address.
-//   npm run lan              detect the address
-//   npm run lan -- 10.0.0.5  use this one
 const PORT = process.env.CLIENT_PORT ?? '5173'
 const VIRTUAL = /vethernet|wsl|virtualbox|vmware|docker|loopback|bluetooth|tailscale|hyper-v/i
 
@@ -35,11 +31,10 @@ if (!ip || !/^\d{1,3}(\.\d{1,3}){3}$/.test(ip)) {
 }
 const url = `http://${ip}:${PORT}`
 
-// server/.env: the Origin check only accepts addresses listed in APP_ORIGIN
 const envPath = fileURLToPath(new URL('../../.env', import.meta.url))
 const origins = `http://localhost:${PORT},${url}`
 let env = ''
-try { env = readFileSync(envPath, 'utf8') } catch { /* no .env yet: created below */ }
+try { env = readFileSync(envPath, 'utf8') } catch { }
 env = /^APP_ORIGIN=.*$/m.test(env) ? env.replace(/^APP_ORIGIN=.*$/m, `APP_ORIGIN=${origins}`) : `${env.trimEnd()}\nAPP_ORIGIN=${origins}\n`
 writeFileSync(envPath, env)
 

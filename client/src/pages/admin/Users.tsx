@@ -107,7 +107,7 @@ export default function Users() {
       else toast.success('Saved')
     },
     onError: (e) => {
-      qc.invalidateQueries({ queryKey: ['admin-users'] }) // put a rejected role change back in the dropdown
+      qc.invalidateQueries({ queryKey: ['admin-users'] })
       toast.error(e instanceof ApiError ? e.message : 'Could not save')
     },
   })

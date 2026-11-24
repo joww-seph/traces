@@ -29,7 +29,6 @@ describe('app', () => {
   })
 })
 
-// Throwaway app: each route throws one kind of error so we can check the central mapping.
 function errApp() {
   const app = express()
   app.use(express.json())

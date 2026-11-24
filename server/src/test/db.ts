@@ -17,7 +17,6 @@ export async function seedSettings() {
   )
 }
 
-// the three types the migration seeds: ids 1, 2, 3
 export async function seedPropertyTypes() {
   await testPool.query(
     `INSERT INTO property_types (code, name) VALUES

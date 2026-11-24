@@ -17,7 +17,6 @@ const body = (cost: number, nos: { propertyNo: string; componentLabel?: string }
 })
 const thinkpad = { article: 'Laptop', description: 'Lenovo ThinkPad E14' }
 
-// ICS with a PPE laptop set (+ a boxed region) and a semi item, plus a PAR with another PPE item.
 async function seed() {
   const { agent } = await loginAs('supply_admin')
   const ics = await makeDocument(agent)
@@ -56,7 +55,6 @@ describe('GET /api/properties/:no/view (admin)', () => {
       type: 'ICS', docNo: '2026-03SARAi-005', pdfUrl: `/api/documents/${ics.doc.id}/pdf`,
       pdfRegion: { page: 1, x: 0.1, y: 0.2, w: 0.8, h: 0.05 }, receivedBy: { name: 'Maria Santos', position: 'Engineer II' },
     })
-    // the main unit has no "part of set"
     expect((await agent.get('/api/properties/L-1/view')).body.property.partOfSetNo).toBeNull()
   })
 
@@ -75,7 +73,7 @@ describe('GET /api/properties/:no/view (admin)', () => {
     const issueId = (await testPool.query(`SELECT m.id FROM movements m JOIN properties p ON p.id=m.property_id WHERE p.property_no='L-1' AND m.type='ISSUE'`)).rows[0].id
     const card = (await agent.get('/api/properties/L-1/view')).body.tabs.card
     expect(card.header).toMatchObject({ article: 'Laptop', description: 'Lenovo ThinkPad E14 (S/N: N/A)', propertyNo: 'L-1' })
-    expect(card.rows).toHaveLength(1) // receipt and issue share the date issued: one row
+    expect(card.rows).toHaveLength(1)
     expect(card.highlightRowIds).toContain(String(issueId))
     expect(card.rows.at(-1)).toMatchObject({ issueQty: 1, balanceQty: 0 })
   })
@@ -120,8 +118,7 @@ describe('public view (SEC-10, revised 2026-11-16 and 2026-11-18)', () => {
     expect(text).not.toContain('ZOOther')
     expect(text).not.toContain('Zed O. Other')
     const staff = (await agent.get('/api/properties/L-1/view')).body
-    expect(JSON.stringify(staff.tabs.registry)).toContain('Zed O. Other') // staff see every officer
-    // the public sees the entire card and registry (same rows as staff), only the names of other lines blanked
+    expect(JSON.stringify(staff.tabs.registry)).toContain('Zed O. Other')
     expect(pub.tabs.card.rows.length).toBe(staff.tabs.card.rows.length)
     expect(pub.tabs.card.header.propertyNo).toBe('L-1')
     expect(pub.tabs.registry.rows.length).toBe(staff.tabs.registry.rows.length)
@@ -131,7 +128,7 @@ describe('public view (SEC-10, revised 2026-11-16 and 2026-11-18)', () => {
     expect(pub.tabs.registry.rows.filter((r: { issuedTo: string | null }) => r.issuedTo).length).toBe(1)
     const hl = new Set(pub.tabs.card.highlightRowIds)
     expect(pub.tabs.card.rows.filter((r: { id: string; officer: string | null }) => !hl.has(r.id) && (r.officer || (r as { officerFullName?: string }).officerFullName))).toEqual([])
-    expect(text).not.toMatch(/[0-9a-f]{8}-[0-9a-f]{4}-/) // still no UUID
+    expect(text).not.toMatch(/[0-9a-f]{8}-[0-9a-f]{4}-/)
     expect(ics.doc.id).toBeTruthy()
   })
 })

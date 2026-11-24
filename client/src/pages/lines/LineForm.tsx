@@ -30,7 +30,6 @@ type LineDto = {
   properties: { propertyNo: string; componentLabel: string | null; serialNo: string | null; oldPropertyNo: string | null; condition: Condition }[]
 }
 
-// form field behind each server-side line field name
 const FIELD: Record<string, keyof Values> = {
   propertyTypeId: 'typeId', article: 'article', unit: 'unit', qty: 'qty', unitCostCentavos: 'unitCost', description: 'description', estUsefulLifeYears: 'estUsefulLifeYears',
   dateAcquired: 'dateAcquired', iarNo: 'iarNo', iarDate: 'iarDate',
@@ -38,7 +37,6 @@ const FIELD: Record<string, keyof Values> = {
 const opt = (s: string) => (s.trim() ? s.trim() : undefined)
 const toCentavos = (s: string) => { try { return pesoToCentavos(s) } catch { return null } }
 
-// Correct one line of an ICS or PAR (/lines/:lineId/edit). New lines are entered on the issuance form (/issue).
 export default function LineForm() {
   const { lineId } = useParams()
   const navigate = useNavigate()
@@ -48,7 +46,7 @@ export default function LineForm() {
   const docId = lineQ.data?.documentId
   const docQ = useQuery({ queryKey: ['document', docId], enabled: !!docId, queryFn: () => api.get<DocDetail>(`/api/documents/${docId}`) })
   const doc = docQ.data
-  const signed = !!doc?.files.uploaded // a signed form's entries are locked (only the highlight box can change)
+  const signed = !!doc?.files.uploaded
 
   const form = useForm<Values>()
   const { register, control, watch, setError, formState: { errors } } = form
@@ -83,7 +81,6 @@ export default function LineForm() {
     mutationFn: async ({ body, propPatches = [] }: { body: object; propPatches?: { propertyNo: string; patch: object }[] }) => {
       type Res = { warning?: { message: string } }
       const res = await api.patch<Res>(`/api/lines/${lineId}`, body)
-      // serial / label / condition of properties that already existed go through the property endpoint
       for (const p of propPatches) await api.patch(`/api/properties/${encodeURIComponent(p.propertyNo)}`, p.patch)
       return res
     },
@@ -163,7 +160,6 @@ export default function LineForm() {
       <Label htmlFor={n}>{label}</Label>
       <Input id={n} aria-invalid={!!errors[n]} disabled={signed} {...register(n as 'qty')} {...props} />
       {err(n)}
-      {/* the native date picker follows the browser language; spell the chosen date out so a swapped day/month is caught */}
       {!errors[n] && props.type === 'date' && isIsoDate(String(v[n])) && <p className="text-xs text-muted-foreground">{formatLongDate(String(v[n]))}</p>}
     </div>
   )

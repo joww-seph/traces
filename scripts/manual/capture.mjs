@@ -1,6 +1,3 @@
-// Walks through TRACES like a new user and saves an annotated screenshot of every step.
-// Needs the demo servers (made-up data only): API on :3200 against traces_manual, client on :5373. See scripts/manual/README.md.
-//   node scripts/manual/capture.mjs  ->  docs/manual/shots/*.png + docs/manual/shots/steps.json
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { chromium } from '@playwright/test'
@@ -13,11 +10,10 @@ const ADMIN = { email: 'it@region1.dost.gov.ph', password: 'Manual-Admin-2026' }
 rmSync(OUT, { recursive: true, force: true })
 mkdirSync(OUT, { recursive: true })
 
-const slides = [] // { section, title, image, phone, steps: string[], note }
-const issues = [] // problems seen while crawling
+const slides = []
+const issues = []
 let count = 0
 
-// Draws numbered red boxes with arrows over the given elements (viewport coordinates).
 async function overlay(page, boxes, prefer) {
   await page.evaluate(([boxes, prefer]) => {
     document.getElementById('manual-overlay')?.remove()
@@ -42,20 +38,18 @@ async function overlay(page, boxes, prefer) {
       const box = document.createElement('div')
       box.style.cssText = `position:absolute;left:${r.x}px;top:${r.y}px;width:${r.w}px;height:${r.h}px;border:3px solid #E0102F;border-radius:6px;box-sizing:border-box`
       root.appendChild(box)
-      // the number goes where there is room: not on another box, not on another number, inside the screen
       const cy = r.y + Math.min(r.h / 2, 30), cx = r.x + Math.min(r.w / 2, 90)
       const left = [[r.x - 80, cy - 45], [r.x - 80, cy + 45], [r.x - 130, cy], [r.x - 190, cy - 20]]
       const right = [[r.x + r.w + 80, cy - 45], [r.x + r.w + 80, cy + 45], [r.x + r.w + 130, cy]]
       const above = [[cx - 50, r.y - 60], [cx + 50, r.y - 60]]
       const below = [[cx, r.y + r.h + 60], [cx + 70, r.y + r.h + 60], [cx - 70, r.y + r.h + 60]]
       const cands = prefer === 'right' ? [...right, ...below, ...above, ...left]
-        : r.y < 130 ? [...below, ...left, ...right, ...above] // near the top of the screen: point up from below
+        : r.y < 130 ? [...below, ...left, ...right, ...above]
           : [...left, ...above, ...right, ...below]
       const fits = ([px, py]) => px > 22 && px < W - 22 && py > 22 && py < H - 22
       const ok = (c) => fits(c) && rects.every((o) => !inside(c[0], c[1], o, 18)) && tails.every((t) => Math.hypot(t[0] - c[0], t[1] - c[1]) > 40)
       const [tx, ty] = cands.find(ok) ?? cands.find(fits) ?? [r.x + 20, r.y + 20]
       tails.push([tx, ty])
-      // the arrow points at the nearest point of the box edge
       const hx = Math.min(Math.max(tx, r.x), r.x + r.w), hy = Math.min(Math.max(ty, r.y), r.y + r.h)
       const d = Math.hypot(hx - tx, hy - ty) || 1
       const sx = tx + ((hx - tx) / d) * 17, sy = ty + ((hy - ty) / d) * 17
@@ -83,7 +77,6 @@ async function boxOf(page, loc) {
   return { x: b.x, y: b.y, w: b.width, h: b.height }
 }
 
-// One slide: marks[i] is the element for step i+1 (or null for a step without a mark).
 async function shot(page, { section, title, steps, marks = [], note, scrollTo, phone = false, prefer }) {
   if (scrollTo) {
     const l = typeof scrollTo === 'string' ? page.locator(scrollTo).first() : scrollTo.first()
@@ -91,7 +84,6 @@ async function shot(page, { section, title, steps, marks = [], note, scrollTo, p
     await page.evaluate(() => window.scrollBy({ top: -70, behavior: 'instant' }))
   }
   await page.waitForTimeout(500)
-  // wait until nothing moves any more (smooth scrolling, pages still drawing)
   let boxes = []
   for (let tries = 0; tries < 8; tries++) {
     const now = []
@@ -101,7 +93,6 @@ async function shot(page, { section, title, steps, marks = [], note, scrollTo, p
     if (same) break
     await page.waitForTimeout(300)
   }
-  // everything marked must be on screen: scroll down when the last mark is below the fold
   const H = page.viewportSize().height
   const bottom = Math.max(0, ...boxes.map((b) => b.y + b.h)), top = Math.min(H, ...boxes.map((b) => b.y))
   if (bottom > H - 20 && top > 60) {
@@ -132,7 +123,7 @@ async function login(page, who) {
   await page.locator('#email').fill(who.email)
   await page.locator('#password').fill(who.password)
   await page.getByRole('button', { name: 'Sign in' }).click()
-  await page.waitForURL((u) => !u.pathname.startsWith('/login')) // supply admins land on the dashboard, the IT officer on User accounts
+  await page.waitForURL((u) => !u.pathname.startsWith('/login'))
   await page.getByRole('main').getByRole('heading').first().waitFor()
 }
 
@@ -146,7 +137,6 @@ const S = {
   cards: 'Cards, registry and property', reports: 'Reports', stickers: 'QR stickers', scan: 'Scanning a sticker', admin: 'Administration', account: 'Your account',
 }
 
-// ───────────── Getting started ─────────────
 await page.goto(`${BASE}/login`)
 await page.locator('#email').fill(SUPPLY.email)
 await page.locator('#password').fill(SUPPLY.password)
@@ -188,13 +178,12 @@ await shot(page, {
   note: 'Officers, property types and office units are kept by the IT administrator. Ask them when a person or a unit is missing from a list.',
 })
 
-// ───────────── Lists kept by the IT administrator (officers, property types, office units) ─────────────
 const itCtx = await browser.newContext({ viewport: { width: 1440, height: 900 } })
 const it = await itCtx.newPage()
 watch(it, 'it')
 await login(it, ADMIN)
 {
-const page = it // the shots below are the IT administrator's screens
+const page = it
 await page.goto(`${BASE}/officers`)
 await shot(page, {
   section: S.officers, title: 'Officers: the people who issue and receive property',
@@ -252,7 +241,6 @@ await page.getByRole('cell', { name: 'SARAi', exact: true }).waitFor()
 }
 await itCtx.close()
 
-// ───────────── New issuance ─────────────
 await page.goto(`${BASE}/issue`)
 await shot(page, {
   section: S.issue, title: 'New issuance: the four parts of the form',
@@ -304,7 +292,6 @@ await shot(page, {
   marks: [row(1).getByLabel('Row 1, unit 1, property number'), row(1).getByLabel('Row 1, unit 1, serial number'), row(1).getByLabel('Row 1, unit 2, serial number')],
   scrollTo: row(1).getByText('Property numbers'),
 })
-// row 2: a semi-expendable set with parts
 await page.getByRole('button', { name: 'Add a row' }).click()
 await row(2).getByLabel('Row 2, property type', { exact: true }).selectOption({ label: 'ICT · Information and Communications Technology Equipment' })
 await row(2).getByLabel('Row 2, article', { exact: true }).fill('Desktop computer')
@@ -389,7 +376,6 @@ await shot(page, {
   note: 'Other messages you may see: "already used or repeated" (a property number is taken: type another), "Enter the ICS number" or "Enter 2 PAR number(s)" (part 4), "already exists" (that slip number was used before).',
 })
 
-// ───────────── ICS and PAR documents ─────────────
 await page.goto(`${BASE}/documents`)
 await shot(page, {
   section: S.docs, title: 'ICS and PAR: the list of slips',
@@ -418,7 +404,6 @@ await shot(page, {
   ],
   marks: [page.getByText('Generated, unsigned').first(), page.getByRole('link', { name: 'Print generated' }), page.getByRole('button', { name: 'Upload signed copy' }), page.locator('canvas').first(), page.locator('.ag-root-wrapper').first()],
 })
-// use the generated PDF itself as the "signed scan"
 const pdf = await page.request.get(`${BASE}/api/documents/${parId}/pdf?kind=generated`)
 const scanFile = path.join(OUT, 'signed-scan.pdf')
 writeFileSync(scanFile, await pdf.body())
@@ -459,7 +444,6 @@ await shot(page, {
   scrollTo: page.getByRole('heading', { name: 'History' }),
 })
 
-// the ICS: edit a row, add rows
 await page.goto(`${BASE}/documents`)
 await page.getByRole('link', { name: icsNo }).click()
 await page.getByText('Page 1 of 1').waitFor()
@@ -484,7 +468,6 @@ await shot(page, {
   marks: [page.getByRole('link', { name: 'Add lines' }), page.getByRole('button', { name: 'Regenerate' })],
 })
 
-// ───────────── Cards, registry, property ─────────────
 const reg = await (await page.request.get(`${BASE}/api/views/registry?category=ppe`)).json()
 const laptopNo = reg.find((r) => r.reference === `PAR ${firstPar}`).propertyNos[0]
 await page.goto(`${BASE}/cards`)
@@ -513,7 +496,7 @@ await shot(page, {
 })
 await page.goto(`${BASE}/properties/${encodeURIComponent(laptopNo)}`)
 await page.getByRole('tab', { name: 'ICS/PAR' }).waitFor()
-await page.waitForTimeout(2500) // the page scrolls itself to the highlighted row once the PDF is drawn
+await page.waitForTimeout(2500)
 await shot(page, {
   section: S.cards, title: 'One property and everything about it',
   steps: ['The link inside its QR sticker.', 'Print sticker prints this one sticker.', 'Replace QR code: use when a sticker is lost or damaged. The old sticker then says "replaced".', 'Serial number, old property number and condition can be changed here.', 'The four forms this property appears on.'],
@@ -527,7 +510,6 @@ await shot(page, {
   marks: [page.getByRole('tab', { name: 'ICS/PAR' }), page.getByRole('tab', { name: 'Report' }), page.getByRole('tab', { name: 'Registry' }), page.getByRole('tab', { name: 'Card' })],
 })
 
-// ───────────── Reports ─────────────
 await page.goto(`${BASE}/reports`)
 await page.locator('#r-officer').fill('SARAi')
 await page.getByRole('listbox', { name: 'Officers' }).getByRole('option').first().click()
@@ -559,7 +541,6 @@ await shot(page, {
   note: 'A slip with no PDF yet is named above the list and left out of the file.',
 })
 
-// ───────────── Stickers ─────────────
 await page.goto(`${BASE}/stickers`)
 await page.getByLabel('Find a document by number').fill(firstPar)
 await page.waitForTimeout(600)
@@ -577,7 +558,6 @@ await shot(page, {
   marks: [page.getByRole('alert'), page.getByRole('radiogroup', { name: 'Sticker size' }), page.getByText('Copies per property number'), page.getByRole('button', { name: 'Print' })],
 })
 
-// ───────────── Scanning (phone) ─────────────
 const view = await (await page.request.get(`${BASE}/api/properties/${laptopNo}/view`)).json()
 const phone = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true })
 const mob = await phone.newPage()
@@ -606,7 +586,6 @@ await shot(mob, {
 })
 await phone.close()
 
-// ───────────── Administration (superadmin) ─────────────
 await page.getByRole('button', { name: 'Log out' }).click()
 await login(page, ADMIN)
 await page.goto(`${BASE}/admin/users`)
@@ -624,7 +603,7 @@ await shot(page, {
 })
 await page.getByRole('dialog').getByRole('button', { name: 'Add user' }).click()
 await page.getByRole('dialog').getByLabel('Temporary password').waitFor()
-await page.getByRole('dialog').getByLabel('Temporary password').evaluate((el) => { el.value = '•••••• (shown once)'; el.type = 'text' }) // never print a real password in the manual
+await page.getByRole('dialog').getByLabel('Temporary password').evaluate((el) => { el.value = '•••••• (shown once)'; el.type = 'text' })
 await shot(page, {
   section: S.admin, title: 'The temporary password is shown only once',
   steps: ['Copy the temporary password and give it to the person privately. It is not shown again.', 'Click Done. At first sign-in they must choose their own password.'],
@@ -645,7 +624,6 @@ await shot(page, {
   marks: [page.getByLabel('Record type'), page.getByRole('row').nth(1), page.getByRole('button', { name: 'Hide' }).first()],
 })
 
-// ───────────── Your account ─────────────
 await page.goto(`${BASE}/account/password`)
 await shot(page, {
   section: S.account, title: 'Changing your password and signing out',

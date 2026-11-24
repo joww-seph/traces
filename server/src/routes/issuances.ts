@@ -5,7 +5,6 @@ import { validate } from '../middleware/validate.js'
 import { createIssuance } from '../services/issuances.js'
 import { ctx } from './ctx.js'
 
-// The one way to enter data: card -> registry -> report -> ICS/PAR, saved together.
 export function issuancesRouter() {
   const r = Router()
   r.use('/issuances', requireRole('supply_admin'))

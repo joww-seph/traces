@@ -4,10 +4,6 @@ import { officerDesignations, officers } from '../db/schema.js'
 import { shortNameOf, spellOutPosition, titleCaseName } from '@traces/shared'
 import { audit } from './audit.js'
 
-// Columns: full_name, short_name, position, office, designations (" | " separated), note.
-// Upserts by lower(short_name), so running it again (or over dev officers) updates instead of duplicating.
-
-// RFC 4180: quoted fields may hold commas, newlines and doubled quotes.
 export function parseCsv(text: string): string[][] {
   const rows: string[][] = []
   let row: string[] = []
@@ -43,7 +39,6 @@ export async function seedOfficers(csv: string) {
 
   await db.transaction(async (tx) => {
     for (const r of data) {
-      // names typed in capitals are written with capital initials; the short name is made from the name, like in the app
       const fullName = titleCaseName(r[iFull])
       const shortName = shortNameOf(fullName) || r[iShort].trim()
       const values = { fullName, shortName, position: spellOutPosition(r[iPos].trim()), office: (r[iOffice] ?? '').trim(), canReceive: true, active: true }

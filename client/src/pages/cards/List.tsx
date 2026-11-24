@@ -17,9 +17,8 @@ type CardRow = {
   id: string; propertyNo: string; serialNo: string | null; category: 'semi' | 'ppe'; article: string; description: string; unit: string
   propertyTypeCode: string; documentId: string; docType: 'ICS' | 'PAR'; docNo: string; issuedDate: string; holder: string | null
 }
-const PAGE = 20 // rows per page (decision 2026-11-18)
+const PAGE = 20
 
-// One card per property (decision 2026-11-18). Search by property number, serial, description or who holds it.
 export default function Cards() {
   const navigate = useNavigate()
   const { data: types = [] } = usePropertyTypes()

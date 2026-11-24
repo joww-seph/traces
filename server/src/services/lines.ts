@@ -15,7 +15,6 @@ type PropertyInput = LineInput['properties'][number]
 type Region = NonNullable<LineInput['region']>
 export type Doc = typeof documents.$inferSelect
 
-// BR-11: a token primary-key collision retries the whole transaction (max 3 attempts).
 export async function withTokenRetry<T>(fn: () => Promise<T>): Promise<T> {
   for (let attempt = 1; ; attempt++) {
     try { return await fn() } catch (e) {
@@ -32,7 +31,6 @@ const duplicateError = (duplicates: DuplicateNo[]) =>
     duplicates.length === 1 ? `Property number ${duplicates[0].propertyNo} already exists` : `${duplicates.length} property numbers already exist or repeat`,
     { propertyNo: duplicates[0].propertyNo, duplicates })
 
-// Backstop for a race: 409 naming the number as the user typed it (the DB reports it upper-cased).
 function rethrowDuplicateProperty(e: unknown, submitted: PropertyInput[]): never {
   const pg = pgErrorOf(e)
   if (pg?.code === '23505' && pg.constraint === 'properties_property_no_uq') {
@@ -43,8 +41,6 @@ function rethrowDuplicateProperty(e: unknown, submitted: PropertyInput[]): never
   throw e
 }
 
-// BR-14: before anything is written, find every property number that repeats inside the submission
-// or already exists. `rows[i]` is the list of numbers of row i. Throws one 409 listing all of them.
 export async function assertNoDuplicateNumbers(tx: Tx, rows: PropertyInput[][]) {
   const all = rows.flatMap((props, rowIndex) => props.map((p) => ({ rowIndex, propertyNo: p.propertyNo, key: p.propertyNo.toUpperCase() })))
   const seen = new Map<string, number>()
@@ -61,7 +57,6 @@ export async function assertNoDuplicateNumbers(tx: Tx, rows: PropertyInput[][]) 
 
 const warn = (code: string, message: string) => ({ code, message })
 
-// BR-01: ICS is for semi-expendable, PAR for PPE. A mismatch is a warning, never a block.
 function mismatchWarning(docType: Doc['type'], category: 'semi' | 'ppe', thresholdCentavos: number) {
   if ((docType === 'ICS') === (category === 'semi')) return undefined
   return warn('DOC_TYPE_MISMATCH', docType === 'ICS'
@@ -81,7 +76,6 @@ const lockLiveLine = async (tx: Tx, id: string) => {
   return line
 }
 
-// numeric columns come back as strings; the API exposes fractions as numbers
 export const regionOut = (r: typeof linePdfRegions.$inferSelect | undefined | null) =>
   r ? { page: r.page, x: Number(r.x), y: Number(r.y), w: Number(r.w), h: Number(r.h) } : null
 
@@ -102,12 +96,9 @@ export async function getLine(lineId: string) {
   }
 }
 
-// a box drawn by hand sits on the uploaded (signed) copy; boxes of the generated copy come from the layout
 export const regionValues = (lineId: string, r: Region, kind: 'generated' | 'uploaded' = 'uploaded') =>
   ({ lineId, kind, page: r.page, x: String(r.x), y: String(r.y), w: String(r.w), h: String(r.h) })
 
-// One token + RECEIPT and ISSUE movements per property (BR-04). Both carry the document date: the card's date is the
-// ICS/PAR date issued, like the registry's (decision 2026-11-18); the date acquired stays on the line for the RPC.
 async function insertProperties(tx: Tx, line: typeof lines.$inferSelect, doc: Doc, props: PropertyInput[]) {
   const rows = await tx.insert(properties).values(props.map((p) => ({
     propertyNo: p.propertyNo, lineId: line.id, serialNo: p.serialNo, oldPropertyNo: p.oldPropertyNo, componentLabel: p.componentLabel, condition: p.condition,
@@ -126,7 +117,6 @@ async function insertProperties(tx: Tx, line: typeof lines.$inferSelect, doc: Do
   return rows
 }
 
-// A row with parts has one main unit (its card lists them); a PAR holds one property (decision 2026-11-18).
 async function assertUnits(tx: Tx, doc: Doc, lineId: string) {
   const onLine = await tx.select({ c: properties.componentLabel }).from(properties).where(and(eq(properties.lineId, lineId), isNull(properties.voidedAt)))
   if (onLine.some((p) => p.c) && onLine.filter((p) => !p.c).length !== 1) {
@@ -139,7 +129,6 @@ async function assertUnits(tx: Tx, doc: Doc, lineId: string) {
   if (mains > 1) throw new AppError('PAR_ONE_PROPERTY', 400, 'A PAR holds one property (with its parts); give each unit its own PAR')
 }
 
-// The shared core of createLine and createLinesBatch. The caller holds the document lock and the transaction.
 export async function insertLineTx(
   tx: Tx, doc: Doc, input: LineInput, o: { lineNo: number; thresholdCentavos: number; ctx: Ctx },
 ) {
@@ -159,7 +148,7 @@ const nextLineNo = async (tx: Tx, docId: string) =>
 export async function createLine(docId: string, input: LineInput, ctx: Ctx) {
   try {
     return await withTokenRetry(() => db.transaction(async (tx) => {
-      const doc = await lockLiveDocument(tx, docId) // also serialises line_no allocation
+      const doc = await lockLiveDocument(tx, docId)
       await assertNotSigned(tx, docId)
       const s = await getSettings(tx)
       await assertNoDuplicateNumbers(tx, [input.properties])
@@ -169,8 +158,6 @@ export async function createLine(docId: string, input: LineInput, ctx: Ctx) {
   } catch (e) { rethrowDuplicateProperty(e, input.properties) }
 }
 
-// Adds rows to a document in one transaction: any row's failure rolls back all of them.
-// Errors that belong to a row carry its index in details.rowIndex.
 export async function createLinesBatch(docId: string, rows: LineInput[], ctx: Ctx) {
   try {
     return await withTokenRetry(() => db.transaction(async (tx) => {
@@ -193,12 +180,10 @@ export async function createLinesBatch(docId: string, rows: LineInput[], ctx: Ct
   } catch (e) { rethrowDuplicateProperty(e, rows.flatMap((r) => r.properties)) }
 }
 
-// Moves a line to position `target`, renumbering the document's lines (soft-deleted ones keep a slot).
 async function reorder(tx: Tx, docId: string, lineId: string, target: number) {
   const ids = (await tx.select({ id: lines.id }).from(lines).where(eq(lines.documentId, docId)).orderBy(asc(lines.lineNo)))
     .map((l) => l.id).filter((id) => id !== lineId)
   ids.splice(Math.min(Math.max(target, 1), ids.length + 1) - 1, 0, lineId)
-  // park everything above the old range first: (document_id, line_no) is unique and not deferrable
   await tx.update(lines).set({ lineNo: sql`${lines.lineNo} + 1000000` }).where(eq(lines.documentId, docId))
   for (const [i, id] of ids.entries()) await tx.update(lines).set({ lineNo: i + 1 }).where(eq(lines.id, id))
 }
@@ -209,19 +194,17 @@ export async function updateLine(lineId: string, patch: z.infer<typeof linePatch
     return await withTokenRetry(() => db.transaction(async (tx) => {
       const before = await lockLiveLine(tx, lineId)
       const doc = await lockLiveDocument(tx, before.documentId)
-      if (patch.line || patch.addProperties?.length || patch.removePropertyNos?.length) await assertNotSigned(tx, doc.id) // boxes stay editable
+      if (patch.line || patch.addProperties?.length || patch.removePropertyNos?.length) await assertNotSigned(tx, doc.id)
       const s = await getSettings(tx)
       const { lineNo, ...fields } = patch.line ?? {}
       const category = before.category
 
-      // category is frozen at creation (BR-01); a cost edit across the threshold only warns
       let warning
       if (fields.unitCostCentavos !== undefined && categorize(fields.unitCostCentavos, s.ppeThresholdCentavos) !== category) {
         warning = warn('CATEGORY_UNCHANGED',
           `The new cost is on the other side of the ${formatPeso(s.ppeThresholdCentavos)} threshold, but the category stays ${category.toUpperCase()}.`)
       }
       if (Object.keys(fields).length) await tx.update(lines).set(fields).where(eq(lines.id, lineId))
-      // the RECEIPT movements carry the IAR number: keep them in step with the line
       if ('iarNo' in fields) {
         const cur = (await tx.select().from(lines).where(eq(lines.id, lineId)))[0]
         await tx.update(movements).set({
@@ -233,7 +216,6 @@ export async function updateLine(lineId: string, patch: z.infer<typeof linePatch
       if (patch.region === null) await tx.delete(linePdfRegions).where(and(eq(linePdfRegions.lineId, lineId), eq(linePdfRegions.kind, 'uploaded')))
       else if (patch.region) await upsertRegion(tx, lineId, patch.region, 'uploaded')
 
-      // removal voids the property and revokes its token; nothing is hard-deleted (BR-05)
       for (const no of patch.removePropertyNos ?? []) {
         const p = (await tx.select().from(properties).where(and(
           eq(properties.lineId, lineId), isNull(properties.voidedAt), sql`upper(${properties.propertyNo}) = ${no.toUpperCase()}`,
@@ -268,7 +250,6 @@ export async function upsertRegion(tx: Tx, lineId: string, r: Region, kind: 'gen
   await tx.insert(linePdfRegions).values(v).onConflictDoUpdate({ target: [linePdfRegions.lineId, linePdfRegions.kind], set: v })
 }
 
-// PUT /api/lines/:id/region: a box on one kind of PDF. Allowed on signed documents: it never changes the entries.
 export async function setRegion(lineId: string, kind: 'generated' | 'uploaded', r: Region, ctx: Ctx) {
   await db.transaction(async (tx) => {
     await lockLiveLine(tx, lineId)

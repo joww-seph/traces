@@ -1,4 +1,3 @@
-// Thin fetch wrapper. Same origin, so the traces.sid cookie rides along and there is no CORS.
 export class ApiError extends Error {
   status: number
   code: string
@@ -11,13 +10,12 @@ export class ApiError extends Error {
   }
 }
 
-// These two 401s are expected and handled by the caller (login failure, "not logged in yet").
 const QUIET_401 = ['/api/auth/login', '/api/me']
 
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
   const headers: Record<string, string> = {}
   let payload: BodyInit | undefined
-  if (body instanceof FormData) payload = body // browser sets the multipart boundary
+  if (body instanceof FormData) payload = body
   else if (body !== undefined) {
     headers['Content-Type'] = 'application/json'
     payload = JSON.stringify(body)
@@ -26,7 +24,7 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
 
   if (!res.ok) {
     const err = (await res.json().catch(() => null))?.error
-    if (res.status === 401 && !QUIET_401.includes(path) && location.pathname !== '/login' && !location.pathname.startsWith('/q/')) location.assign('/login') // the public scan page never sends anyone to the login
+    if (res.status === 401 && !QUIET_401.includes(path) && location.pathname !== '/login' && !location.pathname.startsWith('/q/')) location.assign('/login')
     throw new ApiError(res.status, err?.code ?? 'ERROR', err?.message ?? res.statusText, err?.details)
   }
   return (res.status === 204 ? undefined : await res.json()) as T

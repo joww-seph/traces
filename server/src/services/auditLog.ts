@@ -6,7 +6,6 @@ const PAGE = 50
 
 export type AuditFilter = { entity?: string; actorId?: string; from?: string; to?: string; before?: number }
 
-// Keyset pagination: the next page is "ids below the last one shown", stable while new rows arrive.
 export async function listAudit(f: AuditFilter) {
   const rows = await db.select({
     id: auditLogs.id, at: auditLogs.at, action: auditLogs.action, entity: auditLogs.entity, entityId: auditLogs.entityId,

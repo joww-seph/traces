@@ -94,13 +94,12 @@ describe('GET /api/public/q/:token', () => {
     const { agent, token, lineId, doc } = await seed()
     const a = await token('L-1')
     const b = await token('L-1a')
-    await agent.patch(`/api/lines/${lineId}`).send({ removePropertyNos: ['L-1a'] }) // voids the property and revokes its token
+    await agent.patch(`/api/lines/${lineId}`).send({ removePropertyNos: ['L-1a'] })
     expect((await anon().get(`/api/public/q/${b}`)).status).toBe(410)
     await agent.delete(`/api/lines/${lineId}`)
     const line = await anon().get(`/api/public/q/${a}`)
     expect(line.status).toBe(410)
     expect(line.body.error.code).toBe('ITEM_REMOVED')
-    // document removal on a fresh item
     const second = await agent.post(`/api/documents/${doc.id}/lines`).send({
       line: { ...ITEM, qty: 1, unitCostCentavos: 100000, description: 'Y', dateAcquired: '2026-02-01' }, properties: [{ propertyNo: 'X-1' }],
     })
@@ -142,7 +141,7 @@ describe('which PDF the QR page shows (update 02 V-05)', () => {
   it('only a generated copy: shown as unsigned, with the generated box', async () => {
     const { lineId, doc, token } = await seed()
     await put(doc.id, 'generated')
-    await testPool.query(`UPDATE line_pdf_regions SET kind = 'generated' WHERE line_id = $1`, [lineId]) // the box in the seed becomes the generated box
+    await testPool.query(`UPDATE line_pdf_regions SET kind = 'generated' WHERE line_id = $1`, [lineId])
     const res = await anon().get(`/api/public/q/${await token('L-1')}`)
     expect(res.body.document).toMatchObject({ signed: false, pdfRegion: { page: 1, x: 0.1 } })
     expect(res.body.document.pdfUrl).toMatch(/\/pdf$/)
@@ -154,7 +153,7 @@ describe('which PDF the QR page shows (update 02 V-05)', () => {
     await testPool.query(`INSERT INTO line_pdf_regions (line_id, kind, page, x, y, w, h) VALUES ($1,'generated',2,0.3,0.3,0.4,0.1)`, [lineId])
     await signDocument(agent, doc.id)
     const res = await anon().get(`/api/public/q/${await token('L-1')}`)
-    expect(res.body.document).toMatchObject({ signed: true, pdfRegion: { page: 1, x: 0.1 } }) // the uploaded box, not the generated one
+    expect(res.body.document).toMatchObject({ signed: true, pdfRegion: { page: 1, x: 0.1 } })
   })
 })
 

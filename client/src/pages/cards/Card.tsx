@@ -20,8 +20,6 @@ type CardView = {
   rows: CardRow[]
 }
 
-// The card of one property (decision 2026-11-18): SPC for semi-expendable, PC for PPE. Its issuance is the first row;
-// the Remarks of each row can be typed here (for later transfers).
 export default function Card() {
   const { propertyId = '' } = useParams()
   const qc = useQueryClient()

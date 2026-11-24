@@ -3,18 +3,6 @@
 @import "./shadcn.css";
 @import "@fontsource-variable/montserrat/wght.css";
 
-/*
- * TRACES design tokens.
- * Palette is taken from the brand assets: the posterised DOST Ilocos building (sky, building blue),
- * the TRACES logo frame (navy) and the DOST mark (cyan).
- *   ink     #16263A  text
- *   paper   #F4F7FA  app background
- *   sky     #BBCCD9  illustration sky, quiet fills
- *   ilocos  #1D4B70  sidebar (shadow side of the building blue #2D6C98)
- *   navy    #004AAD  primary actions (TRACES frame)
- *   cyan    #00AEEF  location markers, focus (DOST mark)
- * Type: Montserrat throughout (free stand-in for Gotham). Medium weight for text, bold and extra-bold for headings.
- */
 @theme inline {
     --font-sans: 'Montserrat Variable', ui-sans-serif, system-ui, sans-serif;
     --font-heading: var(--font-sans);
@@ -113,8 +101,8 @@
     }
     body {
         @apply bg-background text-foreground;
-        font-weight: 500; /* Medium is the base weight, as with Gotham Medium */
-        overflow-wrap: break-word; /* a long name, number or address wraps instead of running out of its box */
+        font-weight: 500;
+        overflow-wrap: break-word;
     }
     h1, h2, h3 {
         font-family: var(--font-heading);
@@ -125,7 +113,6 @@
 }
 
 @layer utilities {
-    /* figures that should line up in columns (money, quantities, property numbers) */
     .figures {
         font-variant-numeric: tabular-nums;
     }
@@ -143,12 +130,10 @@
     }
 }
 
-/* FormGrid: the row a QR scan / link points at */
 .traces-highlight {
     background-color: #fde68a !important;
 }
 
-/* FormGrid: keep line breaks (ICS spec lists, stacked property numbers); AG Grid's wrap-text sets white-space: normal */
 .ag-cell.traces-pre {
     white-space: pre-line !important;
     line-height: 1.45 !important;
@@ -156,7 +141,6 @@
     padding-bottom: 10px;
 }
 
-/* QR sticker sheets (design §12): cells are real millimetres so a 100% print lands on the paper */
 .sticker-sheet {
     display: grid;
     gap: 3mm;
@@ -190,7 +174,6 @@
     .sticker-sheet { background: none; }
 }
 
-/* Count grid: cells staff can type into */
 .ag-cell.traces-editable {
     background-color: #f1f6fd;
     cursor: text;

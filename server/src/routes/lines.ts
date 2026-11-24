@@ -17,7 +17,6 @@ export function linesRouter() {
   r.get('/lines/:id', async (req, res) => res.json(await getLine(uuid.parse(req.params.id))))
   r.patch('/lines/:id', validate(linePatch), async (req, res) =>
     res.json(await updateLine(uuid.parse(req.params.id), req.body, ctx(req))))
-  // a highlight box on the generated or the uploaded PDF; allowed even when the form is signed
   r.put('/lines/:id/region', validate(z.object({ kind: z.enum(['generated', 'uploaded']) }).and(pdfRegion)), async (req, res) => {
     const { kind, ...region } = req.body
     res.json(await setRegion(uuid.parse(req.params.id), kind, region, ctx(req)))

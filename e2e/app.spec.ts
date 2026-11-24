@@ -16,8 +16,6 @@ const DESC = 'Description (model and specifications, as printed)'
 const ICT = 'ICT · Information and Communications Technology Equipment'
 const FF = 'FF · Furniture and Fixtures'
 
-// Fills one row of the issuance form with a new card.
-// the row's item: type, article, unit and the one description (model and specifications); every unit gets its own card
 async function fillRow(page: Page, n: number, r: { type: string; article: string; unit: string; description: string; cost: string; date: string }) {
   const row = page.getByRole('group', { name: `Row ${n}` })
   await row.getByLabel(`Row ${n}, property type`, { exact: true }).selectOption({ label: r.type })
@@ -42,7 +40,7 @@ test.describe('sign in', () => {
     await page.getByRole('button', { name: 'Sign in' }).click()
     await expect(page.getByRole('alert')).toHaveText('Invalid email or password')
     await login(page)
-    await expect(page.getByText('User accounts')).toHaveCount(0) // supply admin sees no administration menu
+    await expect(page.getByText('User accounts')).toHaveCount(0)
   })
 
   test('protected pages send a signed-out visitor to the login page', async ({ page }) => {
@@ -62,7 +60,7 @@ test.describe('sign in', () => {
 
 test.describe('records flow', () => {
   test('officers: the short name is made from the name, a clash gets a number', async ({ page }) => {
-    await login(page, E2E.superadmin) // the IT officer keeps the officer list
+    await login(page, E2E.superadmin)
     await addOfficer(page, 'JUAN DELA CRUZ', 'Administrative Officer V')
     await expect(page.getByRole('row', { name: /Juan Dela Cruz/ })).toContainText('JDelaCruz')
     await addOfficer(page, 'Maria Santos', 'ARD for Field Operations')
@@ -83,7 +81,6 @@ test.describe('records flow', () => {
     await page.goto('/issue')
     await expect(page.getByRole('heading', { name: '1. Property card' })).toBeVisible()
 
-    // row 1: a PPE laptop set with two parts; the numbers are suggested from the type and the date acquired
     const r1 = await fillRow(page, 1, { type: ICT, article: 'Laptop', unit: 'set', description: 'Laptop Unit, MSI Katana\nSpecification:\n- Memory: 16GB', cost: '96,450.00', date: '2026-05-01' })
     await expect(r1.getByText('PPE · PC · PAR')).toBeVisible()
     await r1.getByRole('button', { name: 'Add component' }).click()
@@ -95,23 +92,20 @@ test.describe('records flow', () => {
     await expect(r1.getByLabel('Row 1, component 2, property number')).toHaveAttribute('placeholder', '2026-05ICT-0001b')
     await r1.getByLabel('Row 1, unit 1, serial number').fill('K2507N0078345')
 
-    // row 2: a semi-expendable chair; the second ICT row of the same date would continue at 0002
     await page.getByRole('button', { name: 'Add a row' }).click()
     const r2 = await fillRow(page, 2, { type: FF, article: 'Office chair', unit: 'unit', description: 'Ergonomic office chair, mesh back', cost: '4,500.00', date: '2026-05-01' })
     await expect(r2.getByText('Semi-expendable · SPC · ICS')).toBeVisible()
     await expect(r2.getByLabel('Row 2, unit 1, property number')).toHaveAttribute('placeholder', '2026-05FF-0001')
 
-    // section 3 previews the report rows
     await expect(page.getByRole('cell', { name: 'RPCPPE' })).toBeVisible()
     await expect(page.getByRole('cell', { name: 'RPCSP' })).toBeVisible()
 
-    // section 2 and 4
     await chooseHeader(page)
     await page.locator('#date').fill('2026-05-12')
     await page.locator('#purpose').fill('ICT equipment for SARAi staff operations')
     await expect(page.locator('#issuerPos')).toHaveValue('Administrative Officer V')
     await expect(page.getByTestId('summary')).toHaveText('This creates 1 ICS (1 row) and 1 PAR (one per PPE unit).')
-    await expect(r2.getByLabel('Row 2, unit 1, serial number')).toHaveValue('N/A') // no serial unless one is typed
+    await expect(r2.getByLabel('Row 2, unit 1, serial number')).toHaveValue('N/A')
     await page.locator('#icsNo').fill('2026-03SARAi-005')
     await page.locator('#parNo-0').fill('2025-RO-68')
     await page.getByRole('button', { name: 'Save and generate ICS/PAR' }).click()
@@ -122,8 +116,7 @@ test.describe('records flow', () => {
     await expect(page.getByRole('link', { name: 'Print' })).toHaveCount(2)
     await expect(page.getByText('could not be generated')).toHaveCount(0)
 
-    // the saved rows never come back: leaving and opening the form again shows an empty form, no restored draft
-    await page.waitForTimeout(800) // longer than the draft's save delay
+    await page.waitForTimeout(800)
     await page.goto('/documents')
     await page.goto('/issue')
     await expect(page.getByText('restored from this computer')).toHaveCount(0)
@@ -142,7 +135,7 @@ test.describe('records flow', () => {
     for (const name of ['Print generated', 'Regenerate', 'Upload signed copy', 'Adjust highlights', 'Print stickers']) {
       await expect(page.getByRole('link', { name }).or(page.getByRole('button', { name }))).toBeVisible()
     }
-    await expect(page.getByRole('button', { name: 'Remove signed copy' })).toHaveCount(0) // nothing signed yet
+    await expect(page.getByRole('button', { name: 'Remove signed copy' })).toHaveCount(0)
     await expect(page.getByRole('gridcell', { name: /Ergonomic office chair/ })).toBeVisible()
   })
 
@@ -150,7 +143,7 @@ test.describe('records flow', () => {
     await login(page)
     await page.goto('/documents')
     await page.getByLabel('Signed copy').selectOption('unsigned')
-    await expect(page.getByRole('row')).toHaveCount(3) // header + 2
+    await expect(page.getByRole('row')).toHaveCount(3)
     await page.getByLabel('Signed copy').selectOption('signed')
     await expect(page.getByText('No documents match')).toBeVisible()
   })
@@ -159,7 +152,7 @@ test.describe('records flow', () => {
     await login(page)
     await page.goto('/issue')
     const row = await fillRow(page, 1, { type: ICT, article: 'Docking station', unit: 'unit', description: 'Docking station', cost: '9,000.00', date: '2026-05-04' })
-    await expect(row.getByLabel('Row 1, unit 1, property number')).toHaveAttribute('placeholder', '2026-05ICT-0002') // 0001 is the laptop saved above
+    await expect(row.getByLabel('Row 1, unit 1, property number')).toHaveAttribute('placeholder', '2026-05ICT-0002')
     await row.getByLabel('Row 1, number of copies').fill('3')
     await row.getByRole('button', { name: 'Make copies' }).click()
     for (const [n, no] of [[2, '0003'], [3, '0004'], [4, '0005']] as const) {
@@ -173,7 +166,7 @@ test.describe('records flow', () => {
   })
 
   test('the ICS number is suggested from the unit; a number already on file cannot be used twice, and a missing number is asked for', async ({ page, browser }) => {
-    const it = await browser.newContext() // the IT officer adds the unit on the Office units page
+    const it = await browser.newContext()
     const itPage = await it.newPage()
     await login(itPage, E2E.superadmin)
     await itPage.goto('/units')
@@ -189,9 +182,9 @@ test.describe('records flow', () => {
     await chooseHeader(page)
     await page.getByLabel('Date issued').fill('2026-05-12')
     await page.getByLabel('Office unit').selectOption('ADM')
-    await expect(page.locator('#icsNo')).toHaveValue('2026-05ADM-001') // YYYY-MM{UNIT}-NNN for the issue date
+    await expect(page.locator('#icsNo')).toHaveValue('2026-05ADM-001')
     await page.locator('#icsNo').fill('')
-    await page.getByRole('button', { name: 'Save and generate ICS/PAR' }).click() // no ICS number
+    await page.getByRole('button', { name: 'Save and generate ICS/PAR' }).click()
     await expect(page.getByText(/Enter the ICS number/).first()).toBeVisible()
     await page.locator('#icsNo').fill('2026-03SARAi-005')
     await page.getByRole('button', { name: 'Save and generate ICS/PAR' }).click()
@@ -202,7 +195,7 @@ test.describe('records flow', () => {
     await login(page)
     await page.goto('/issue')
     const row = await fillRow(page, 1, { type: FF, article: 'Steel cabinet', unit: 'unit', description: 'Steel cabinet', cost: '8,800.00', date: '2026-05-02' })
-    await row.getByLabel('Row 1, unit 1, property number').fill('2026-05ICT-0001') // already used by the laptop
+    await row.getByLabel('Row 1, unit 1, property number').fill('2026-05ICT-0001')
     await chooseHeader(page)
     await page.locator('#icsNo').fill('2026-05TEST-002')
     await page.getByRole('button', { name: 'Save, I\'ll upload the PDF' }).click()
@@ -222,13 +215,11 @@ test.describe('records flow', () => {
     await expect(page.getByText('Your unsaved entry was restored')).toBeVisible()
     await expect(page.locator('#desc-0')).toHaveValue('Typed but not saved')
     await page.getByRole('button', { name: 'Discard draft' }).click()
-    // the rows and the header are new again, the banner and the button are gone
     await expect(page.locator('#desc-0')).toHaveValue('')
     await expect(page.locator('#purpose')).toHaveValue('')
     await expect(page.locator('#rcv')).toHaveValue('')
     await expect(page.getByText('Your unsaved entry was restored')).toHaveCount(0)
     await expect(page.getByRole('button', { name: 'Discard draft' })).toHaveCount(0)
-    // and nothing comes back after the autosave delay or a reload
     await page.waitForTimeout(900)
     await page.reload()
     await expect(page.getByText('Your unsaved entry was restored')).toHaveCount(0)
@@ -243,11 +234,10 @@ test.describe('records flow', () => {
     await page.locator('#icsNo').fill('2026-05OLD-001')
     await page.getByRole('button', { name: 'Save, I\'ll upload the PDF' }).click()
     await expect(page.getByRole('heading', { name: 'Saved' })).toBeVisible()
-    await expect(page.getByRole('link', { name: 'Print' })).toHaveCount(0) // nothing was generated
+    await expect(page.getByRole('link', { name: 'Print' })).toHaveCount(0)
     await page.getByRole('link', { name: 'Open' }).click()
     await expect(page.getByText('No PDF').first()).toBeVisible()
 
-    // add rows to the same form in a second sitting
     await page.getByRole('link', { name: 'Add lines' }).click()
     await expect(page.getByRole('heading', { name: /Add rows to ICS 2026-05OLD-001/ })).toBeVisible()
     await fillRow(page, 1, { type: FF, article: 'Steel cabinet', unit: 'unit', description: 'Steel cabinet, second unit', cost: '8,800.00', date: '2026-05-02' })

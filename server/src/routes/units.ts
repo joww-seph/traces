@@ -8,7 +8,7 @@ import { ctx } from './ctx.js'
 export function unitsRouter() {
   const r = Router()
   r.use('/units', requireRole('supply_admin', 'superadmin'))
-  const itOfficer = requireRole('superadmin') // the IT officer keeps this list; supply admins only read it
+  const itOfficer = requireRole('superadmin')
   r.get('/units', async (_req, res) => res.json(await listUnits()))
   r.post('/units', ...itOfficer, validate(unitInput), async (req, res) => res.status(201).json(await createUnit(req.body, ctx(req))))
   r.patch('/units/:code', ...itOfficer, validate(unitPatch), async (req, res) => res.json(await updateUnit(unitCode.parse(req.params.code), req.body, ctx(req))))

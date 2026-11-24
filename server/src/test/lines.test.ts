@@ -57,7 +57,6 @@ describe('create line (BR-04)', () => {
     expect(Number(reg[0].amount_centavos)).toBe(9645000)
     expect(reg[0].property_nos).toBe('2026-09ICT-0199\n2026-09ICT-0199a\n2026-09ICT-0199b')
 
-    // receipt and issue both on the document date (the card's date, decision 2026-11-18), issued to the receiving officer
     const mv = (await testPool.query(`SELECT type, date::text, officer_id FROM movements ORDER BY id LIMIT 2`)).rows
     expect(mv.map((m) => m.type)).toEqual(['RECEIPT', 'ISSUE'])
     expect(mv[0].date).toBe('2026-03-01')
@@ -187,7 +186,7 @@ describe('batch save (BR-14)', () => {
   it('a bad row rolls the whole batch back and is named by its index', async () => {
     const { agent, doc } = await setup({ type: 'PAR', docNo: 'PAR-B' })
     const before = await counts()
-    const res = await batch(agent, doc.id, [row(['M-1']), row(['M-2'])]) // a PAR holds one property
+    const res = await batch(agent, doc.id, [row(['M-1']), row(['M-2'])])
     expect(res.status).toBe(400)
     expect(res.body.error.code).toBe('PAR_ONE_PROPERTY')
     expect(res.body.error.details.rowIndex).toBe(1)
@@ -291,7 +290,7 @@ describe('delete line (BR-06)', () => {
     expect((await agent.delete(`/api/lines/${lineId}`)).status).toBe(200)
     expect((await agent.get(`/api/documents/${doc.id}`)).body.lines).toEqual([])
     expect((await testPool.query('SELECT 1 FROM v_registry')).rowCount).toBe(0)
-    expect(await count('lines')).toBe(1) // row kept
+    expect(await count('lines')).toBe(1)
     expect((await agent.delete(`/api/lines/${lineId}`)).status).toBe(404)
     expect(await count('audit_logs', `WHERE action='line.delete'`)).toBe(1)
     expect((await post(laptop())).status).toBe(409)

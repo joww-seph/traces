@@ -7,14 +7,12 @@ import { Button } from '@/components/ui/button'
 
 ModuleRegistry.registerModules([AllCommunityModule])
 
-// Grid look follows the app tokens.
 const gridTheme = themeQuartz.withParams({
   fontFamily: 'inherit', fontSize: 13, headerFontWeight: 600, wrapperBorderRadius: 8, borderRadius: 6,
   accentColor: '#004aad', backgroundColor: '#ffffff', foregroundColor: '#16263a', headerBackgroundColor: '#eef2f6',
   headerTextColor: '#16263a', borderColor: '#d9e2ea', rowHoverColor: '#e6f0fa', oddRowBackgroundColor: '#fafcfd',
 })
 
-// Right-aligned peso column; the value is integer centavos.
 export const moneyCol = (field: string, headerName: string, extra: ColDef = {}): ColDef => ({
   field, headerName, type: 'rightAligned',
   valueFormatter: (p) => (p.value == null ? '' : formatPeso(p.value)),
@@ -24,23 +22,16 @@ export const moneyCol = (field: string, headerName: string, extra: ColDef = {}):
 type Props<T> = {
   columnDefs: (ColDef<T> | ColGroupDef<T>)[]
   rowData: T[]
-  /** Field holding each row's unique id (also what highlightRowId matches). */
   idKey?: keyof T & string
   highlightRowId?: string | number | null
-  /** Several rows to highlight (a model card marks every row of the scanned line). */
   highlightRowIds?: string[]
-  /** Fixed height in px for long grids; omit to size to the rows. */
   height?: number
   onRowClicked?: (row: T) => void
-  /** Called after a cell is edited; the grid keeps the typed value until the rows are replaced. */
   onCellEdit?: (row: T, field: string, value: unknown) => void
-  /** Offers a "Full screen" button; the form's title heads the full-screen view. */
   fullscreenTitle?: string
-  /** Rows per page (decision 2026-11-18: 20, the printed sheet); omit for one long table. */
   pageSize?: number
 }
 
-// Spreadsheet-style view: sort + filter on every column, fixed header, one highlighted row.
 export function FormGrid<T extends object>({ columnDefs, rowData, idKey = 'id' as keyof T & string, highlightRowId, highlightRowIds, height, onRowClicked, onCellEdit, fullscreenTitle, pageSize }: Props<T>) {
   const api = useRef<GridApi<T> | null>(null)
   const [full, setFull] = useState(false)
@@ -53,7 +44,7 @@ export function FormGrid<T extends object>({ columnDefs, rowData, idKey = 'id' a
     if (first === undefined || !api.current) return
     const node = api.current.getRowNode(first)
     if (!node) return
-    if (pageSize && node.rowIndex != null) api.current.paginationGoToPage(Math.floor(node.rowIndex / pageSize)) // the page that holds the scanned row
+    if (pageSize && node.rowIndex != null) api.current.paginationGoToPage(Math.floor(node.rowIndex / pageSize))
     api.current.ensureNodeVisible(node, 'middle')
   }
   useEffect(() => {
@@ -61,7 +52,6 @@ export function FormGrid<T extends object>({ columnDefs, rowData, idKey = 'id' a
     reveal()
   }, [highlightRowId, highlightRowIds?.join('|'), rowData]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // full screen: the grid covers the page like a spreadsheet window; Escape or the button closes it
   useEffect(() => {
     if (!full) return
     exitBtn.current?.focus()

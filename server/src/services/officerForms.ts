@@ -9,7 +9,6 @@ import { filesOf, getPdfFile } from './documentFiles.js'
 
 const todayManila = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' })
 
-// Every ICS/PAR of which the officer still holds a property (decision 2026-11-18), in issue order.
 export async function officerForms(officerId: string, asAt = todayManila()) {
   const ids = [...new Set((await officerReport(asAt)).filter((r) => r.officerId === officerId).map((r) => r.documentId))]
   if (!ids.length) return []
@@ -21,7 +20,6 @@ export async function officerForms(officerId: string, asAt = todayManila()) {
     .sort((a, b) => a.issuedDate.localeCompare(b.issuedDate) || a.type.localeCompare(b.type) || a.docNo.localeCompare(b.docNo))
 }
 
-// All of them as one PDF: each form's signed copy, else its generated one; forms with no PDF are left out.
 export async function officerFormsPdf(officerId: string) {
   const forms = (await officerForms(officerId)).filter((f) => f.hasPdf)
   if (!forms.length) throw new AppError('PDF_NOT_FOUND', 404, 'None of this officer’s forms has a PDF yet')

@@ -5,7 +5,6 @@ import { pool } from '../db/client.js'
 import { resetDb, testPool } from './db.js'
 import { loginAs, ORIGIN, makeOfficer } from './helpers.js'
 
-// the made-up people of these tests; their short names are made from these names (MSantos, JDelaCruz, ...)
 const FULL_NAME: Record<string, string> = { JDelaCruz: 'Juan Dela Cruz', MSantos: 'Maria Santos', Staffer: 'Sam Staffer', Iss: 'Ivan Issuer', Rcv: 'Rita Receiver' }
 
 beforeEach(resetDb)
@@ -14,7 +13,6 @@ afterAll(async () => { await pool.end(); await testPool.end() })
 const ID = '00000000-0000-4000-8000-0000000000a1'
 type R = readonly [method: 'get' | 'post' | 'put' | 'patch' | 'delete', path: string]
 
-// Every route added by updates 01 and 02 (and the ones they changed): signed-in only, and mutating ones need an allowed Origin.
 const READ: R[] = [
   ['get', '/api/property-types'], ['get', '/api/property-numbers/next?typeId=1&dateAcquired=2026-01-01'],
   ['get', '/api/views/cards'], ['get', `/api/views/card/${ID}`], ['get', '/api/views/registry?category=semi'],
@@ -43,7 +41,7 @@ describe('mutating routes check the Origin (CSRF)', () => {
     expect((await agent[method](path).set('Origin', 'http://evil.example').send({})).status).toBe(403)
   })
   it.each(WRITE)('%s %s -> 403 without an Origin', async (method, path) => {
-    expect((await request(createApp())[method](path).send({})).status).toBe(403) // the Origin check runs before sign-in is looked at
+    expect((await request(createApp())[method](path).send({})).status).toBe(403)
   })
 })
 
@@ -72,14 +70,12 @@ describe('the public view never carries staff data', () => {
     expect(text).not.toMatch(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i)
     for (const banned of ['storedName', 'stored_name', 'createdBy', 'passwordHash', 'email', 'itemId']) expect(text).not.toContain(banned)
     expect(res.body.document.pdfUrl).toMatch(/^\/api\/public\/q\/[0-9A-Za-z]{10}\/pdf$/)
-    // and the generated PDF behind it is served only through the token route
     const pdf = await request(createApp()).get(`/api/public/q/${token}/pdf`)
     expect(pdf.status).toBe(200)
     expect(pdf.headers['content-type']).toContain('application/pdf')
   })
 })
 
-// Least privilege: the IT officer keeps accounts, settings and the lists, but does not touch the records (as a supply admin does not touch accounts).
 const RECORDS: R[] = [
   ['get', '/api/dashboard'], ['get', '/api/documents'], ['post', '/api/documents'], ['get', `/api/documents/${ID}`], ['patch', `/api/documents/${ID}`],
   ['post', `/api/documents/${ID}/generate`], ['put', `/api/documents/${ID}/pdf`], ['delete', `/api/documents/${ID}/pdf`], ['delete', `/api/documents/${ID}`],

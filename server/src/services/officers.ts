@@ -16,7 +16,6 @@ const withDesignations = async (rows: Officer[], d: Pick<typeof db, 'select'> = 
   return rows.map((o) => ({ ...o, designations: des.filter((x) => x.officerId === o.id).map((x) => x.designation) }))
 }
 
-// q searches the full name, the short name and the designations (so "SARAi" finds its focal persons).
 export async function listOfficers(f: { active?: boolean; canReceive?: boolean; q?: string } = {}) {
   const term = f.q ? `%${f.q.replace(/[\\%_]/g, (c) => `\\${c}`)}%` : null
   const rows = await db.select().from(officers).where(and(
@@ -35,7 +34,6 @@ const saveDesignations = async (tx: Tx, officerId: string, list: string[]) => {
   if (list.length) await tx.insert(officerDesignations).values(list.map((designation, i) => ({ officerId, sortOrder: i + 1, designation })))
 }
 
-// "MSantos", or "MSantos2" when another officer already has it (the unique index is case-insensitive)
 export async function uniqueShortName(tx: Pick<typeof db, 'select'>, fullName: string, exceptId?: string) {
   const base = shortNameOf(fullName)
   for (let n = 1; ; n++) {
@@ -65,7 +63,7 @@ async function change(id: string, set: z.infer<typeof officerPatch>, action: str
     if (!before) throw new AppError('OFFICER_NOT_FOUND', 404, 'Officer not found')
     const [beforeFull] = await withDesignations([before], tx)
     const { designations, ...fields } = set as typeof set & { shortName?: string }
-    if (fields.fullName) { // a corrected name corrects the short name too
+    if (fields.fullName) {
       fields.fullName = titleCaseName(fields.fullName)
       fields.shortName = await uniqueShortName(tx, fields.fullName, id)
     }
@@ -78,10 +76,8 @@ async function change(id: string, set: z.infer<typeof officerPatch>, action: str
 }
 
 export const updateOfficer = (id: string, patch: z.infer<typeof officerPatch>, ctx: Ctx) => change(id, patch, 'officer.update', ctx)
-// DELETE never removes the row: documents reference officers.
 export const deactivateOfficer = (id: string, ctx: Ctx) => change(id, { active: false }, 'officer.deactivate', ctx)
 
-// "Received by" on an ICS/PAR (and the report officer) must be someone who may receive.
 export async function assertCanReceive(tx: Pick<typeof db, 'select'>, officerId: string) {
   const o = (await tx.select({ canReceive: officers.canReceive, shortName: officers.shortName }).from(officers).where(eq(officers.id, officerId)))[0]
   if (!o) throw new AppError('OFFICER_NOT_FOUND', 400, 'Officer not found')

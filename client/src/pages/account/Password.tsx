@@ -28,7 +28,7 @@ export default function Password() {
   const onSubmit = form.handleSubmit(async ({ currentPassword, newPassword }) => {
     try {
       await api.post('/api/me/password', { currentPassword, newPassword })
-      await qc.invalidateQueries({ queryKey: ['me'] }) // clears mustChangePassword
+      await qc.invalidateQueries({ queryKey: ['me'] })
       toast.success('Password changed')
       navigate('/', { replace: true })
     } catch (e) {

@@ -20,7 +20,6 @@ const SIZES: { id: Size; label: string; detail: string }[] = [
   { id: 'passport', label: 'Passport size', detail: '35 × 45 mm, 20 per sheet' },
 ]
 
-// A private or loopback address cannot be reached after deployment, so such stickers are tests only.
 const isTestUrl = (url: string) => {
   try {
     const h = new URL(url).hostname
@@ -33,7 +32,6 @@ function Picker() {
   const [docId, setDocId] = useState('')
   const [nos, setNos] = useState('')
   const [find, setFind] = useState('')
-  // the 25 newest, or the ones whose number matches what is typed
   const docs = useQuery({ queryKey: ['documents', 'picker', find], queryFn: () => api.get<{ rows: { id: string; type: string; docNo: string }[] }>(`/api/documents${find.trim() ? `?q=${encodeURIComponent(find.trim())}` : ''}`) })
   const go = (e: React.FormEvent) => {
     e.preventDefault()
@@ -86,12 +84,11 @@ export default function StickerSheet() {
   const documentId = params.get('documentId')
   const nos = params.get('nos')
   const [size, setSize] = useState<Size>('1x1')
-  const [copies, setCopies] = useState<Record<string, number>>({}) // per property number, default 1
+  const [copies, setCopies] = useState<Record<string, number>>({})
   const { data: settings } = useSettings()
   const qs = documentId ? `documentId=${documentId}` : nos ? `nos=${encodeURIComponent(nos)}` : ''
   const { data, isLoading, error } = useQuery({ queryKey: ['stickers', qs], enabled: !!qs, retry: false, queryFn: () => api.get<Sticker[]>(`/api/stickers?${qs}`) })
 
-  // every property prints `copies` times (a bigger item may want a sticker on each side); memoised so the QR images are not redrawn on every render
   const sheet = useMemo(() => data?.flatMap((st) => Array.from({ length: copies[st.propertyNo] ?? 1 }, () => st)), [data, copies])
 
   if (!qs) {

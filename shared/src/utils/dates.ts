@@ -1,4 +1,3 @@
-// Date-only values are "YYYY-MM-DD" strings; never go through the local timezone.
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September',
   'October', 'November', 'December']
 

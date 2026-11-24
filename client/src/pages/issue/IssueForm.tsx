@@ -22,7 +22,7 @@ import { NativeSelect } from '@/components/NativeSelect'
 
 type Header = {
   receivedBy: string; receivedByPosition: string; issuedBy: string; issuedByPosition: string
-  issuedDate: string; fundCluster: string; purpose: string; unit: string; icsNo: string; parNos: string[] // one per PPE unit
+  issuedDate: string; fundCluster: string; purpose: string; unit: string; icsNo: string; parNos: string[]
 }
 type Result = { documents: { id: string; type: 'ICS' | 'PAR'; docNo: string; lineIds: string[] }[]; warnings: string[]; generated?: boolean }
 type RowErrors = Record<number, string[]>
@@ -30,8 +30,6 @@ type RowErrors = Record<number, string[]>
 const today = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' })
 const DRAFT_KEY = 'traces:draft:issue'
 
-// Reads a saved draft; anything unreadable is ignored (private windows, old formats such as drafts made before
-// the card-per-property change, whose rows have no article).
 function readDraft(key: string): { entries: Entry[]; header: Partial<Header> } | null {
   try {
     const raw = localStorage.getItem(key)
@@ -40,8 +38,6 @@ function readDraft(key: string): { entries: Entry[]; header: Partial<Header> } |
   } catch { return null }
 }
 
-// The issuance form, in the order the Supply Unit works: Card, Registry, Report, ICS/PAR. One save writes all of them.
-// With ?documentId= it adds rows to an ICS or PAR that is not signed yet.
 export default function IssueForm() {
   const [params] = useSearchParams()
   const documentId = params.get('documentId')
@@ -65,9 +61,6 @@ export default function IssueForm() {
   const [headerError, setHeaderError] = useState<{ ics?: string; par?: string; receiver?: string; general?: string }>({})
   const [result, setResult] = useState<Result | null>(null)
 
-  // defaults that come from settings, once
-  // returns the same header when nothing changes: allOfficers is a new [] on every render while it loads, so a new
-  // object here would loop forever (Maximum update depth exceeded)
   useEffect(() => {
     if (!settings) return
     setHeader((h) => {
@@ -81,10 +74,8 @@ export default function IssueForm() {
   }, [settings, allOfficers])
 
   const threshold = settings?.ppeThresholdCentavos
-  const parCount = parCountOf(entries, threshold) // one PAR per PPE unit (decision 2026-11-18)
+  const parCount = parCountOf(entries, threshold)
 
-  // ICS/PAR numbers are suggested as YYYY-MM{UNIT}-NNN for the issue date and the chosen unit, one PAR number per PPE unit.
-  // A suggestion fills an empty box or replaces the previous suggestion; a number the user typed is kept.
   type DocNos = { icsNo: string; parNos: string[] }
   const nextDocNos = useQuery({
     queryKey: ['next-doc-no', header.issuedDate, header.unit, parCount], enabled: !documentId && !!header.unit && isIsoDate(header.issuedDate), staleTime: 15_000,
@@ -101,22 +92,18 @@ export default function IssueForm() {
       parNos: s.parNos.map((no, k) => (!h.parNos[k] || h.parNos[k] === prev?.parNos[k] ? no : h.parNos[k])),
     }))
   }, [nextDocNos.data])
-  // the PAR boxes follow the number of PPE units
   useEffect(() => { setHeader((h) => (h.parNos.length === parCount ? h : { ...h, parNos: Array.from({ length: parCount }, (_, k) => h.parNos[k] ?? '') })) }, [parCount])
   const isSuggested = (h: Header) => (!h.icsNo || h.icsNo === suggestedNos.current?.icsNo) && h.parNos.every((no, k) => !no || no === suggestedNos.current?.parNos[k])
 
-  // the draft is kept on this computer so a closed tab or a power cut does not lose a long entry
   useEffect(() => {
-    if (result) return // saved: the old rows must never come back as a draft (fresh number suggestions after a save used to re-save them)
-    // nothing typed yet = no draft, so an untouched form is never "restored"
+    if (result) return
     const blank = entries.length === 1 && isBlank(entries[0]) && isSuggested(header) && !header.purpose && !header.receivedBy
     const t = setTimeout(() => {
-      try { if (blank) localStorage.removeItem(draftKey); else localStorage.setItem(draftKey, JSON.stringify({ entries, header })) } catch { /* storage unavailable: no draft */ }
+      try { if (blank) localStorage.removeItem(draftKey); else localStorage.setItem(draftKey, JSON.stringify({ entries, header })) } catch { }
     }, 400)
     return () => clearTimeout(t)
   }, [entries, header, draftKey, result]) // eslint-disable-line react-hooks/exhaustive-deps
-  const clearDraft = () => { try { localStorage.removeItem(draftKey) } catch { /* ignore */ } }
-  // throws the unsaved entry away: the rows and the header go back to a new form, and the banner and button go
+  const clearDraft = () => { try { localStorage.removeItem(draftKey) } catch { } }
   const discardDraft = () => {
     clearDraft()
     setDraft(null)
@@ -134,7 +121,6 @@ export default function IssueForm() {
   const codes = useMemo(() => Object.fromEntries(types.map((t) => [t.id, t.code])), [types])
   const slots = useMemo(() => slotsOf(entries, codes), [entries, codes])
 
-  // first free running number of every year + type that appears on the form
   const groups = useMemo(() => [...new Set(slots.map((s) => s.group).filter((g): g is string => !!g))], [slots])
   const baseQ = useQueries({
     queries: groups.map((g) => ({
@@ -152,7 +138,6 @@ export default function IssueForm() {
   const copies = (i: number, n: number) => setEntries((es) => [...es.slice(0, i + 1), ...Array.from({ length: n }, () => duplicate(es[i])), ...es.slice(i + 1)])
   const [copyCount, setCopyCount] = useState<Record<string, string>>({})
 
-  // summary of section 4: which documents this save makes
   const rowsBy = (cat: 'semi' | 'ppe') => entries.filter((e) => categoryOf(e, threshold) === cat).length
   const icsRows = documentId ? (doc.data?.type === 'ICS' ? entries.length : 0) : rowsBy('semi')
   const parRows = documentId ? (doc.data?.type === 'PAR' ? entries.length : 0) : rowsBy('ppe')
@@ -160,7 +145,6 @@ export default function IssueForm() {
   const issuer = allOfficers.find((o) => o.id === header.issuedBy)
   const receiver = (documentId ? allOfficers.find((o) => o.id === doc.data?.receivedByOfficerId) : receivers.find((o) => o.id === header.receivedBy)) ?? allOfficers.find((o) => o.id === header.receivedBy)
 
-  // ----- build the request -----
   function build(): { body: { header: object; rows: object[]; generate: boolean } | null; errs: RowErrors } {
     const errs: RowErrors = {}
     const add = (i: number, m: string) => { (errs[i] ??= []).push(m) }
@@ -173,7 +157,6 @@ export default function IssueForm() {
       const mainNos = numbers.mains[i]
       mainNos.forEach((no, u) => { if (!no) add(i, `Unit ${u + 1} has no property number: set the property type and date acquired, or type one.`) })
       if (e.comps.length && e.mains.length !== 1) add(i, 'A row with parts must have quantity 1: enter each set as its own row.')
-      // "N/A" or blank = no serial (the server reads it the same way)
       const serial = (v: string) => (v.trim() && v.trim().toUpperCase() !== NO_SERIAL ? { serialNo: v.trim() } : {})
       const props = [
         ...e.mains.map((m, u) => ({ propertyNo: mainNos[u], ...serial(m.serial) })),
@@ -220,13 +203,13 @@ export default function IssueForm() {
       const errs: RowErrors = {}
       for (const x of d.duplicates) (errs[x.rowIndex] ??= []).push(`Property number ${x.propertyNo} is already used or repeated on this form.`)
       setErrors(errs)
-      setNextBumped((n) => n + 1) // somebody else may have taken the suggestion: ask the server again
+      setNextBumped((n) => n + 1)
       qc.invalidateQueries({ queryKey: ['next-no'] })
       toast.error('Nothing was saved. Some property numbers are already used.')
     } else if (e.code === 'DOC_NO_REQUIRED') {
       setHeaderError(d.type === 'PAR' ? { par: e.message } : { ics: e.message }); toast.error(e.message)
     } else if (e.code === 'DUPLICATE_DOCUMENT_NO') {
-      qc.invalidateQueries({ queryKey: ['next-doc-no'] }) // somebody else may have taken the suggested number
+      qc.invalidateQueries({ queryKey: ['next-doc-no'] })
       setHeaderError(String((e.details as { type?: string })?.type) === 'PAR' ? { par: e.message } : { ics: e.message }); toast.error(e.message)
     } else if (e.code === 'OFFICER_CANNOT_RECEIVE') {
       setHeaderError({ receiver: e.message }); toast.error(e.message)
@@ -270,7 +253,6 @@ export default function IssueForm() {
 
   const pdfOf = (id: string) => `/api/documents/${id}/pdf?kind=generated`
 
-  // ----- result -----
   if (result) {
     return (
       <>
@@ -332,7 +314,6 @@ export default function IssueForm() {
       {draft && <p role="status" className="mb-4 rounded-md border bg-muted/40 px-4 py-2.5 text-sm text-muted-foreground">Your unsaved entry was restored from this computer.</p>}
 
       <form onSubmit={submit(true)} noValidate className="rounded-xl border bg-card px-5 py-6 sm:px-8">
-        {/* 1. Property card: every unit gets its own card */}
         <section aria-labelledby="s1" className="border-b pb-6">
           <h2 id="s1" className="text-2xl font-bold sm:text-[1.75rem]">1. Property card</h2>
           <p className="mt-1 mb-3 text-sm text-muted-foreground">Each unit gets its own card. Enter the item once per row; the serial number goes beside each property number.</p>
@@ -421,7 +402,6 @@ export default function IssueForm() {
           <div className="mt-4"><Button type="button" variant="outline" onClick={addRow}><Plus /> Add a row</Button></div>
         </section>
 
-        {/* 2. Registry */}
         <FormSection title="2. Registry">
           {documentId ? (
             <p className="text-sm text-muted-foreground sm:col-span-2">
@@ -447,7 +427,6 @@ export default function IssueForm() {
           )}
         </FormSection>
 
-        {/* 3. Report preview */}
         <section aria-labelledby="s3" className="grid gap-3 border-b py-6">
           <div>
             <h2 id="s3" className="text-2xl font-bold sm:text-[1.75rem]">3. Report</h2>
@@ -480,7 +459,6 @@ export default function IssueForm() {
           </div>
         </section>
 
-        {/* 4. ICS / PAR */}
         <FormSection title="4. ICS / PAR">
           <p role="status" className="rounded-md bg-muted/50 px-3 py-2 text-sm sm:col-span-2" data-testid="summary">
             {icsRows + parRows === 0 ? 'Enter a cost on each row to see which forms this makes.'

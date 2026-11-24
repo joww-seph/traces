@@ -1,7 +1,6 @@
 import { Skeleton } from '@/components/ui/skeleton'
 import { TableCell, TableRow } from '@/components/ui/table'
 
-// Skeleton rows for a table body while its rows load. The first cell names what is loading for screen readers.
 export function TableSkeletonRows({ cols, rows = 6, label }: { cols: number; rows?: number; label: string }) {
   return Array.from({ length: rows }, (_, r) => (
     <TableRow key={r} aria-busy="true" className="hover:bg-transparent">
@@ -15,7 +14,6 @@ export function TableSkeletonRows({ cols, rows = 6, label }: { cols: number; row
   ))
 }
 
-// A block of grey lines in the shape of a grid or a form.
 export function BlockSkeleton({ label, lines = 6, className = '' }: { label: string; lines?: number; className?: string }) {
   return (
     <div role="status" aria-label={label} className={`grid gap-3 rounded-xl border bg-card p-5 ${className}`}>
@@ -25,7 +23,6 @@ export function BlockSkeleton({ label, lines = 6, className = '' }: { label: str
   )
 }
 
-// A whole page still loading: a title, a summary card and a body.
 export function PageSkeleton({ label }: { label: string }) {
   return (
     <div role="status" aria-label={label} className="grid gap-6">

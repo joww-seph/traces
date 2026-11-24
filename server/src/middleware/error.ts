@@ -11,7 +11,6 @@ export class AppError extends Error {
 type PgError = Error & { code: string; constraint?: string; detail?: string }
 const isPgError = (e: unknown): e is PgError =>
   e instanceof Error && typeof (e as PgError).code === 'string' && /^[0-9A-Z]{5}$/.test((e as PgError).code)
-// drizzle wraps driver errors; the pg error is in .cause
 export const pgErrorOf = (e: unknown): PgError | null =>
   isPgError(e) ? e : isPgError((e as { cause?: unknown })?.cause) ? (e as { cause: PgError }).cause : null
 
@@ -20,7 +19,6 @@ const send = (res: Parameters<ErrorRequestHandler>[2], status: number, code: str
 
 export const notFound: RequestHandler = (_req, _res, next) => next(new AppError('NOT_FOUND', 404, 'Not found'))
 
-// CLAUDE.md: Postgres errors are mapped centrally. 23505 -> 409, 23503/23514 -> 400.
 export const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
   if (err instanceof ZodError) return send(res, 400, 'VALIDATION', 'Invalid request', err.issues)
   if (err instanceof AppError) return send(res, err.status, err.code, err.message, err.details)

@@ -8,15 +8,14 @@ export default defineConfig({
   resolve: {
     alias: [
       { find: '@', replacement: path.resolve(import.meta.dirname, './src') },
-      // pdf.js's legacy build carries polyfills (e.g. Map.getOrInsertComputed) that phone browsers such as Samsung Internet still lack
       { find: /^pdfjs-dist$/, replacement: 'pdfjs-dist/legacy/build/pdf.mjs' },
       { find: /^pdfjs-dist\/web\/pdf_viewer\.mjs$/, replacement: 'pdfjs-dist/legacy/web/pdf_viewer.mjs' },
     ],
   },
   server: {
-    host: true, // reachable from phones on the same network
+    host: true,
     port: Number(process.env.CLIENT_PORT ?? 5173),
-    strictPort: true, // fail loudly instead of drifting to another port that APP_ORIGIN does not list
+    strictPort: true,
     proxy: { '/api': { target: process.env.API_TARGET ?? 'http://localhost:3000', changeOrigin: false } },
   },
 })

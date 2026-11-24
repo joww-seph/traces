@@ -5,7 +5,6 @@ import { PROPERTY_NO_RE } from '../utils/propertyNo.js'
 
 export const isoDate = z.string().refine(isIsoDate, 'Must be a valid date (YYYY-MM-DD)')
 export const nonEmpty = z.string().trim().min(1, 'Required')
-// a job title, with abbreviations written out (SRS -> Science Research Specialist)
 export const positionText = nonEmpty.transform(spellOutPosition)
 export const centavos = z.number().int().nonnegative()
 export const propertyNo = z.string().trim().regex(PROPERTY_NO_RE, 'Letters, digits and hyphens only')

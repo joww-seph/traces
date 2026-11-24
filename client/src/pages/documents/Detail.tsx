@@ -37,7 +37,6 @@ type Kind = 'generated' | 'uploaded'
 
 const propertyNos = (l: DocLine) => l.properties.map((p) => p.propertyNo).join('\n')
 
-// Column maps from design §4: ICS and PAR line layouts.
 const icsColumns: (ColDef<DocLine> | ColGroupDef<DocLine>)[] = [
   { field: 'qty', headerName: 'Quantity', type: 'rightAligned', width: 116 },
   { field: 'unit', headerName: 'Unit', width: 96 },
@@ -89,7 +88,6 @@ function RemoveSignedDialog({ doc, open, onClose }: { doc: DocDetail; open: bool
   )
 }
 
-// Soft delete of an unsigned form; the server refuses a signed one (409 DOCUMENT_SIGNED).
 function DeleteFormDialog({ doc, open, onClose }: { doc: DocDetail; open: boolean; onClose: () => void }) {
   const qc = useQueryClient()
   const navigate = useNavigate()
@@ -120,7 +118,6 @@ function DeleteFormDialog({ doc, open, onClose }: { doc: DocDetail; open: boolea
   )
 }
 
-// Draw or nudge the highlight box of one line on the PDF being shown. Allowed even when the form is signed.
 function HighlightEditor({ doc, kind }: { doc: DocDetail; kind: Kind }) {
   const qc = useQueryClient()
   const [lineId, setLineId] = useState(doc.lines[0]?.id ?? '')
@@ -290,7 +287,6 @@ const ACTION: Record<string, string> = {
   'document.delete': 'Form deleted', 'line.create': 'Line added', 'line.update': 'Line changed', 'line.delete': 'Line removed',
   'line.region': 'Highlight box moved', 'property.update': 'Property changed', 'qr.rotate': 'QR code replaced', 'card.remarks': 'Card remarks changed',
 }
-// what changed: the fields whose value differs, before -> after
 function changes(before: unknown, after: unknown) {
   if (!before || !after || typeof before !== 'object' || typeof after !== 'object') return []
   const b = before as Record<string, unknown>, a = after as Record<string, unknown>
@@ -298,7 +294,6 @@ function changes(before: unknown, after: unknown) {
   return Object.keys(a).filter((k) => k in b && JSON.stringify(a[k]) !== JSON.stringify(b[k]) && !/At$|Id$|^id$/.test(k)).map((k) => `${k}: ${show(b[k])} → ${show(a[k])}`)
 }
 
-// History of the form (decision 2026-11-18): every action on it, its lines, properties and card rows, newest first.
 function DocumentHistory({ id }: { id: string }) {
   const { data = [], isLoading } = useQuery({ queryKey: ['document-history', id], queryFn: () => api.get<HistoryEntry[]>(`/api/documents/${id}/history`) })
   return (

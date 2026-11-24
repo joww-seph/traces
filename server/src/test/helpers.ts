@@ -5,7 +5,6 @@ import { createApp } from '../app.js'
 import { createOfficer } from '../services/officers.js'
 import { createUser } from '../services/users.js'
 
-// the made-up people of these tests; their short names are made from these names (MSantos, JDelaCruz, ...)
 const FULL_NAME: Record<string, string> = { JDelaCruz: 'Juan Dela Cruz', MSantos: 'Maria Santos', Staffer: 'Sam Staffer', Iss: 'Ivan Issuer', Rcv: 'Rita Receiver' }
 
 export const ORIGIN = process.env.APP_ORIGIN!.split(',')[0]
@@ -18,7 +17,6 @@ export async function makeUser(role: 'supply_admin' | 'superadmin', over: { emai
   )
 }
 
-// A supertest agent that keeps the session cookie and sends a valid Origin on every request.
 export function agentFor(app = createApp()) {
   return request.agent(app).set('Origin', ORIGIN)
 }
@@ -37,13 +35,10 @@ export async function samplePdf(pages = 1) {
   return Buffer.from(await d.save())
 }
 
-// Officers are kept by the IT officer (superadmin) only, so tests acting as a supply admin add them directly.
 export async function makeOfficer(o: { fullName: string; position: string; canReceive?: boolean }) {
   return createOfficer(officerInput.parse(o), { actorId: null, ip: null })
 }
 
-// Two officers + one ICS (or PAR) document, created through the API. No PDF yet: a document with an uploaded
-// (signed) copy is locked, so tests add their lines first and call signDocument() when they need the PDF.
 export async function makeDocument(
   agent: ReturnType<typeof agentFor>,
   over: { type?: 'ICS' | 'PAR'; docNo?: string; issuedDate?: string } = {},
@@ -60,11 +55,9 @@ export async function makeDocument(
   return { doc: res.body as { id: string }, issuer, receiver }
 }
 
-// Attaches a 2-page signed copy (locks the document's entries).
 export async function signDocument(agent: ReturnType<typeof agentFor>, documentId: string) {
   const res = await agent.put(`/api/documents/${documentId}/pdf`).attach('pdf', await samplePdf(2), { filename: 'signed.pdf', contentType: 'application/pdf' })
   if (res.status !== 200) throw new Error(`signDocument failed: ${res.status} ${JSON.stringify(res.body)}`)
 }
 
-// The item a test line carries when it does not care which (decision 2026-11-18: the line holds the item; no cards to pick)
 export const ITEM = { propertyTypeId: 1, article: 'Article', unit: 'unit' }

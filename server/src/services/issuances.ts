@@ -14,9 +14,6 @@ import { getSettings } from './settings.js'
 type Input = z.infer<typeof issuanceInput>
 type DocType = 'ICS' | 'PAR'
 
-// Rows below the PPE threshold go on one ICS (one per purchase); every PPE unit gets its own PAR, numbered from
-// header.parNos in row order (decision 2026-11-18). Everything is written in one transaction;
-// the PDFs are rendered afterwards, so a rendering problem never loses the entries.
 export async function createIssuance(input: Input, ctx: Ctx, generate: typeof generateDocument = generateDocument) {
   if (!ctx.actorId) throw new AppError('FORBIDDEN', 403, 'A signed-in user is required')
   const userId = ctx.actorId
@@ -25,7 +22,6 @@ export async function createIssuance(input: Input, ctx: Ctx, generate: typeof ge
   const created = await withTokenRetry(() => db.transaction(async (tx) => {
     const s = await getSettings(tx)
     const isPpe = rows.map((r) => categorize(r.line.unitCostCentavos, s.ppeThresholdCentavos) === 'ppe')
-    // a PPE row of n units becomes n one-unit rows, each on its own PAR (a row with parts has one unit)
     const parts: { rowIndex: number; row: LineInput }[] = rows.flatMap((row, rowIndex) => {
       if (!isPpe[rowIndex]) return []
       const mains = row.properties.filter((p) => !p.componentLabel)
@@ -37,7 +33,7 @@ export async function createIssuance(input: Input, ctx: Ctx, generate: typeof ge
       throw new AppError('DOC_NO_REQUIRED', 400, `Enter the ICS number: ${semiRows.length} row(s) belong on it`, { type: 'ICS' })
     }
     const parNos = header.parNos ?? []
-    if (parNos.length < parts.length) { // extra numbers (e.g. suggestions for rows later removed) are ignored
+    if (parNos.length < parts.length) {
       throw new AppError('DOC_NO_REQUIRED', 400, `Enter ${parts.length} PAR number(s), one for each PPE unit (${parNos.length} given)`, { type: 'PAR', needed: parts.length })
     }
 
@@ -51,7 +47,6 @@ export async function createIssuance(input: Input, ctx: Ctx, generate: typeof ge
     const issuedByPosition = await position(header.issuedByOfficerId, header.issuedByPosition)
     const receivedByPosition = await position(header.receivedByOfficerId, header.receivedByPosition)
 
-    // every duplicate property number of the whole form, with its row, before anything is written (BR-14)
     await assertNoDuplicateNumbers(tx, rows.map((r) => r.properties))
 
     const newDoc = async (type: DocType, docNo: string) => {
@@ -90,7 +85,6 @@ export async function createIssuance(input: Input, ctx: Ctx, generate: typeof ge
     return out
   }))
 
-  // after commit: render the PDFs; a failure is reported, never undone
   const warnings: string[] = []
   if (input.generate) {
     for (const d of created) {

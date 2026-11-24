@@ -18,7 +18,6 @@ import { useSettings } from '@/lib/queries'
 import { useState } from 'react'
 import { PageSkeleton } from '@/components/Loading'
 
-// Blank inputs mean "clear the value"; the server validates what is sent (shared propertyPatch).
 type Form = { serialNo: string; oldPropertyNo: string; componentLabel: string; condition: 'serviceable' | 'unserviceable' }
 
 function EditPanel({ view }: { view: PropertyView }) {

@@ -20,8 +20,6 @@ import { usePropertyTypes, useReceivers } from '@/lib/queries'
 type Unserviceable = { officer: { fullName: string }; category: 'semi' | 'ppe'; asAt: string; rows: UnserviceableRow[] }
 const today = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' })
 
-// IIRUP (PPE, Appendix 74) / IIRUSP (semi-expendable): the unserviceable items an accountable officer holds, found by a physical count
-// (decision 2026-11-19). Accumulated depreciation, impairment and the disposal columns are not stored, so the Excel form prints them blank.
 export default function UnserviceablePage() {
   const navigate = useNavigate()
   const { data: types = [] } = usePropertyTypes()

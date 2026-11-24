@@ -6,7 +6,6 @@ import { properties, qrTokens } from '../db/schema.js'
 import { AppError } from '../middleware/error.js'
 import { audit, type Ctx } from './audit.js'
 
-// Property numbers match case-insensitively (same rule as the unique index).
 const byNo = (no: string) => and(sql`upper(${properties.propertyNo}) = ${no.trim().toUpperCase()}`, isNull(properties.voidedAt))
 const notFound = (no: string) => new AppError('PROPERTY_NOT_FOUND', 404, `Property ${no} not found`, { propertyNo: no })
 

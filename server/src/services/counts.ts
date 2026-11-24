@@ -5,9 +5,6 @@ import { officerReport, vActiveProperties, vCustody } from '../db/views.js'
 import { AppError } from '../middleware/error.js'
 import { audit, type Ctx } from './audit.js'
 
-// Physical count by QR scan (decision 2026-11-19). A count is one officer + one category + an as-at date.
-// "Counted" is a row in count_scans; "not counted" is the holdings without one. Nothing calculated is stored.
-
 type Category = 'semi' | 'ppe'
 type Condition = 'serviceable' | 'unserviceable'
 type Tx = Pick<typeof db, 'select' | 'insert' | 'update' | 'delete' | 'execute'>
@@ -21,7 +18,6 @@ const getRow = async (d: Pick<typeof db, 'select'>, id: string) => {
   return c
 }
 
-// total = main units the officer holds in the category as at the date (both conditions); counted = scans; unserviceable = scanned and found so
 async function progress(d: Tx, c: Awaited<ReturnType<typeof getRow>>) {
   const total = (await officerReport(c.asAt, d))
     .filter((r) => r.officerId === c.officerId && r.category === c.category)
@@ -45,7 +41,6 @@ export async function listCounts(f: { officerId?: string; open?: boolean } = {})
   return Promise.all(ids.map(getCount))
 }
 
-// Asking again for the same officer + category + date resumes it (BR-10: one count per key), closed or not.
 export async function startCount(input: { officerId: string; category: Category; asAt: string }, ctx: Ctx) {
   return db.transaction(async (tx) => {
     if (!(await tx.select({ id: officers.id }).from(officers).where(eq(officers.id, input.officerId)))[0]) {
@@ -59,7 +54,6 @@ export async function startCount(input: { officerId: string; category: Category;
   })
 }
 
-// a closed count can't be edited (BR-10)
 export async function closeCount(id: string, ctx: Ctx) {
   return db.transaction(async (tx) => {
     const c = (await tx.select().from(physicalCounts).where(eq(physicalCounts.id, id)).for('update'))[0]
@@ -79,8 +73,6 @@ async function lockOpen(tx: Tx, id: string) {
   return getRow(tx, id)
 }
 
-// One scan: the unit is found, and the condition the staff member chose is kept on the property.
-// Scanning again changes the condition (a mis-tap is fixed by scanning again).
 export async function recordScan(countId: string, input: { token: string; condition: Condition }, ctx: Ctx) {
   return db.transaction(async (tx) => {
     const count = await lockOpen(tx, countId)
@@ -105,7 +97,6 @@ export async function recordScan(countId: string, input: { token: string; condit
       throw new AppError('NOT_HOLDER', 409, `${p.propertyNo} is not held by ${count.officerName}.`, { holder: holder?.name ?? null })
     }
 
-    // a unit with parts moves as a set: its components take the same condition
     const parts = await tx.select({ id: properties.id }).from(properties)
       .where(and(eq(properties.lineId, p.lineId!), isNotNull(properties.componentLabel), isNull(properties.voidedAt)))
     for (const id of [p.propertyId!, ...parts.map((x) => x.id)]) {
@@ -119,7 +110,6 @@ export async function recordScan(countId: string, input: { token: string; condit
   })
 }
 
-// takes a unit back out of the count (scanned the wrong item); its condition is left as it is
 export async function removeScan(countId: string, propertyId: string, ctx: Ctx) {
   return db.transaction(async (tx) => {
     const count = await lockOpen(tx, countId)

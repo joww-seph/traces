@@ -6,7 +6,6 @@ import { createIssuance } from '../services/issuances.js'
 import { testPool, resetDb } from './db.js'
 import { agentFor, ITEM, loginAs, makeOfficer } from './helpers.js'
 
-// the made-up people of these tests; their short names are made from these names (MSantos, JDelaCruz, ...)
 const FULL_NAME: Record<string, string> = { JDelaCruz: 'Juan Dela Cruz', MSantos: 'Maria Santos', Staffer: 'Sam Staffer', Iss: 'Ivan Issuer', Rcv: 'Rita Receiver' }
 
 const STORAGE = path.resolve(process.env.STORAGE_DIR!)
@@ -50,20 +49,17 @@ describe('POST /api/issuances (update 02 W3)', () => {
     expect((await lineNos('ICS')).map((r) => r.description)).toEqual([1, 2, 3, 4, 5, 6].map((n) => `Item ${n}`))
     expect((await lineNos('PAR')).map((r) => r.line_no)).toEqual([1])
 
-    // both documents share the receiver, date, fund cluster and purpose
     const d = (await testPool.query(`SELECT DISTINCT received_by_officer_id, issued_date::text, fund_cluster, purpose FROM documents`)).rows
     expect(d).toHaveLength(1)
     expect(d[0]).toMatchObject({ issued_date: '2026-03-01', fund_cluster: 'RAF', purpose: 'Project use' })
 
-    // registry has 7 rows; every property has its RECEIPT and ISSUE, both on the date issued (the card's date, decision 2026-11-18)
     expect(await count('v_registry')).toBe(7)
     const mv = (await testPool.query(`SELECT type, date::text, count(*) FROM movements GROUP BY type, date ORDER BY type`)).rows
-    expect(mv).toEqual([{ type: 'RECEIPT', date: '2026-03-01', count: '7' }, { type: 'ISSUE', date: '2026-03-01', count: '7' }]) // enum order
-    expect((await testPool.query(`SELECT DISTINCT date_acquired::text FROM lines`)).rows).toEqual([{ date_acquired: '2026-02-20' }]) // kept for the RPC
+    expect(mv).toEqual([{ type: 'RECEIPT', date: '2026-03-01', count: '7' }, { type: 'ISSUE', date: '2026-03-01', count: '7' }])
+    expect((await testPool.query(`SELECT DISTINCT date_acquired::text FROM lines`)).rows).toEqual([{ date_acquired: '2026-02-20' }])
     expect(await count('qr_tokens')).toBe(7)
     expect((await testPool.query(`SELECT action FROM audit_logs WHERE action='issuance.create'`)).rowCount).toBe(1)
     expect(await count('audit_logs', `WHERE action='line.create'`)).toBe(7)
-    // the report of the receiver lists them straight away
     const rep = await s.agent.get(`/api/reports/rpc?officerId=${s.receiver.id}&category=semi&asAt=2026-12-31`)
     expect(rep.body.rows).toHaveLength(6)
   })
@@ -90,8 +86,8 @@ describe('POST /api/issuances (update 02 W3)', () => {
     await post(s.agent, { header: header(s, { icsNo: 'FIRST', parNos: ['FIRST-P'] }), rows: [row(50)], generate: false })
     const before = { d: await count('documents'), l: await count('lines'), p: await count('properties') }
     const rows = [row(1), row(2), row(3), row(4), row(5), row(6), row(7, 9645000)]
-    rows[5].properties = rows[1].properties // row index 5 repeats row index 1
-    rows[3].properties = [{ propertyNo: '2026-02ICT-0050' }] // row index 3 already exists in the database
+    rows[5].properties = rows[1].properties
+    rows[3].properties = [{ propertyNo: '2026-02ICT-0050' }]
     const res = await post(s.agent, { header: header(s), rows, generate: true })
     expect(res.status).toBe(409)
     expect(res.body.error.code).toBe('DUPLICATE_PROPERTY_NO')
@@ -163,8 +159,8 @@ describe('POST /api/issuances (update 02 W3)', () => {
     expect(pars).toEqual([
       { doc_no: 'P-001', qty: 1, article: 'Laptop', category: 'ppe', nos: 'L-1:K1' },
       { doc_no: 'P-002', qty: 1, article: 'Laptop', category: 'ppe', nos: 'L-2:-' },
-      { doc_no: 'P-003', qty: 1, article: 'Laptop', category: 'ppe', nos: 'L-3:-' }, // N/A is no serial
-      { doc_no: 'P-004', qty: 1, article: 'Laptop', category: 'ppe', nos: 'S-1:-,S-1a:-' }, // the set stays together
+      { doc_no: 'P-003', qty: 1, article: 'Laptop', category: 'ppe', nos: 'L-3:-' },
+      { doc_no: 'P-004', qty: 1, article: 'Laptop', category: 'ppe', nos: 'S-1:-,S-1a:-' },
     ])
   })
 
@@ -181,7 +177,7 @@ describe('POST /api/issuances (update 02 W3)', () => {
     const s = await setup()
     expect((await post(s.agent, { header: header(s), rows: [], generate: false })).status).toBe(400)
     expect((await post(s.agent, { header: header(s), rows: [row(1)], generate: false, extra: 1 })).status).toBe(400)
-    expect((await post(s.agent, { header: header(s), rows: [row(1)] })).status).toBe(400) // generate is required: no silent default
+    expect((await post(s.agent, { header: header(s), rows: [row(1)] })).status).toBe(400)
     expect((await agentFor().post('/api/issuances').send({})).status).toBe(401)
   })
 })

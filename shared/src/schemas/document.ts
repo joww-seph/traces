@@ -1,7 +1,6 @@
 import { z } from 'zod'
 import { isoDate, nonEmpty, positionText, uuid } from './common.js'
 
-// Positions are optional: the server snapshots the officer's current position when omitted.
 export const documentMeta = z.object({
   type: z.enum(['ICS', 'PAR']),
   docNo: nonEmpty,

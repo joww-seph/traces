@@ -3,7 +3,6 @@ import { resetDb, testPool as pool } from './db.js'
 
 const TABLES = ['users', 'session', 'settings', 'officers', 'officer_designations', 'property_types', 'documents',
   'document_files', 'lines', 'line_pdf_regions', 'properties', 'qr_tokens', 'movements', 'physical_counts', 'count_scans', 'report_signatories', 'audit_logs']
-// the count is back as scans only (decision 2026-11-19); the per-row count tables and the items table stay gone
 const GONE_TABLES = ['count_items', 'count_signatories', 'items']
 const VIEWS = ['v_active_properties', 'v_property_card', 'v_custody', 'v_registry']
 const GONE_VIEWS = ['v_card_movements', 'v_holdings', 'v_count_rows', 'v_item_card']
@@ -16,7 +15,7 @@ const COLUMNS: Record<string, string[]> = {
   properties: ['old_property_no', 'serial_no', 'component_label'],
   settings: ['ppe_registry_title', 'ics_form_code', 'ics_form_revision', 'par_form_code', 'par_form_revision', 'default_issued_by_officer_id'],
   officers: ['can_receive'],
-  lines: ['property_type_id', 'category', 'article', 'unit', 'description'], // the line carries the item (decision 2026-11-18)
+  lines: ['property_type_id', 'category', 'article', 'unit', 'description'],
   line_pdf_regions: ['kind'],
 }
 const CONSTRAINTS = ['documents_type_doc_no_uq', 'document_files_name_rule', 'lines_document_line_no_uq',
@@ -54,7 +53,7 @@ describe('structure', () => {
     const lineCols = await names(`SELECT column_name FROM information_schema.columns WHERE table_name='lines'`)
     expect(lineCols).not.toContain('item_id')
     const docCols = await names(`SELECT column_name FROM information_schema.columns WHERE table_name='documents'`)
-    expect(docCols.filter((c) => c.startsWith('pdf_'))).toEqual([]) // the PDFs live in document_files
+    expect(docCols.filter((c) => c.startsWith('pdf_'))).toEqual([])
   })
   it('new settings default to the PPE registry title and the ICS/PAR form codes', async () => {
     await resetDb()
@@ -69,7 +68,6 @@ describe('structure', () => {
   })
 })
 
-// Minimal valid rows
 async function seed() {
   const u = (await pool.query(
     `INSERT INTO users (email, display_name, password_hash, role) VALUES ('a@b.c','A','x','superadmin') RETURNING id`)).rows[0].id
@@ -121,7 +119,7 @@ describe('constraints', () => {
     expect(await code(ins('uploaded', null))).toBe('23514')
     expect(await code(ins('generated', null))).toBeNull()
     expect(await code(ins('uploaded', 'scan.pdf'))).toBeNull()
-    expect(await code(ins('uploaded', 'again.pdf'))).toBe('23505') // one file per kind
+    expect(await code(ins('uploaded', 'again.pdf'))).toBe('23505')
   })
   it('a line can hold one region per kind of PDF (23505 for a second of the same kind)', async () => {
     const { l } = await seed()
@@ -182,7 +180,7 @@ describe('views', () => {
                         VALUES ($1,'ISSUE','2026-03-01',$2,$3)`, [id, o, d])
     }
     const rows = (await pool.query(`SELECT property_id, type, qty, item_nos, balance_qty FROM v_property_card ORDER BY date, first_movement_id`)).rows
-    expect(rows.map((r) => r.property_id)).toEqual([p, p]) // the part has no card of its own
+    expect(rows.map((r) => r.property_id)).toEqual([p, p])
     expect(rows.map((r) => [r.type, r.qty, Number(r.balance_qty)])).toEqual([['RECEIPT', 1, 1], ['ISSUE', 1, 0]])
     expect(rows[0].item_nos).toBe('2026-09ICT-0199\n2026-09ICT-0199a')
   })

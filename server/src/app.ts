@@ -26,8 +26,7 @@ import { stickersRouter } from './routes/stickers.js'
 
 export function createApp() {
   const app = express()
-  if (process.env.NODE_ENV === 'production') app.set('trust proxy', 1) // behind nginx
-  // COOKIE_SECURE=false is the plain-http LAN demo: without this the browser would upgrade every asset request to https and the page would not load.
+  if (process.env.NODE_ENV === 'production') app.set('trust proxy', 1)
   const plainHttp = process.env.COOKIE_SECURE === 'false'
   app.use(helmet(plainHttp ? { contentSecurityPolicy: { directives: { 'upgrade-insecure-requests': null } }, strictTransportSecurity: false } : undefined))
   app.use(originCheck())
@@ -40,12 +39,10 @@ export function createApp() {
   })
 
   app.use('/api', authRouter(), settingsRouter(), officersRouter(), propertyTypesRouter(), unitsRouter(), propertyNumbersRouter(), documentsRouter(), issuancesRouter(), linesRouter(), exportsRouter(), propertiesRouter(), viewsRouter(), countsRouter(), stickersRouter(), publicRouter(), adminSettingsRouter(), adminUsersRouter(), adminAuditRouter())
-  // routers mount here as they are built
   app.use('/api', notFound)
 
-  // Production: one process serves the API and the built React app (same origin, so no CORS).
   if (process.env.NODE_ENV === 'production') {
-    const dist = fileURLToPath(new URL('../../client/dist', import.meta.url)) // same depth from src/ and from the bundled dist/
+    const dist = fileURLToPath(new URL('../../client/dist', import.meta.url))
     app.use(express.static(dist, { index: false }))
     app.use((req, res, next) => (req.method === 'GET' && !req.path.startsWith('/assets/') ? res.sendFile('index.html', { root: dist, headers: { 'Cache-Control': 'no-cache' } }) : next()))
   }

@@ -11,18 +11,12 @@ import { createOfficer } from '../services/officers.js'
 import { suggestPropertyNumbers } from '../services/propertyNumbers.js'
 import { clearSettingsCache } from '../services/settings.js'
 
-// Sample data for development, modelled on the office's real forms but with made-up people.
-// Everything goes through the real issuance service, so the forms are generated and the boxes computed like in the app.
-//   npm run seed:dev              adds the samples to an empty database
-//   npm run seed:dev -- --more    adds a larger made-up set (officers, 13 issuances) on top of what exists
-//   npm run seed:dev -- --reset   first wipes officers, documents, lines, properties and PDFs (users, settings and property types stay)
-//   add --officers --issuer <short name> to issue the samples to the officers already in the database (they are kept on --reset, none are added)
 const { values } = parseArgs({ options: { reset: { type: 'boolean' }, more: { type: 'boolean' }, officers: { type: 'boolean' }, issuer: { type: 'string' } } })
 if (process.env.NODE_ENV === 'production') { console.error('seed:dev never runs in production'); process.exit(1) }
 
 const ctx = { actorId: null as string | null, ip: null }
 type Officer = { fullName: string; shortName: string; position: string; office: string; designations?: string[] }
-type Item = { article: string; model: string; typeId: 1 | 2 | 3; pesos: number; life?: number; parts: string[] } // typeId: 1 ICT, 2 Furniture and Fixtures, 3 Office Equipment
+type Item = { article: string; model: string; typeId: 1 | 2 | 3; pesos: number; life?: number; parts: string[] }
 
 const TYPE_CODE = { 1: 'ICT', 2: 'FF', 3: 'OE' } as const
 
@@ -36,7 +30,6 @@ async function officersFrom(list: Officer[]) {
   return (short: string) => byShort.get(short)!
 }
 
-// --officers: the first made-up person (the issuer) becomes --issuer, the others are spread over the active receivers
 async function existingOfficers(list: Officer[]) {
   const rows = (await db.execute(sql`SELECT id, short_name, can_receive FROM officers WHERE active ORDER BY full_name`)).rows as { id: string; short_name: string; can_receive: boolean }[]
   const issuer = rows.find((r) => r.short_name === values.issuer)
@@ -48,8 +41,6 @@ async function existingOfficers(list: Officer[]) {
   return (short: string) => byShort.get(short)!
 }
 
-// The card of a model: an existing one by id, or a new one created with the line.
-// property numbers continue the series of their year + type (the same rule as the app's suggestion)
 const nextOf = new Map<string, number>()
 async function numbersFor(it: Item, dateAcquired: string) {
   const key = `${dateAcquired.slice(0, 4)}|${it.typeId}`
@@ -78,7 +69,6 @@ async function issue(admin: string, id: (s: string) => string, plan: Plan, thres
       ],
     })
   }
-  // one PAR per PPE unit: the plan's number, then -2, -3 ... for the next units of the same save
   const ppeCount = plan.items.filter((it) => it.pesos * 100 >= threshold).length
   const parNos = plan.parNo ? Array.from({ length: ppeCount }, (_, i) => (i === 0 ? plan.parNo! : `${plan.parNo}-${i + 1}`)) : undefined
   const out = await createIssuance({
@@ -106,7 +96,6 @@ async function setDefaultIssuer(officerId: string) {
   clearSettingsCache()
 }
 
-// ───────────── --more: a larger made-up data set for testing screens, cards, reports and exports ─────────────
 async function seedMore() {
   const admin = await superadmin()
   if ((await db.select({ id: documents.id }).from(documents).where(sql`${documents.docNo} = '2026-10TEST-001'`)).length) {
@@ -156,7 +145,6 @@ async function seedMore() {
     { parNo: '2026-10TEST-P01', date: '2026-06-10', to: 'DNavarro', items: [ppe[0], ppe[1]] },
     { parNo: '2026-10TEST-P02', date: '2026-07-15', to: 'PReyes', items: [ppe[3]] },
     { parNo: '2026-10TEST-P03', date: '2026-08-12', to: 'TVillanueva', items: [ppe[5], ppe[2]] },
-    // a mixed purchase: one save, one ICS + one PAR for the same receiver
     { icsNo: '2026-10TEST-009', parNo: '2026-10TEST-P04', date: '2026-09-18', to: 'MSantos', items: [ppe[4], ppe[0], semi[2]] },
     { parNo: '2026-10TEST-P05', date: '2026-10-20', to: 'RGarcia', items: [ppe[0]] },
   ]
@@ -192,7 +180,6 @@ try {
   await setDefaultIssuer(id('JDelaCruz'))
   const th = await threshold()
 
-  // one save: a laptop set and an LCD television (PPE by cost) plus an office chair (semi) -> 1 PAR + 1 ICS
   const a = await issue(admin, id, {
     icsNo: '2026-03SARAi-005', parNo: '2026-05SARAi-001', date: '2026-05-12', to: 'MSantos', purpose: 'ICT equipment for SARAi staff operations',
     items: [
@@ -202,7 +189,6 @@ try {
     ],
   }, th)
 
-  // an old record with a legacy property number and an old date acquired
   const old = await createIssuance({
     header: { receivedByOfficerId: id('PReyes'), issuedByOfficerId: id('JDelaCruz'), issuedDate: '2025-05-31', fundCluster: 'RAF', parNos: ['2025-RO-68'] },
     rows: [{

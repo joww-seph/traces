@@ -7,7 +7,7 @@ beforeEach(resetDb)
 afterAll(async () => { await pool.end(); await testPool.end() })
 
 const newUser = { displayName: 'NINA E. PERSON', role: 'supply_admin' }
-const NEW_EMAIL = 'neperson@region1.dost.gov.ph' // shortname@region1.dost.gov.ph, made from the name
+const NEW_EMAIL = 'neperson@region1.dost.gov.ph'
 const login = (agent: ReturnType<typeof agentFor>, email: string, password: string) => agent.post('/api/auth/login').send({ email, password })
 
 describe('access', () => {
@@ -114,7 +114,7 @@ describe('update user', () => {
       expect(res.body.error.code).toBe('LAST_SUPERADMIN')
     }
     const second = await makeUser('superadmin', { email: 'second.super@traces.test' })
-    expect((await agent.patch(`/api/admin/users/${second.id}`).send({ active: false })).status).toBe(200) // another one remains
+    expect((await agent.patch(`/api/admin/users/${second.id}`).send({ active: false })).status).toBe(200)
     expect((await agent.patch(`/api/admin/users/${user.id}`).send({ active: false })).status).toBe(409)
   })
 

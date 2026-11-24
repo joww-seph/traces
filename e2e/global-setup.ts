@@ -3,7 +3,6 @@ import { rmSync } from 'node:fs'
 import path from 'node:path'
 import { E2E } from '../playwright.config'
 
-// Fresh traces_test with the two test accounts and the settings row, and an empty PDF folder.
 export default function globalSetup() {
   const env = { ...process.env, DATABASE_URL: E2E.db, NODE_ENV: 'development' }
   const run = (cmd: string) => execSync(cmd, { env, stdio: 'inherit' })

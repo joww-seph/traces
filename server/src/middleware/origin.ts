@@ -1,8 +1,6 @@
 import type { RequestHandler } from 'express'
 import { AppError } from './error.js'
 
-// CSRF defence (spec §10): non-GET requests need an allowed Origin and, when they carry a body,
-// a JSON or multipart content type (a cross-site <form> can only send urlencoded/plain).
 export function originCheck(): RequestHandler {
   const allowed = new Set((process.env.APP_ORIGIN ?? '').split(',').map((s) => s.trim()).filter(Boolean))
   return (req, _res, next) => {

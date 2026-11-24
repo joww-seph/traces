@@ -33,8 +33,6 @@ const ROLES: { role: Role; label: string; caption: string }[] = [
 ]
 const today = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' })
 
-// RPCSP / RPCPPE: what an accountable officer holds on a date, to print and count by hand, or to count by scanning the QR stickers
-// (decision 2026-11-19). With a count the report shows Counted / Not counted; unserviceable items move to the Unserviceable page (IIRUP / IIRUSP).
 export default function Reports() {
   const qc = useQueryClient()
   const { data: settings } = useSettings()
@@ -47,7 +45,6 @@ export default function Reports() {
   const [asAt, setAsAt] = useState(today())
   const ready = !!officerId && isIsoDate(asAt)
   const base = new URLSearchParams({ officerId, category, asAt, ...(typeId && { typeId }) }).toString()
-  // the count of this officer + report + date, if one was started; refreshed while it is open so scans from a phone show up
   const counts = useQuery({
     queryKey: ['counts', officerId, category], enabled: !!officerId, queryFn: () => api.get<Count[]>(`/api/counts?officerId=${officerId}&category=${category}`),
     refetchInterval: (q) => (q.state.data?.some((c) => !c.closedAt) ? 5000 : false),
@@ -70,7 +67,6 @@ export default function Reports() {
     onError: (e) => toast.error(e instanceof ApiError ? e.message : 'Could not close the count'),
   })
 
-  // names under the report: editable here, saved only on "Save as default"
   const [names, setNames] = useState<Record<Role, string>>({ committee: '', head_of_agency: '', coa_representative: '' })
   const saved = useQuery({ queryKey: ['report-signatories'], queryFn: () => api.get<Signatory[]>('/api/report-signatories') })
   useEffect(() => {
@@ -209,7 +205,6 @@ export default function Reports() {
 
 type OfficerForm = { id: string; type: 'ICS' | 'PAR'; docNo: string; issuedDate: string; hasPdf: boolean; signed: boolean }
 
-// The officer's ICS and PAR (decision 2026-11-18): every form of which they still hold a property, and all of them as one PDF.
 function OfficerForms({ officerId, name }: { officerId: string; name: string }) {
   const { data = [], isLoading } = useQuery({ queryKey: ['officer-forms', officerId], queryFn: () => api.get<OfficerForm[]>(`/api/reports/forms?officerId=${officerId}`) })
   const missing = data.filter((f) => !f.hasPdf)

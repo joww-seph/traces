@@ -3,7 +3,6 @@ import { useState } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 
-// Downloads an official-layout .xlsx from /api/exports. A failure is shown as a message instead of saving an error file.
 export async function downloadExport(path: string) {
   const res = await fetch(path, { credentials: 'same-origin' })
   if (!res.ok) {

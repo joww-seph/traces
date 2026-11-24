@@ -4,7 +4,6 @@ import { pool, db } from '../db/client.js'
 import { settings } from '../db/schema.js'
 import { createUser } from '../services/users.js'
 
-// npm run seed:superadmin -- --email it@traces.local --password '<at least 10 characters>' [--name IT] [--role supply_admin] [--base-url http://...]
 const { values } = parseArgs({
   options: {
     email: { type: 'string' },

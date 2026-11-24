@@ -3,7 +3,6 @@ import type { Role } from '@/api'
 import { useAuth } from './AuthProvider'
 import { PageSkeleton } from '@/components/Loading'
 
-// Layout route: renders its children only for a logged-in user with one of `roles`.
 export function RequireRole({ roles }: { roles: Role[] }) {
   const { user, loading } = useAuth()
   const location = useLocation()

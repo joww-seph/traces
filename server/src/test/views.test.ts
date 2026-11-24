@@ -35,8 +35,8 @@ describe('registry', () => {
       propertyNos: ['S-1', 'S-2', 'S-3'], reference: 'ICS 2026-03SARAi-005', issuedTo: 'Maria Santos', article: 'Article',
       propertyTypeCode: 'ICT', rowNo: 1,
     })
-    expect(rows[0].id).toMatch(/^[0-9a-f-]{36}$/) // the line id: the row a QR scan highlights
-    expect(rows[0].documentId).toMatch(/^[0-9a-f-]{36}$/) // the row opens its ICS/PAR
+    expect(rows[0].id).toMatch(/^[0-9a-f-]{36}$/)
+    expect(rows[0].documentId).toMatch(/^[0-9a-f-]{36}$/)
   })
 
   it('the description carries the serials in brackets, N/A when none', async () => {
@@ -183,16 +183,16 @@ describe('officer report (RPCSP / RPCPPE)', () => {
     const list = await agent.get(`/api/reports/forms?officerId=${receiver.id}`)
     expect(list.status).toBe(200)
     expect(list.body.map((f: { docNo: string; hasPdf: boolean }) => [f.docNo, f.hasPdf])).toEqual([['2026-03SARAi-005', false], ['PAR-7', false]])
-    expect((await agent.get(`/api/reports/forms.pdf?officerId=${receiver.id}`)).status).toBe(404) // nothing to merge yet
+    expect((await agent.get(`/api/reports/forms.pdf?officerId=${receiver.id}`)).status).toBe(404)
 
-    await signDocument(agent, doc.id) // 2-page signed copy
+    await signDocument(agent, doc.id)
     expect((await agent.post(`/api/documents/${par.doc.id}/generate`)).status).toBe(200)
     const pdf = await agent.get(`/api/reports/forms.pdf?officerId=${receiver.id}`).buffer(true).parse((res, cb) => {
       const chunks: Buffer[] = []; res.on('data', (c: Buffer) => chunks.push(c)); res.on('end', () => cb(null, Buffer.concat(chunks)))
     })
     expect(pdf.status).toBe(200)
     expect(pdf.headers['content-type']).toMatch(/application\/pdf/)
-    expect((await PDFDocument.load(pdf.body as Buffer)).getPageCount()).toBe(3) // 2 signed + 1 generated
+    expect((await PDFDocument.load(pdf.body as Buffer)).getPageCount()).toBe(3)
   })
 
 })

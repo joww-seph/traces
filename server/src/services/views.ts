@@ -10,10 +10,8 @@ import { getSettings } from './settings.js'
 
 type Category = 'semi' | 'ppe'
 
-// The Card, Registry and RPC "sheets" are SQL views (and a function); these functions only filter them and shape the rows.
 export type RegistryRow = Awaited<ReturnType<typeof registry>>[number]
 
-// the serials of a line, one per property in property-number order ('' = none)
 const serialsOf = (s: string | null) => (s ?? '').split('\n')
 
 const todayManila = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' })
@@ -26,10 +24,10 @@ export async function registry(category: Category, f: { typeId?: number; from?: 
       f.from ? gte(vRegistry.date, f.from) : undefined,
       f.to ? lte(vRegistry.date, f.to) : undefined,
     ))
-    .orderBy(asc(vRegistry.date), asc(vRegistry.docNo), asc(vRegistry.lineNo)) // the order row_no counts in
+    .orderBy(asc(vRegistry.date), asc(vRegistry.docNo), asc(vRegistry.lineNo))
   return rows.map((r) => ({
-    id: r.lineId!, // a line: the row a QR scan highlights
-    rowNo: r.rowNo!, // the row's number in its register: the same on screen and on paper
+    id: r.lineId!,
+    rowNo: r.rowNo!,
     documentId: r.documentId!,
     date: r.date!,
     docType: r.docType!,
@@ -58,9 +56,6 @@ export async function findPropertyByNo(no: string) {
   if (!p) throw new AppError('PROPERTY_NOT_FOUND', 404, `Property ${no} not found`, { propertyNo: no })
   return p
 }
-
-// ───────────── Cards (one per property, decision 2026-11-18) ─────────────
-// A card belongs to a main property; a component's card is its unit's.
 
 export async function cardPropertyId(propertyId: string) {
   const p = (await db.select({ id: properties.id, lineId: properties.lineId, componentLabel: properties.componentLabel }).from(properties)
@@ -107,7 +102,6 @@ export async function card(propertyId: string, mode?: 'merged' | 'split') {
 const holderName = () => sql<string | null>`(select o.full_name from v_custody cu join officers o on o.id = cu.holder_officer_id
   where cu.property_id = "v_active_properties"."property_id")`
 
-// /cards: one row per card (main property), newest first, with who holds it now
 export async function listCards(f: { category?: Category; typeId?: number; q?: string } = {}) {
   const term = f.q ? `%${f.q.replace(/[\\%_]/g, (c) => `\\${c}`)}%` : null
   const ap = vActiveProperties
@@ -126,7 +120,6 @@ export async function listCards(f: { category?: Category; typeId?: number; q?: s
     .orderBy(sql`${ap.issuedDate} desc`, asc(ap.propertyNo))
 }
 
-// a card row's Remarks (decision 2026-11-18), kept on the movement the row shows; for later transfers
 export async function setCardRemarks(movementId: number, remarks: string | null, ctx: Ctx) {
   return db.transaction(async (tx) => {
     const m = (await tx.select().from(movements).where(eq(movements.id, movementId)).for('update'))[0]
@@ -137,13 +130,10 @@ export async function setCardRemarks(movementId: number, remarks: string | null,
   })
 }
 
-// ───────────── Officer report (RPCSP / RPCPPE) ─────────────
-
 export async function getSignatories() {
   return db.select().from(reportSignatories).orderBy(asc(reportSignatories.role), asc(reportSignatories.sortOrder))
 }
 
-// who the report is for, the type filter and the as-at date, shared by the RPC and the IIRUP/IIRUSP
 async function reportScope(q: { officerId: string; typeId?: number; asAt?: string }) {
   const officer = (await db.select({ id: officers.id, fullName: officers.fullName, position: officers.position, office: officers.office })
     .from(officers).where(eq(officers.id, q.officerId)))[0]
@@ -153,7 +143,6 @@ async function reportScope(q: { officerId: string; typeId?: number; asAt?: strin
   return { officer, type, asAt: q.asAt ?? todayManila() }
 }
 
-// a legacy number is printed in Remarks automatically (decision 2026-11-14)
 async function oldNumberRemarks(lineIds: string[]) {
   const old = lineIds.length
     ? await db.select({ lineId: properties.lineId, no: properties.propertyNo, old: properties.oldPropertyNo }).from(properties)
@@ -169,8 +158,6 @@ async function oldNumberRemarks(lineIds: string[]) {
 const byArticle = (a: { article: string; docNo: string; propertyNos: string }, b: typeof a) =>
   a.article.localeCompare(b.article) || a.docNo.localeCompare(b.docNo) || a.propertyNos.localeCompare(b.propertyNos)
 
-// RPCSP / RPCPPE: the serviceable items the officer holds. With a count (decision 2026-11-19) each row also says whether its
-// units were found: `counted` is true when every main unit was scanned; `countedUnits` says how many. Without one both are null.
 export async function officerReportRows(q: { officerId: string; category: Category; typeId?: number; asAt?: string; countId?: string }) {
   const { officer, type, asAt } = await reportScope(q)
   const rows = (await officerReport(asAt, db, q.countId ?? null))
@@ -180,8 +167,8 @@ export async function officerReportRows(q: { officerId: string; category: Catego
   return {
     officer, category: q.category, type, asAt, countId: q.countId ?? null,
     rows: rows.map((r, i) => ({
-      id: r.lineId, // the line: the row a QR scan highlights
-      rowNo: i + 1, // the row's number on this report, on screen and on paper
+      id: r.lineId,
+      rowNo: i + 1,
       documentId: r.documentId,
       article: r.article, description: withSerials(r.description, serialsOf(r.serialNos)), propertyNos: r.propertyNos.split('\n'),
       unit: r.unit, unitValueCentavos: r.unitValueCentavos, balancePerCard: r.balancePerCard,
@@ -194,15 +181,12 @@ export async function officerReportRows(q: { officerId: string; category: Catego
   }
 }
 
-// IIRUP (PPE) and IIRUSP (semi-expendable): the unserviceable items the officer holds. Cost columns are worked out here;
-// accumulated depreciation, impairment, carrying amount and the disposal columns are not stored, so they print blank.
 export async function unserviceableRows(q: { officerId: string; category: Category; typeId?: number; asAt?: string }) {
   const { officer, type, asAt } = await reportScope(q)
   const rows = (await officerReport(asAt))
     .filter((r) => r.officerId === q.officerId && r.category === q.category && r.condition === 'unserviceable' && (!q.typeId || r.propertyTypeId === q.typeId))
     .sort(byArticle)
   const remarks = await oldNumberRemarks(rows.map((r) => r.lineId))
-  // Appendix 74: Date Acquired is the acquisition date of the property (the line's), not the ICS/PAR date; the issue date stands in when none was entered
   const acquired = new Map((rows.length ? await db.select({ id: lines.id, d: lines.dateAcquired }).from(lines).where(inArray(lines.id, rows.map((r) => r.lineId))) : []).map((x) => [x.id, x.d]))
   return {
     officer, category: q.category, type, asAt,

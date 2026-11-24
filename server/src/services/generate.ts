@@ -14,7 +14,6 @@ import { audit, type Ctx } from './audit.js'
 import { assertNotSigned, filesOf, filesSummary } from './documentFiles.js'
 import { getSettings } from './settings.js'
 
-// Fonts ship with the app (server/assets/fonts); the same relative path works from src/ and from the bundled dist/.
 const FONT_DIRS = [new URL('../../assets/fonts/', import.meta.url), new URL('../assets/fonts/', import.meta.url)].map((u) => fileURLToPath(u))
 let cached: FormFonts | null = null
 export function loadFonts(): FormFonts {
@@ -27,8 +26,6 @@ export function loadFonts(): FormFonts {
   })
 }
 
-// Renders the document as the official form (Appendix 59 / 71) and stores it as its `generated` PDF, with the box
-// of every line computed from the layout. Generating again replaces the file and the boxes. Refused once signed.
 export async function generateDocument(documentId: string, ctx: Ctx, render: typeof renderIcsPar = renderIcsPar) {
   if (!ctx.actorId) throw new AppError('FORBIDDEN', 403, 'A signed-in user is required')
   const userId = ctx.actorId
@@ -51,7 +48,6 @@ export async function generateDocument(documentId: string, ctx: Ctx, render: typ
     from: { name: names.get(doc.issuedByOfficerId) ?? '', position: doc.issuedByPosition },
     to: { name: names.get(doc.receivedByOfficerId) ?? '', position: doc.receivedByPosition },
     lines: lineRows.map(({ line, unit }) => {
-      // the main unit first, then its components (a set stacks all its numbers in one cell)
       const own = props.filter((p) => p.lineId === line.id).sort((a, b) => Number(!!a.componentLabel) - Number(!!b.componentLabel) || a.propertyNo.localeCompare(b.propertyNo))
       return {
       lineId: line.id, qty: line.qty, unit, unitCostCentavos: line.unitCostCentavos, description: withSerials(line.description, own.map((p) => p.serialNo)),
@@ -69,7 +65,7 @@ export async function generateDocument(documentId: string, ctx: Ctx, render: typ
   try {
     const old = await db.transaction(async (tx) => {
       await tx.select({ id: documents.id }).from(documents).where(eq(documents.id, documentId)).for('update')
-      await assertNotSigned(tx, documentId) // re-checked under the lock: a scan may have been uploaded meanwhile
+      await assertNotSigned(tx, documentId)
       const previous = (await filesOf([documentId], tx)).get(documentId)!.generated
       await tx.delete(documentFiles).where(and(eq(documentFiles.documentId, documentId), eq(documentFiles.kind, 'generated')))
       await tx.insert(documentFiles).values({ documentId, kind: 'generated', storedName, originalName: null, sizeBytes: bytes.length, pageCount, createdBy: userId })
@@ -78,7 +74,7 @@ export async function generateDocument(documentId: string, ctx: Ctx, render: typ
       await audit(tx, ctx, 'document.generate', 'documents', documentId, null, { pageCount, lines: regions.length })
       return previous?.storedName ?? null
     })
-    if (old) await removePdf(old) // a generated copy is reproducible, so the replaced one is not archived
+    if (old) await removePdf(old)
   } catch (e) {
     await removePdf(storedName)
     throw e

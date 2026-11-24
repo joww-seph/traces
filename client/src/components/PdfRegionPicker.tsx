@@ -7,15 +7,13 @@ type Drag = { x0: number; y0: number; x1: number; y1: number }
 
 const clamp = (n: number) => Math.min(1, Math.max(0, n))
 const round5 = (n: number) => Math.round(n * 1e5) / 1e5
-const MIN = 0.005 // ignore accidental clicks
+const MIN = 0.005
 
-// Drag a box over the PDF. Stored as fractions of the page, so it lands in the same place at any zoom.
 export function PdfRegionPicker({ url, value, onChange }: { url: string; value: Region | null; onChange: (r: Region | null) => void }) {
   const [page, setPage] = useState(value?.page ?? 1)
   const [drag, setDrag] = useState<Drag | null>(null)
   const surface = useRef<HTMLDivElement>(null)
 
-  // jump to the saved box's page when it loads
   useEffect(() => { if (value) setPage(value.page) }, [value?.page]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const point = (e: PointerEvent) => {

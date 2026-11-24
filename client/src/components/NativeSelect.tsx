@@ -1,7 +1,6 @@
 import type { ComponentProps } from 'react'
 import { cn } from '@/lib/utils'
 
-// A native <select> styled like <Input>: reliable with react-hook-form and best on phones.
 export function NativeSelect({ className, ...props }: ComponentProps<'select'>) {
   return (
     <select

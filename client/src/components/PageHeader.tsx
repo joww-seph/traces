@@ -4,7 +4,6 @@ import { Link } from 'react-router'
 
 type Crumb = { label: string; to?: string }
 
-// Title row shared by every admin page: where you are, what this page is, and its main actions.
 export function PageHeader({ title, description, actions, crumbs, meta }: {
   title: ReactNode
   description?: ReactNode
@@ -38,7 +37,6 @@ export function PageHeader({ title, description, actions, crumbs, meta }: {
   )
 }
 
-// Empty state: says what is missing and what to do next.
 export function EmptyState({ title, children, action }: { title: string; children?: ReactNode; action?: ReactNode }) {
   return (
     <div className="grid justify-items-center gap-2 rounded-lg border border-dashed bg-card px-6 py-12 text-center">

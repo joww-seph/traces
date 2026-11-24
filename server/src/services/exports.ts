@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import { db } from '../db/client.js'
 import { propertyTypes } from '../db/schema.js'
 import { buildIcsParList, buildIirup, buildSpc, buildRpcsp } from '../exports/built.js'
@@ -8,7 +8,6 @@ import { AppError } from '../middleware/error.js'
 import { getSettings } from './settings.js'
 import { card, officerReportRows, registry, unserviceableRows } from './views.js'
 
-// ICS and PAR are no longer exported to Excel: TRACES generates the PDF forms (Update 02).
 export const FORMS = ['spc', 'pc', 'regspi', 'regppe', 'rpcsp', 'rpcppe', 'icspar', 'iirup', 'iirusp'] as const
 export type Form = (typeof FORMS)[number]
 export type ExportQuery = {
@@ -55,7 +54,6 @@ export async function exportForm(form: Form, q: ExportQuery): Promise<{ buffer: 
     }
   }
 
-  // IIRUP (PPE) / IIRUSP (semi-expendable): the unserviceable items an officer holds
   if (form === 'iirup' || form === 'iirusp') {
     const category = form === 'iirup' ? 'ppe' : 'semi'
     const u = await unserviceableRows({ officerId: need(q.officerId, 'officerId'), category, typeId: q.typeId, asAt: q.asAt })
@@ -65,13 +63,11 @@ export async function exportForm(form: Form, q: ExportQuery): Promise<{ buffer: 
     }
   }
 
-  // rpcsp / rpcppe
   const want = form === 'rpcsp' ? 'semi' : 'ppe'
   const report = await officerReportRows({ officerId: need(q.officerId, 'officerId'), category: want, typeId: q.typeId, asAt: q.asAt, countId: q.countId })
   const data: CountData = {
     category: want, typeLabel: report.type?.name ?? 'All types', asAt: report.asAt, fundCluster: s.defaultFundCluster,
     officerName: report.officer.fullName, officerPosition: report.officer.position,
-    // names typed on the report page win over the saved defaults
     signatories: (q.signatories ?? report.signatories).map((x) => ({ role: x.role, name: x.name, position: x.position ?? null })),
     rows: report.rows,
   }

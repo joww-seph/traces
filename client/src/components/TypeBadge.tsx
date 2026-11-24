@@ -1,6 +1,5 @@
 import { cn } from '@/lib/utils'
 
-// ICS (semi-expendable) and PAR (PPE) are told apart at a glance in every list.
 export function TypeBadge({ type, className }: { type: 'ICS' | 'PAR'; className?: string }) {
   return (
     <span className={cn(

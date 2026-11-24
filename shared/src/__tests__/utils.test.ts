@@ -111,7 +111,7 @@ describe('auth + user schemas', () => {
     expect(userCreate.safeParse(base).success).toBe(true)
     expect(userCreate.safeParse({ ...base, role: 'root' }).success).toBe(false)
     expect(userCreate.safeParse({ role: 'supply_admin' }).success).toBe(false)
-    expect(userCreate.parse({ ...base, email: 'x@y.co' })).not.toHaveProperty('email') // a sent email is ignored
+    expect(userCreate.parse({ ...base, email: 'x@y.co' })).not.toHaveProperty('email')
   })
 })
 
@@ -144,7 +144,7 @@ describe('property types, cards and reports', () => {
     expect(withSerials('Laptop MSI Katana', ['ABC123'])).toBe('Laptop MSI Katana (S/N: ABC123)')
     expect(withSerials('Office chair', [null])).toBe('Office chair (S/N: N/A)')
     expect(withSerials('Laptop set', ['K1', null, 'M7'])).toBe('Laptop set (S/N: K1, N/A, M7)')
-    expect(withSerials('Mouse', [null, ''])).toBe('Mouse (S/N: N/A)') // all missing: said once
+    expect(withSerials('Mouse', [null, ''])).toBe('Mouse (S/N: N/A)')
   })
   it('an issuance gives one PAR number per PPE unit', () => {
     const h = { receivedByOfficerId: '0b6f2c1e-8a3d-4c55-9b1e-3f2a7d9c4e10', issuedByOfficerId: '0b6f2c1e-8a3d-4c55-9b1e-3f2a7d9c4e10', issuedDate: '2026-11-18', fundCluster: 'RAF' }
@@ -180,18 +180,18 @@ describe('names (made-up people)', () => {
     expect(titleCaseName('ANA MARIE B. DELA CRUZ')).toBe('Ana Marie B. Dela Cruz')
     expect(titleCaseName('pedro  reyes  III')).toBe('Pedro Reyes III')
     expect(titleCaseName('JOSE-MARI O. SANTOS-REYES')).toBe('Jose-Mari O. Santos-Reyes')
-    expect(titleCaseName('Juan McKay')).toBe('Juan McKay') // already mixed case: kept
+    expect(titleCaseName('Juan McKay')).toBe('Juan McKay')
   })
   it('short name = first letter of the first given name + middle initial + surname', async () => {
     const { shortNameOf } = await import('../index.js')
     expect(shortNameOf('Rosa M. Lim')).toBe('RMLim')
-    expect(shortNameOf('Ana Marie B. Dela Cruz')).toBe('ABDelaCruz') // only the first given name counts
+    expect(shortNameOf('Ana Marie B. Dela Cruz')).toBe('ABDelaCruz')
     expect(shortNameOf('MARIA SANTOS')).toBe('MSantos')
-    expect(shortNameOf('Juan Dela Cruz')).toBe('JDelaCruz') // a surname particle stays with the surname
-    expect(shortNameOf('ENGR. CARLO B. RAMOS JR.')).toBe('CBRamos') // title and suffix are dropped
+    expect(shortNameOf('Juan Dela Cruz')).toBe('JDelaCruz')
+    expect(shortNameOf('ENGR. CARLO B. RAMOS JR.')).toBe('CBRamos')
     expect(shortNameOf('Lea G. Santos-Reyes Abad')).toBe('LGSantos-ReyesAbad')
     expect(shortNameOf('Kent Jerome Ramil')).toBe('KRamil')
-    expect(shortNameOf('Cy "CJ" Diaz')).toBe('CDiaz') // a nickname in quotes or brackets is not a given name
+    expect(shortNameOf('Cy "CJ" Diaz')).toBe('CDiaz')
     expect(shortNameOf('Liza (Beth) M. Tan')).toBe('LMTan')
   })
   it('SRS in a position is written out as Science Research Specialist', async () => {
@@ -201,8 +201,7 @@ describe('names (made-up people)', () => {
     expect(spellOutPosition('Chief SRS / Provincial Director')).toBe('Chief Science Research Specialist / Provincial Director')
     expect(spellOutPosition('PLANNING, SRS I')).toBe('PLANNING, Science Research Specialist I')
     expect(spellOutPosition('Science Research Specialist II')).toBe('Science Research Specialist II')
-    expect(spellOutPosition('SRSP Coordinator')).toBe('SRSP Coordinator') // only the word SRS on its own
-    // every position typed into TRACES goes through it
+    expect(spellOutPosition('SRSP Coordinator')).toBe('SRSP Coordinator')
     expect(officerInput.parse({ fullName: 'A B', position: 'SRS I', designations: ['FIC, SRS II'] })).toMatchObject({ position: 'Science Research Specialist I', designations: ['FIC, Science Research Specialist II'] })
     const ids = { receivedByOfficerId: '00000000-0000-4000-8000-000000000001', issuedByOfficerId: '00000000-0000-4000-8000-000000000002' }
     expect(issuanceHeader.parse({ ...ids, issuedDate: '2026-01-02', fundCluster: 'RAF', receivedByPosition: 'Senior SRS' }).receivedByPosition).toBe('Senior Science Research Specialist')

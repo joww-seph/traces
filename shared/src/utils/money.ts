@@ -1,4 +1,3 @@
-// Money is integer centavos everywhere. Never use floats.
 export function pesoToCentavos(input: string | number): number {
   const s = String(input).trim().replace(/[,\s₱]/g, '')
   const m = /^(\d+)(?:\.(\d{1,2}))?$/.exec(s)

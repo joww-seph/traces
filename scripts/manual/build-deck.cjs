@@ -1,6 +1,3 @@
-// Builds the plain user manual from the captured screenshots.
-//   node scripts/manual/build-deck.cjs  ->  docs/TRACES-User-Manual.pptx
-// No styling on purpose: white slides, black Arial text, the screenshots and the steps.
 const fs = require('node:fs')
 const path = require('node:path')
 const pptxgen = require('pptxgenjs')
@@ -10,7 +7,7 @@ const OUT = path.resolve(process.env.MANUAL_OUT ?? 'docs/TRACES-User-Manual.pptx
 const { slides } = JSON.parse(fs.readFileSync(path.join(SHOTS, 'steps.json'), 'utf8'))
 
 const pres = new pptxgen()
-pres.layout = 'LAYOUT_WIDE' // 13.333 x 7.5 in
+pres.layout = 'LAYOUT_WIDE'
 pres.title = 'TRACES User Manual'
 pres.author = 'Supply Unit, DOST Region 1'
 pres.theme = { headFontFace: 'Arial', bodyFontFace: 'Arial' }
@@ -35,9 +32,8 @@ function textSlide(heading, paragraphs) {
   const runs = paragraphs.flatMap((p, i) => {
     const last = i === paragraphs.length - 1
     if (typeof p === 'string') return [{ text: p, options: { breakLine: !last, paraSpaceAfter: 10 } }]
-    // [term, explanation]
     return [
-      { text: `${p[0]}: `, options: { bold: true, paraSpaceAfter: 8 } }, // paragraph spacing goes on a paragraph's first run
+      { text: `${p[0]}: `, options: { bold: true, paraSpaceAfter: 8 } },
       { text: p[1], options: { breakLine: !last } },
     ]
   })
@@ -53,11 +49,10 @@ function dividerSlide(heading, sub) {
   footer(s)
 }
 
-// The numbered steps, numbers in red to match the marks on the screenshot.
 function stepRuns(steps, note) {
   const runs = []
   steps.forEach((t, i) => {
-    runs.push({ text: `${i + 1}   `, options: { bold: true, color: RED, paraSpaceAfter: 10 } }) // paragraph spacing goes on a paragraph's first run
+    runs.push({ text: `${i + 1}   `, options: { bold: true, color: RED, paraSpaceAfter: 10 } })
     runs.push({ text: t, options: { color: BLACK, breakLine: true } })
   })
   if (note) runs.push({ text: `Good to know: ${note}`, options: { color: GREY, italic: true, paraSpaceBefore: 6 } })
@@ -70,7 +65,6 @@ function stepSlide(s) {
   title(slide, s.title)
   const img = path.join(SHOTS, s.image)
   if (s.phone) {
-    // phone screenshot: 390 x 844 at 2x
     const h = 5.9, w = h * (390 / 844)
     slide.addImage({ path: img, x: 0.6, y: 1.0, w, h, altText: `Screenshot: ${s.title}` })
     slide.addShape(pres.shapes.RECTANGLE, { x: 0.6, y: 1.0, w, h, line: { color: '999999', width: 0.75 }, fill: { type: 'none' } })
@@ -84,7 +78,6 @@ function stepSlide(s) {
   footer(slide)
 }
 
-// ───────────── front matter ─────────────
 {
   const s = pres.addSlide()
   s.addText('TRACES User Manual', { x: 0.4, y: 2.4, w: 12.5, h: 1, fontSize: 40, bold: true, color: BLACK, isTextBox: true, margin: 0 })
@@ -128,12 +121,10 @@ textSlide('The usual order of work', [
   'Old paper slips can be encoded the same way: use "Save, I\'ll upload the PDF" and upload the existing scan.',
 ])
 
-// contents
 const sections = []
 for (const s of slides) if (!sections.includes(s.section)) sections.push(s.section)
 textSlide('Contents', sections.map((s, i) => `Part ${i + 1}.  ${s}`))
 
-// ───────────── the steps ─────────────
 let current = ''
 for (const s of slides) {
   if (s.section !== current) {
@@ -143,7 +134,6 @@ for (const s of slides) {
   stepSlide(s)
 }
 
-// ───────────── help ─────────────
 textSlide('If something goes wrong', [
   ['"Invalid email or password"', 'check the email and the password (capital letters count). After many tries, wait 15 minutes.'],
   ['A row has a red border', 'read the red list under it: it says exactly what is missing. Nothing was saved yet.'],
@@ -156,11 +146,10 @@ textSlide('If something goes wrong', [
   ['Anything else', 'ask the ITSM Unit. Tell them the page, what you clicked and the exact message.'],
 ])
 
-// pptxgenjs writes folder entries into the ZIP; OneDrive/SharePoint refuse to open such files, so drop them
 pres.write({ outputType: 'nodebuffer' }).then(async (buf) => {
   const JSZip = require('jszip')
   const src = await JSZip.loadAsync(buf)
-  const out = new JSZip() // copy the files only (removing a folder entry from src would remove its files too)
+  const out = new JSZip()
   for (const f of Object.values(src.files)) if (!f.dir) out.file(f.name, await f.async('nodebuffer'), { createFolders: false })
   fs.writeFileSync(OUT, await out.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' }))
   console.log(`${OUT} (${pageNo} slides)`)

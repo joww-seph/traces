@@ -1,5 +1,3 @@
-// Read-only typings for the SQL views created in drizzle/0010_card_per_property.sql. Never migrated by drizzle-kit (.existing()).
-// bigint(mode:number) columns are converted to JS numbers by drizzle.
 import { sql } from 'drizzle-orm'
 import { bigint, date, integer, pgView, smallint, text, uuid } from 'drizzle-orm/pg-core'
 import { db } from './client.js'
@@ -30,7 +28,6 @@ export const vActiveProperties = pgView('v_active_properties', {
   issuedDate: day('issued_date'),
 }).existing()
 
-// one card per main property: one row per event; item_nos lists the property and its components
 export const vPropertyCard = pgView('v_property_card', {
   propertyId: uuid('property_id'),
   lineId: uuid('line_id'),
@@ -90,10 +87,9 @@ export type OfficerReportRow = {
   article: string; description: string; propertyNos: string; serialNos: string; unit: string; unitValueCentavos: number
   balancePerCard: number; docType: 'ICS' | 'PAR'; docNo: string; issuedDate: string
   condition: 'serviceable' | 'unserviceable'
-  countedUnits: number | null // main units a scan found in the given count; null = no count (printed blank)
+  countedUnits: number | null
 }
 
-// RPCSP / RPCPPE / IIRUP / IIRUSP rows as at a date (all held items, both conditions). A function, not a view, so it goes through raw SQL.
 export async function officerReport(asAt: string, d: Pick<typeof db, 'execute'> = db, countId: string | null = null): Promise<OfficerReportRow[]> {
   const r = await d.execute(sql`SELECT officer_id, line_id, document_id, category, property_type_id, article, description,
     property_nos, serial_nos, unit, unit_value_centavos, balance_per_card, doc_type, doc_no, issued_date::text AS issued_date, condition, counted_units

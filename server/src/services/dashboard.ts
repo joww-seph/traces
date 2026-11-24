@@ -5,7 +5,6 @@ import { vActiveProperties, vRegistry } from '../db/views.js'
 
 const zero = () => ({ properties: 0, mainUnits: 0, valueCentavos: 0 })
 
-// Everything is read from the views, so the numbers always agree with the registry.
 export async function dashboard() {
   const docs = await db.select({ type: documents.type, n: count() }).from(documents).where(isNull(documents.deletedAt)).groupBy(documents.type)
   const props = await db.select({
@@ -24,7 +23,7 @@ export async function dashboard() {
   return {
     documents: { ICS: docs.find((d) => d.type === 'ICS')?.n ?? 0, PAR: docs.find((d) => d.type === 'PAR')?.n ?? 0 },
     categories,
-    cards: categories.semi.mainUnits + categories.ppe.mainUnits, // one card per property (decision 2026-11-18)
-    unsignedDocuments: unsigned, // ICS/PAR without an uploaded (signed) copy
+    cards: categories.semi.mainUnits + categories.ppe.mainUnits,
+    unsignedDocuments: unsigned,
   }
 }

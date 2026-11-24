@@ -3,7 +3,6 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import ExcelJS from 'exceljs'
 
-// The templates sit next to this file in development and under src/ when the server runs from the esbuild bundle.
 const TEMPLATE_DIRS = [new URL('./templates/', import.meta.url), new URL('../src/exports/templates/', import.meta.url)].map((u) => fileURLToPath(u))
 
 export async function loadTemplate(name: string) {
@@ -16,32 +15,19 @@ export async function loadTemplate(name: string) {
 
 export const toBuffer = async (wb: ExcelJS.Workbook) => Buffer.from(await wb.xlsx.writeBuffer())
 
-// ── values ──
 export const pesos = (centavos: number) => Number((centavos / 100).toFixed(2))
 export const MONEY = '#,##0.00'
 
-// date-only strings become real Excel dates (UTC midnight, so no timezone shift) in the form's own style
 export function asDate(iso: string) {
   const [y, m, d] = iso.split('-').map(Number)
   return new Date(Date.UTC(y, m - 1, d))
 }
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-// ICS signature dates are printed like 19-Mar-26
-export const shortDate = (iso: string) => { const [y, m, d] = iso.split('-').map(Number); return `${d}-${MONTHS[m - 1]}-${String(y).slice(2)}` }
 
-// ── layout ──
-const colNum = (s: string) => [...s].reduce((n, c) => n * 26 + c.charCodeAt(0) - 64, 0)
 const parse = (range: string) => {
   const m = /^([A-Z]+)(\d+):([A-Z]+)(\d+)$/.exec(range)!
   return { c1: m[1], r1: Number(m[2]), c2: m[3], r2: Number(m[4]) }
 }
-const lines = (text: string) => text.split('\n').length
 
-/**
- * Makes room for `count` more rows at row `at` (the first row that must move down), copying the look of
- * `styleRow` into them. Merges below the insertion point move with their rows; a merge that spans it grows.
- * `rowMerges` are column pairs merged inside every new row (for example ['F','G'] on the property card).
- */
 export function insertRows(ws: ExcelJS.Worksheet, at: number, count: number, styleRow: number, rowMerges: [string, string][] = []) {
   if (count <= 0) return
   const kept: string[] = []
@@ -68,15 +54,6 @@ export function insertRows(ws: ExcelJS.Worksheet, at: number, count: number, sty
   }
 }
 
-// Wrapped text needs a taller row: about 15 points per line, never shorter than the template row.
-export function fitRow(row: ExcelJS.Row, texts: string[], minHeight = 15.75, perLine = 14) {
-  const most = Math.max(1, ...texts.map(lines))
-  row.height = Math.max(minHeight, most * perLine + 2)
-}
-
-// Writes `value` into a cell and keeps the template's styling; number formats are set only when given.
-// Cells loaded from a template share style objects, so a format is applied through a copy: assigning
-// cell.numFmt would change every cell that shares the style (quantities would turn into dates).
 export function put(ws: ExcelJS.Worksheet, addr: string, value: ExcelJS.CellValue, numFmt?: string) {
   const c = ws.getCell(addr)
   c.value = value
@@ -84,8 +61,6 @@ export function put(ws: ExcelJS.Worksheet, addr: string, value: ExcelJS.CellValu
   return c
 }
 
-// Rules every cell of the table (header and rows) on all four sides, keeping a heavier line the template drew,
-// and prints "Page 1 of 2" at the foot of every page.
 export function ruleAndNumber(ws: ExcelJS.Worksheet, r1: number, c1: number, r2: number, c2: number) {
   const thin = { style: 'thin' as const }
   for (let r = r1; r <= r2; r++) for (let c = c1; c <= c2; c++) {
@@ -96,8 +71,6 @@ export function ruleAndNumber(ws: ExcelJS.Worksheet, r1: number, c1: number, r2:
   ws.headerFooter = { ...ws.headerFooter, oddFooter: '&CPage &P of &N' }
 }
 
-// 20 rows per printed sheet (decision 2026-11-18): the table's header rows repeat on every sheet, and a sheet ends
-// after every 20th row number. `rowNos[i]` is the number of data row firstRow + i.
 export const ROWS_PER_SHEET = 20
 export const sheetOf = (rowNo: number) => Math.floor((rowNo - 1) / ROWS_PER_SHEET) + 1
 export function pageEvery(ws: ExcelJS.Worksheet, titleRows: [number, number], firstRow: number, rowNos: number[]) {
@@ -105,7 +78,6 @@ export function pageEvery(ws: ExcelJS.Worksheet, titleRows: [number, number], fi
   rowNos.forEach((n, i) => { if (i < rowNos.length - 1 && n % ROWS_PER_SHEET === 0) ws.getRow(firstRow + i).addPageBreak() })
 }
 
-// a "No." column (and optionally "Sheet No.") beside the table, so a printed row can be found on screen
 export function numberColumns(ws: ExcelJS.Worksheet, headRows: [number, number], firstRow: number, col: number, rowNos: number[], withSheet: boolean) {
   const head = (c: number, text: string) => {
     ws.mergeCells(headRows[0], c, headRows[1], c)
@@ -132,15 +104,10 @@ export function wrap(ws: ExcelJS.Worksheet, addr: string, alignment: Partial<Exc
   c.style = { ...c.style, alignment: { ...c.alignment, wrapText: true, vertical: 'middle', ...alignment } }
 }
 
-// Templates declare far more empty columns than the form uses (ws.columnCount can be the sheet maximum).
 export const usedCols = (ws: ExcelJS.Worksheet) => ws.dimensions?.right || Math.min(ws.columnCount, 30)
 
 const colName = (n: number) => { let s = ''; for (; n > 0; n = Math.floor((n - 1) / 26)) s = String.fromCharCode(65 + ((n - 1) % 26)) + s; return s }
 
-/**
- * Finishes one data row: every cell is centred vertically, the text columns wrap, and the row is made tall
- * enough for the wrapped text (estimated from each column's width, never shorter than the template row).
- */
 export function sizeRow(
   ws: ExcelJS.Worksheet, rowNo: number, wrapCols: string[],
   o: { perLine?: number; min?: number; charsPerWidth?: number; widths?: Record<string, number>; font?: Partial<ExcelJS.Font> } = {},
@@ -166,4 +133,3 @@ export function sizeRow(
   row.height = Math.max(min, most * perLine + 3)
 }
 
-export const columnIndex = colNum

@@ -6,7 +6,6 @@ import { validate } from '../middleware/validate.js'
 import { closeCount, getCount, listCounts, recordScan, removeScan, startCount } from '../services/counts.js'
 import { ctx } from './ctx.js'
 
-// Physical count by QR scan: staff only (the public scan page stays read-only).
 export function countsRouter() {
   const r = Router()
   r.use('/counts', requireRole('supply_admin'))

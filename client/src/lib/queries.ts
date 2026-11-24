@@ -20,8 +20,6 @@ export type Card = {
 export const useOfficers = (activeOnly = false) =>
   useQuery({ queryKey: ['officers', activeOnly], queryFn: () => api.get<Officer[]>(`/api/officers${activeOnly ? '?active=true' : ''}`) })
 
-// who may be "Received by": only officers on the accountable list; q also searches their programs
-// `includeInactive`: the report also lists officers who left but may still hold property
 export const useReceivers = (q = '', includeInactive = false) =>
   useQuery({
     queryKey: ['officers', 'receivers', q, includeInactive],

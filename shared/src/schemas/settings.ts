@@ -12,5 +12,5 @@ export const settingsPatch = z.object({
   icsFormRevision: nonEmpty,
   parFormCode: nonEmpty,
   parFormRevision: nonEmpty,
-  defaultIssuedByOfficerId: uuid.nullable(), // the supply officer printed as issuer on generated ICS/PAR
+  defaultIssuedByOfficerId: uuid.nullable(),
 }).partial()

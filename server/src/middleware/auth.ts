@@ -9,7 +9,6 @@ declare global {
   namespace Express { interface Request { user?: AuthUser } }
 }
 
-// The user (and role) is re-read from the DB on every request: role changes and deactivation apply at once.
 function loader(allowTempPassword: boolean): RequestHandler {
   return async (req, _res, next) => {
     const id = req.session.userId
@@ -24,7 +23,6 @@ function loader(allowTempPassword: boolean): RequestHandler {
 }
 
 export const requireAuth = loader(false)
-// Only for /api/me and /api/me/password, which a temporary-password user must reach.
 export const requireAuthAllowTemp = loader(true)
 
 export const requireRole = (...roles: Role[]): RequestHandler[] => [

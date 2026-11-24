@@ -8,8 +8,6 @@ import { newToken } from './qr.js'
 import { getSettings } from './settings.js'
 import { findPropertyByNo } from './views.js'
 
-// BR-11: revoke the old token and insert a new one in one transaction; the partial unique index
-// guarantees only one stays active.
 export async function rotateToken(propertyNo: string, ctx: Ctx) {
   const p = await findPropertyByNo(propertyNo)
   return withTokenRetry(() => db.transaction(async (tx) => {
@@ -22,7 +20,6 @@ export async function rotateToken(propertyNo: string, ctx: Ctx) {
   }))
 }
 
-// The QR content is `${public_base_url}/q/${token}`; the image itself is drawn in the browser at print time.
 export async function stickers(by: { documentId?: string; nos?: string[] }) {
   const base = (await getSettings()).publicBaseUrl.replace(/\/+$/, '')
   const where = by.documentId

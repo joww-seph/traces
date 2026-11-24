@@ -6,9 +6,6 @@ import { users } from '../db/schema.js'
 import { audit } from '../services/audit.js'
 import { generatePassword, hashPassword } from '../services/users.js'
 
-// Last-resort password reset from the server console (the superadmin page does this in the browser).
-//   npm run reset:password -- --email it@traces.local --generate
-//   npm run reset:password -- --email it@traces.local --password '<at least 10 characters>' [--must-change]
 const { values } = parseArgs({
   options: { email: { type: 'string' }, password: { type: 'string' }, generate: { type: 'boolean' }, 'must-change': { type: 'boolean' } },
 })
@@ -26,7 +23,7 @@ try {
     const passwordHash = await hashPassword(password)
     await db.transaction(async (tx) => {
       await tx.update(users).set({ passwordHash, mustChangePassword: !!values['must-change'], active: true, updatedAt: new Date() }).where(eq(users.id, user.id))
-      await tx.execute(sql`DELETE FROM session WHERE sess->>'userId' = ${user.id}`) // sign them out everywhere
+      await tx.execute(sql`DELETE FROM session WHERE sess->>'userId' = ${user.id}`)
       await audit(tx, { actorId: null, ip: null }, 'user.password_reset', 'users', user.id)
     })
     console.log(`Password reset for ${user.email}${values.generate ? `\nNew password: ${password}` : ''}`)

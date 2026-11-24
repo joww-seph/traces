@@ -21,7 +21,6 @@ function TypeDialog({ type, onClose }: { type: PropertyType | 'new' | null; onCl
   const [name, setName] = useState('')
   const [error, setError] = useState('')
   const [shown, setShown] = useState<unknown>(null)
-  // reset the fields whenever another type (or "new") is opened
   if (shown !== type) { setShown(type); setCode(editing?.code ?? ''); setName(editing?.name ?? ''); setError('') }
 
   const save = useMutation({

@@ -1,6 +1,3 @@
-// TRACES ICS / PAR PDF generator (Update 02 V-03). A TypeScript port of docs/plans/ics-par-generator.reference.mjs.
-// Pure: no database, no files. Coordinates of each line's box are returned as page fractions with the origin at
-// the TOP-LEFT, the same convention as line_pdf_regions.
 import fontkit from '@pdf-lib/fontkit'
 import { PDFDocument, rgb, type PDFFont, type PDFPage } from 'pdf-lib'
 
@@ -11,7 +8,6 @@ const M = { l: 15 * MM, r: 15 * MM, t: 12 * MM, b: 14 * MM }
 type Align = 'left' | 'center' | 'right'
 type Col = { key: string; label: string; w: number; align: Align; group?: string }
 
-// Column layouts follow Appendix 59 (ICS) and Appendix 71 (PAR). Widths are fractions of the table.
 const LAYOUT = {
   ICS: {
     appendix: 'Appendix 59', title: 'INVENTORY CUSTODIAN SLIP', noLabel: 'ICS No',
@@ -42,12 +38,12 @@ const LAYOUT = {
 
 export type FormLine = {
   lineId: string; qty: number; unit: string; unitCostCentavos: number; description: string
-  itemNos: string[] // every property number of the line, main unit first, components after
+  itemNos: string[]
   life?: number | null; dateAcquired?: string | null
 }
 export type FormDoc = {
   type: 'ICS' | 'PAR'; docNo: string; entityName: string; fundCluster: string
-  formCode?: string // the quality office's code and revision, printed top right
+  formCode?: string
   issuedDate: string; from: { name: string; position: string }; to: { name: string; position: string }
   lines: FormLine[]
 }
@@ -57,15 +53,13 @@ export type FormRegion = { lineId: string; page: number; x: number; y: number; w
 const peso = (c: number) => (c / 100).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const longDate = (iso: string) => new Date(`${iso}T00:00:00`).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
 
-// Breaks one word that is wider than the column: after a hyphen when it can (2026-05-140-TSE000-RSTL15 stays
-// readable), and only then in the middle of a word.
 function breakLongWord(word: string, font: PDFFont, size: number, maxW: number): string[] {
   const out: string[] = []
   let w = word
   while (font.widthOfTextAtSize(w, size) > maxW) {
     let k = w.length
     while (k > 1 && font.widthOfTextAtSize(w.slice(0, k), size) > maxW) k--
-    const at = w.lastIndexOf('-', k - 1) // last hyphen inside the part that fits
+    const at = w.lastIndexOf('-', k - 1)
     const cut = at > 0 ? at + 1 : k
     out.push(w.slice(0, cut))
     w = w.slice(cut)
@@ -120,7 +114,6 @@ export async function renderIcsPar(doc: FormDoc, fonts: FormFonts): Promise<{ by
     page.drawText(`Entity Name: ${doc.entityName}`, { x: M.l, y, size: 8.5, font: bold }); y -= 11
     page.drawText(`Fund Cluster: ${doc.fundCluster}`, { x: M.l, y, size: 8.5, font })
     cell(page, `${L.noLabel}: ${doc.docNo}`, M.l, tableW, y, 'right', bold, 8.5); y -= 8
-    // header rows (two levels for the ICS "Amount")
     const hTop = y, hH = 26
     page.drawRectangle({ x: M.l, y: hTop - hH, width: tableW, height: hH, borderColor: black, borderWidth: 0.8 })
     let x = M.l
@@ -159,7 +152,6 @@ export async function renderIcsPar(doc: FormDoc, fonts: FormFonts): Promise<{ by
     const fits = (lines: number, atY: number, last: boolean) => atY - (lines * LH + 2 * PAD) >= reserve(last)
     const pageCapacity = (last: boolean) => Math.floor((A4.h - M.t - 34 - 18 - 11 - 8 - 26 - reserve(last) - 2 * PAD) / LH)
 
-    // a row that does not fit goes to a fresh page; one taller than a whole page is split across pages
     let from = 0
     let first = true
     while (from < total) {
@@ -180,7 +172,6 @@ export async function renderIcsPar(doc: FormDoc, fonts: FormFonts): Promise<{ by
         ws.forEach((t, k) => cell(page, t, x, c.wpt, startY - k * LH, c.align, from + k === 0 && c.key === 'description' ? bold : font))
         x += c.wpt
       })
-      // the box of a line is its first segment
       if (first) regions.push({ lineId: ln.lineId, page: pages.length, x: M.l / A4.w, y: (A4.h - y) / A4.h, w: tableW / A4.w, h: rowH / A4.h })
       first = false
       y -= rowH
@@ -189,7 +180,6 @@ export async function renderIcsPar(doc: FormDoc, fonts: FormFonts): Promise<{ by
     }
   }
 
-  // signature block on the last page, under the last row
   const fy = y - 6
   const half = tableW / 2
   page.drawRectangle({ x: M.l, y: fy - FOOTER_H + 8, width: tableW, height: FOOTER_H - 8, borderColor: black, borderWidth: 0.8 })
@@ -198,7 +188,7 @@ export async function renderIcsPar(doc: FormDoc, fonts: FormFonts): Promise<{ by
   sides.forEach((side, i) => {
     const x = M.l + i * half
     page.drawText(side.label, { x: x + PAD, y: fy - 11, size: 8, font })
-    cell(page, side.name, x, half, fy - 38, 'center', bold, 9) // names as written in the officer list (capital initials, not all capitals)
+    cell(page, side.name, x, half, fy - 38, 'center', bold, 9)
     cell(page, 'Signature Over Printed Name', x, half, fy - 48, 'center', font, 7.5)
     cell(page, side.position, x, half, fy - 60, 'center', bold, 8.5)
     cell(page, 'Position/Office', x, half, fy - 70, 'center', font, 7.5)

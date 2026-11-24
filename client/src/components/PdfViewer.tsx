@@ -4,22 +4,18 @@ import { Document, Page, pdfjs } from 'react-pdf'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 
-// The pdf.js worker, bundled the Vite way (see react-pdf's README).
 pdfjs.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/legacy/build/pdf.worker.min.mjs', import.meta.url).toString()
 
 type Props = {
   url: string
   page: number
   onPageChange: (page: number) => void
-  /** Called once the page canvas has been drawn (its size is final from then on). */
   onPageRender?: () => void
-  /** Drawn on top of the page, covering it exactly (coordinates are fractions of the page). */
   children?: ReactNode
 }
 
-const A4 = 297 / 210 // page height per unit of width, for the placeholder before the page is drawn
+const A4 = 297 / 210
 
-// A grey page with a few lines where the form will appear.
 function PageSkeleton({ width }: { width: number }) {
   return (
     <div role="status" aria-label="Loading the form" className="grid content-start gap-3 p-[8%]" style={{ height: width ? width * A4 : 320 }}>
@@ -31,13 +27,12 @@ function PageSkeleton({ width }: { width: number }) {
   )
 }
 
-// Fits the page to the container width, so it also works at 360 px.
 export function PdfViewer({ url, page, onPageChange, onPageRender, children }: Props) {
   const box = useRef<HTMLDivElement>(null)
   const [width, setWidth] = useState(0)
   const [pages, setPages] = useState(0)
   const [error, setError] = useState(false)
-  const [drawn, setDrawn] = useState('') // the url#page whose canvas is on screen; the highlight waits for it
+  const [drawn, setDrawn] = useState('')
   const shown = drawn === `${url}#${page}`
   const file = useMemo(() => ({ url, withCredentials: true }), [url])
 
@@ -65,7 +60,6 @@ export function PdfViewer({ url, page, onPageChange, onPageRender, children }: P
         {error ? (
           <p className="p-6 text-center text-sm text-destructive">Could not load the PDF.</p>
         ) : (
-          // suspense off: react-pdf 11 otherwise throws a failed load (429, dropped connection) to the route's error page and the whole scan page dies
           <Document file={file} suspense={false} loading={<PageSkeleton width={width} />}
             onLoadSuccess={(d) => setPages(d.numPages)} onLoadError={() => setError(true)}>
             {width > 0 && (

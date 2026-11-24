@@ -9,11 +9,9 @@ import { users } from '../db/schema.js'
 import { AppError, pgErrorOf } from '../middleware/error.js'
 import { audit, type Ctx } from './audit.js'
 
-// @node-rs/argon2 defaults to argon2id.
 export const hashPassword = (password: string) => hash(password)
 export const verifyPassword = (passwordHash: string, password: string) => verify(passwordHash, password)
 
-// Verified against when the email is unknown, so unknown and wrong-password take the same time.
 const dummyHash = hashPassword('traces-dummy-password')
 
 export const findByEmail = async (email: string) =>
@@ -54,7 +52,6 @@ export async function changePassword(userId: string, currentPassword: string, ne
   })
 }
 
-// Kicks the user out immediately: flag off + every session row deleted.
 export async function deactivateUser(userId: string, ctx: Ctx) {
   await db.transaction(async (tx) => {
     await tx.update(users).set({ active: false, updatedAt: new Date() }).where(eq(users.id, userId))
@@ -63,7 +60,6 @@ export async function deactivateUser(userId: string, ctx: Ctx) {
   })
 }
 
-// 20 characters, no look-alikes (0/O, 1/l/I), at least one of each class. Used for temporary passwords.
 export function generatePassword(): string {
   const sets = ['ABCDEFGHJKLMNPQRSTUVWXYZ', 'abcdefghijkmnopqrstuvwxyz', '23456789', '!@#$%^&*-_=+']
   const all = sets.join('')
@@ -73,7 +69,6 @@ export function generatePassword(): string {
   return chars.join('')
 }
 
-// ───────────── superadmin user management ─────────────
 const columns = {
   id: users.id, email: users.email, displayName: users.displayName, role: users.role, active: users.active,
   mustChangePassword: users.mustChangePassword, createdAt: users.createdAt, updatedAt: users.updatedAt,
@@ -81,7 +76,6 @@ const columns = {
 
 export const listUsers = () => db.select(columns).from(users).orderBy(asc(users.displayName))
 
-// shortname@region1.dost.gov.ph, or shortname2@… when that address is already used
 async function accountEmail(displayName: string) {
   const [local, domain] = accountEmailOf(displayName).split('@')
   for (let n = 1; ; n++) {
@@ -108,7 +102,6 @@ export async function adminUpdateUser(id: string, patch: z.infer<typeof userPatc
     const before = (await tx.select().from(users).where(eq(users.id, id)).for('update'))[0]
     if (!before) throw new AppError('USER_NOT_FOUND', 404, 'User not found')
 
-    // never leave the system without an active superadmin (also stops a superadmin locking themselves out)
     const losesSuperadmin = before.role === 'superadmin' && before.active && (patch.active === false || (patch.role && patch.role !== 'superadmin'))
     if (losesSuperadmin) {
       const others = await tx.select({ id: users.id }).from(users).where(and(eq(users.role, 'superadmin'), eq(users.active, true), ne(users.id, id))).limit(1)

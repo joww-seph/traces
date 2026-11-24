@@ -14,7 +14,6 @@ const token = async (no: string) =>
   (await testPool.query(`SELECT t.token FROM qr_tokens t JOIN properties p ON p.id=t.property_id WHERE p.property_no=$1 AND t.revoked_at IS NULL`, [no])).rows[0].token.trim() as string
 const condition = async (no: string) => (await testPool.query(`SELECT condition FROM properties WHERE property_no=$1`, [no])).rows[0].condition as string
 
-// Maria Santos holds one semi chair (S-1) and one semi desk (S-2); a laptop set (L-1 + component L-1a) is PPE
 async function seed() {
   const { agent } = await loginAs('supply_admin')
   const { doc, receiver } = await makeDocument(agent)
@@ -34,7 +33,7 @@ describe('physical count', () => {
     expect(a.status).toBe(201)
     expect(a.body).toMatchObject({ category: 'semi', asAt: '2026-06-30', total: 2, counted: 0, unserviceable: 0, closedAt: null })
     const b = await start()
-    expect(b.body.id).toBe(a.body.id) // resumed, not duplicated
+    expect(b.body.id).toBe(a.body.id)
     expect((await start({ asAt: '2026-07-31' })).body.id).not.toBe(a.body.id)
   })
 
@@ -47,7 +46,7 @@ describe('physical count', () => {
     expect(await condition('S-1')).toBe('serviceable')
     const rpc = (await agent.get(`/api/reports/rpc?officerId=${receiver.id}&category=semi&asAt=2026-06-30&countId=${c.id}`)).body
     expect(rpc.rows).toHaveLength(1)
-    expect(rpc.rows[0]).toMatchObject({ balancePerCard: 2, countedUnits: 1, counted: false }) // 1 of 2: not fully counted
+    expect(rpc.rows[0]).toMatchObject({ balancePerCard: 2, countedUnits: 1, counted: false })
     await agent.post(`/api/counts/${c.id}/scans`).send({ token: await token('S-2'), condition: 'serviceable' })
     const done = (await agent.get(`/api/reports/rpc?officerId=${receiver.id}&category=semi&asAt=2026-06-30&countId=${c.id}`)).body
     expect(done.rows[0]).toMatchObject({ countedUnits: 2, counted: true })
@@ -71,7 +70,6 @@ describe('physical count', () => {
     const iirusp = (await agent.get(`/api/reports/unserviceable?officerId=${receiver.id}&category=semi&asAt=2026-06-30`)).body
     expect(iirusp.rows).toHaveLength(1)
     expect(iirusp.rows[0]).toMatchObject({ propertyNos: ['S-1'], unitValueCentavos: 4870000, qty: 1, totalCostCentavos: 4870000 })
-    // PPE has none
     expect((await agent.get(`/api/reports/unserviceable?officerId=${receiver.id}&category=ppe&asAt=2026-06-30`)).body.rows).toEqual([])
   })
 
@@ -94,7 +92,7 @@ describe('physical count', () => {
     expect(res.body.error.details).toMatchObject({ mainPropertyNo: 'L-1' })
     const ok = await agent.post(`/api/counts/${c.id}/scans`).send({ token: await token('L-1'), condition: 'unserviceable' })
     expect(ok.status).toBe(200)
-    expect(await condition('L-1a')).toBe('unserviceable') // the set moves together
+    expect(await condition('L-1a')).toBe('unserviceable')
     void receiver
   })
 
@@ -110,7 +108,7 @@ describe('physical count', () => {
 
   it('an item of the other category is refused', async () => {
     const { agent, start } = await seed()
-    const c = (await start()).body // semi
+    const c = (await start()).body
     const res = await agent.post(`/api/counts/${c.id}/scans`).send({ token: await token('L-1'), condition: 'serviceable' })
     expect(res.status).toBe(409)
     expect(res.body.error.code).toBe('WRONG_CATEGORY')
@@ -123,7 +121,7 @@ describe('physical count', () => {
     const res = await agent.post(`/api/counts/${c.id}/scans`).send({ token: await token('S-1'), condition: 'serviceable' })
     expect(res.status).toBe(409)
     expect(res.body.error.code).toBe('COUNT_CLOSED')
-    expect((await start()).body.closedAt).toBeTruthy() // asking for the same count returns it closed
+    expect((await start()).body.closedAt).toBeTruthy()
   })
 
   it('an unknown or replaced token is refused; a scan can be removed', async () => {
@@ -147,7 +145,6 @@ describe('physical count', () => {
     const anon = agentFor()
     expect((await anon.get('/api/counts')).status).toBe(401)
     expect((await anon.post(`/api/counts/${c.id}/scans`).send({ token: 'abcdefghij', condition: 'serviceable' })).status).toBe(401)
-    // the IT account has no access to the records
     const it = await makeUser('superadmin')
     const itAgent = agentFor()
     await itAgent.post('/api/auth/login').send({ email: it.email, password: PASSWORD })

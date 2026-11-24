@@ -5,7 +5,6 @@ import { reportSignatories } from '../db/schema.js'
 import { audit, type Ctx } from './audit.js'
 import { getSignatories } from './views.js'
 
-// "Save as default" on the report page: replaces the whole list in one transaction.
 export async function replaceSignatories(input: z.infer<typeof signatoriesInput>, ctx: Ctx) {
   await db.transaction(async (tx) => {
     const before = await tx.select().from(reportSignatories)

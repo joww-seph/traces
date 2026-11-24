@@ -13,7 +13,6 @@ const TABS = [
 ] as const
 type TabId = (typeof TABS)[number]['id']
 
-// The active tab lives in the URL hash so a link (or a refresh) lands on the same tab.
 function useHashTab(): [TabId, (t: TabId) => void] {
   const read = (): TabId => (TABS.find((t) => `#${t.id}` === location.hash)?.id ?? 'icspar')
   const [tab, setTab] = useState<TabId>(read)
@@ -25,7 +24,6 @@ function useHashTab(): [TabId, (t: TabId) => void] {
   return [tab, (t) => { history.replaceState(null, '', `#${t}`); setTab(t) }]
 }
 
-// Paper-form heading above each grid, like the top of the printed form.
 function FormHead({ title, lines }: { title: string; lines: ReactNode[] }) {
   return (
     <div className="mb-3 text-center">
@@ -39,7 +37,6 @@ const entityLine = (entity: string, fund: string) => `${entity} · Fund Cluster:
 
 function RegionHighlight({ region, ready }: { region: NonNullable<PropertyView['document']['pdfRegion']>; ready: boolean }) {
   const ref = useRef<HTMLDivElement>(null)
-  // scroll only once the page is drawn, when the box has its final position; on a phone the page is left where it opened so the item facts stay in view
   useEffect(() => { if (ready && window.matchMedia('(min-width: 1024px)').matches) ref.current?.scrollIntoView({ block: 'center', behavior: 'smooth' }) }, [ready])
   return (
     <div ref={ref} data-testid="region-highlight" role="img" aria-label="Highlighted row on the form"
@@ -61,7 +58,6 @@ function IcsParPanel({ view }: { view: PropertyView }) {
       <FormGrid<IcsParRow> columnDefs={columns} rowData={t.rows} highlightRowId={t.highlightRowId} />
     </section>
   )
-  // No PDF at all: the structured form, with this line highlighted, is the whole tab.
   if (!d.pdfUrl) {
     return (
       <div className="grid gap-4">
@@ -119,8 +115,6 @@ function RegistryPanel({ view }: { view: PropertyView }) {
 
 type CardData = PropertyView['tabs']['card']
 
-// The property card (SPC / PC) of one property (decision 2026-11-18): its issuance, and later transfers, as rows.
-// `highlightRowIds` marks the scanned line's rows. Staff pages pass onRemarks to make Remarks editable.
 export function CardPanel({ card, onRemarks }: { card: CardData; onRemarks?: (rowId: string, remarks: string) => void }) {
   const h = card.header
   const columns = useMemo(() => cardColumns(h.category, !!onRemarks), [h.category, onRemarks])
@@ -138,7 +132,6 @@ export function CardPanel({ card, onRemarks }: { card: CardData; onRemarks?: (ro
   )
 }
 
-// The four tabs of a property: ICS/PAR with the PDF box, Report, Registry, Card. Shared by the public page and the admin page.
 export function PropertyTabs({ view }: { view: PropertyView }) {
   const [tab, setTab] = useHashTab()
   const onKey = (e: KeyboardEvent<HTMLDivElement>) => {
@@ -176,7 +169,6 @@ export function PropertyTabs({ view }: { view: PropertyView }) {
   )
 }
 
-// Key facts of one property, used above the tabs on both pages.
 export function PropertySummary({ view }: { view: PropertyView }) {
   const p = view.property, l = view.line, d = view.document
   const fact = (label: string, value: ReactNode) => (

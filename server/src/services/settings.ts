@@ -9,12 +9,10 @@ import { audit, type Ctx } from './audit.js'
 type Settings = typeof settings.$inferSelect
 type Reader = Pick<typeof db, 'select'>
 
-// shortcut: in-process cache, fine for the single Node process; use pg LISTEN/NOTIFY if the API is ever scaled out.
 let cache: { at: number; row: Settings } | null = null
 const TTL_MS = 30_000
 export const clearSettingsCache = () => { cache = null }
 
-// Pass a transaction to read inside it (uncached); omit for the cached read.
 export async function getSettings(tx?: Reader): Promise<Settings> {
   if (!tx && cache && Date.now() - cache.at < TTL_MS) return cache.row
   const row = (await (tx ?? db).select().from(settings).where(eq(settings.id, 1)))[0]

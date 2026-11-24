@@ -21,7 +21,6 @@ function UnitDialog({ unit, onClose }: { unit: Unit | 'new' | null; onClose: () 
   const [name, setName] = useState('')
   const [error, setError] = useState('')
   const [shown, setShown] = useState<unknown>(null)
-  // reset the fields whenever another unit (or "new") is opened
   if (shown !== unit) { setShown(unit); setCode(editing?.code ?? ''); setName(editing?.name ?? ''); setError('') }
 
   const save = useMutation({

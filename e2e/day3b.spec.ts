@@ -2,7 +2,6 @@ import { expect, test } from '@playwright/test'
 import { E2E } from '../playwright.config'
 import { a11y, apiSeed, apiSign, login, noHorizontalScroll, pickOfficer } from './helpers'
 
-// Files run in name order, so this runs after day3.spec.ts in the same database (the semi chair 2026-09ICT-0402 exists).
 test.describe.configure({ mode: 'serial' })
 
 const person = { name: 'Pat Example', email: 'pexample@region1.dost.gov.ph' }
@@ -49,17 +48,17 @@ test('delete form: an unsigned ICS can be deleted after confirming; a signed PAR
   const dialog = page.getByRole('dialog')
   await expect(dialog.getByText('cannot be used again')).toBeVisible()
   await dialog.getByRole('button', { name: 'Keep the form' }).click()
-  await expect(page).toHaveURL(new RegExp(`/documents/${s.icsId}$`)) // nothing happened
+  await expect(page).toHaveURL(new RegExp(`/documents/${s.icsId}$`))
 
   await page.getByRole('button', { name: 'Delete form' }).click()
   await page.getByRole('dialog').getByRole('button', { name: 'Delete ICS 2026-05DEL-001' }).click()
   await expect(page).toHaveURL(/\/documents$/)
   await expect(page.getByText('ICS 2026-05DEL-001 deleted')).toBeVisible()
   await page.getByLabel('Search by document number').fill('2026-05DEL-001')
-  await expect(page.getByRole('link', { name: '2026-05DEL-001-P' })).toBeVisible() // the signed PAR stays
+  await expect(page.getByRole('link', { name: '2026-05DEL-001-P' })).toBeVisible()
   await expect(page.getByRole('link', { name: '2026-05DEL-001', exact: true })).toHaveCount(0)
 
-  await page.goto(`/q/${semiToken}`) // its sticker stops working
+  await page.goto(`/q/${semiToken}`)
   await expect(page.getByText('This item was removed')).toBeVisible()
 })
 
@@ -82,22 +81,21 @@ test('one PAR per PPE unit: two laptops in one row get two PAR numbers in a row;
   await page.locator('#date').fill('2026-05-12')
   await page.getByLabel('Office unit').selectOption('ADM')
   await expect(page.getByTestId('summary')).toHaveText('This creates 2 PAR (one per PPE unit).')
-  await expect(page.locator('#parNo-0')).toHaveValue(/^2026-05ADM-\d{3}$/) // the suggestion arrives from the server
+  await expect(page.locator('#parNo-0')).toHaveValue(/^2026-05ADM-\d{3}$/)
   const first = await page.locator('#parNo-0').inputValue()
   const next = `2026-05ADM-${String(Number(first.slice(-3)) + 1).padStart(3, '0')}`
-  await expect(page.locator('#parNo-1')).toHaveValue(next) // consecutive
+  await expect(page.locator('#parNo-1')).toHaveValue(next)
   await page.getByRole('button', { name: "Save, I'll upload the PDF" }).click()
   await expect(page.getByRole('heading', { name: 'Saved' })).toBeVisible()
   await expect(page.getByText(first)).toBeVisible()
   await expect(page.getByText(next)).toBeVisible()
 
-  // the second PAR's page: its History lists the save
   await page.getByRole('listitem').filter({ hasText: next }).getByRole('link', { name: 'Open' }).click()
   await expect(page.getByRole('heading', { name: 'History' })).toBeVisible()
   await expect(page.getByText('Form created')).toBeVisible()
   await expect(page.getByText('Line added')).toBeVisible()
-  await expect(page.getByRole('gridcell', { name: '2026-05TWO-0002' })).toBeVisible() // this PAR holds the second laptop only
-  await page.evaluate(() => localStorage.clear()) // no draft left for later tests
+  await expect(page.getByRole('gridcell', { name: '2026-05TWO-0002' })).toBeVisible()
+  await page.evaluate(() => localStorage.clear())
 })
 
 test('a supply admin does not see the admin pages', async ({ page }) => {
@@ -105,7 +103,6 @@ test('a supply admin does not see the admin pages', async ({ page }) => {
   await expect(page.getByRole('link', { name: 'User accounts' })).toHaveCount(0)
   await page.goto('/admin/users')
   await expect(page.getByRole('heading', { name: 'User accounts' })).toHaveCount(0)
-  // officers and property types are kept by the IT officer
   await expect(page.getByRole('link', { name: 'Officers' })).toHaveCount(0)
   for (const url of ['/officers', '/property-types', '/units']) {
     await page.goto(url)
@@ -115,7 +112,7 @@ test('a supply admin does not see the admin pages', async ({ page }) => {
 
 test('the IT officer does not see the records pages', async ({ page }) => {
   await login(page, E2E.superadmin)
-  await expect(page).toHaveURL(/\/admin\/users$/) // starts on the accounts page, not the dashboard
+  await expect(page).toHaveURL(/\/admin\/users$/)
   const nav = page.getByRole('navigation', { name: 'Main' })
   for (const name of ['Dashboard', 'New issuance', 'ICS and PAR', 'Cards', 'Registry', 'Reports', 'Stickers']) await expect(nav.getByRole('link', { name })).toHaveCount(0)
   await expect(nav.getByRole('link', { name: 'User accounts' })).toBeVisible()
@@ -131,7 +128,6 @@ test('users: add shows a one-time temporary password, which works once', async (
   await page.getByRole('button', { name: 'Add user' }).first().click()
   const dialog = page.getByRole('dialog')
   await dialog.getByLabel('Full name').fill(person.name)
-  // the email is made from the name
   await expect(dialog.getByLabel(/^Email/)).toHaveValue(person.email)
   await dialog.getByRole('button', { name: 'Add user' }).click()
 
@@ -143,7 +139,6 @@ test('users: add shows a one-time temporary password, which works once', async (
   await pw.getByRole('button', { name: 'Done' }).click()
   await expect(page.getByRole('row', { name: new RegExp(person.email) })).toContainText('must change password')
 
-  // the new person signs in with it and is sent to change it
   const ctx = await browser.newContext({ baseURL: `http://localhost:${E2E.webPort}` })
   const other = await ctx.newPage()
   await other.goto('/login')
@@ -153,7 +148,6 @@ test('users: add shows a one-time temporary password, which works once', async (
   await expect(other).toHaveURL(/account\/password/)
   await ctx.close()
 
-  // a second person with the same short name gets a numbered address
   await page.getByRole('button', { name: 'Add user' }).first().click()
   await dialog.getByLabel('Full name').fill('Pia Example')
   await dialog.getByRole('button', { name: 'Add user' }).click()
@@ -241,7 +235,6 @@ test('physical count by QR scan: counted rows, unserviceable items go to the IIR
     await page.getByLabel('Report', { exact: true }).selectOption('semi')
   }
 
-  // a phone with no count on it shows the plain page
   await page.goto(`/q/${chair}`)
   await expect(page.getByRole('heading', { name: 'Office chair', level: 1 })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Physical count' })).toHaveCount(0)
@@ -250,7 +243,6 @@ test('physical count by QR scan: counted rows, unserviceable items go to the IIR
   await page.getByRole('button', { name: 'Start the count' }).click()
   await expect(page.getByText(/0 of \d+ counted/)).toBeVisible()
 
-  // scanning with this phone: serviceable
   await page.goto(`/q/${chair}`)
   await expect(page.getByRole('heading', { name: 'Physical count' })).toBeVisible()
   await page.getByRole('button', { name: 'Serviceable', exact: true }).click()
@@ -263,20 +255,17 @@ test('physical count by QR scan: counted rows, unserviceable items go to the IIR
   await expect(report.getByText('2026-05CNT-0002')).toBeVisible()
   await expect(report.getByRole('gridcell', { name: 'Counted', exact: true }).first()).toBeVisible()
 
-  // a mis-tap is fixed by scanning again; this time it is unserviceable and leaves the report for the IIRUSP
   await page.goto(`/q/${chair}`)
   await page.getByRole('button', { name: 'Unserviceable' }).click()
   await expect(page.getByRole('status').filter({ hasText: 'counted as unserviceable' })).toContainText('IIRUSP')
   await openReport()
   await expect(report.getByText('2026-05CNT-0002')).toHaveCount(0)
-  // it is on its own page, the Unserviceable page
   await page.getByRole('link', { name: 'Unserviceable' }).click()
   await pickOfficer(page, 'u-officer', 'Maria Santos')
   await page.getByLabel('Report', { exact: true }).selectOption('semi')
   await expect(page.getByRole('region', { name: 'IIRUSP, unserviceable property' }).getByText('2026-05CNT-0002')).toBeVisible()
   await openReport()
 
-  // another browser, signed in or not, does not get the panel
   const other = await browser.newContext()
   const anon = await other.newPage()
   await anon.goto(`/q/${chair}`)
@@ -284,11 +273,10 @@ test('physical count by QR scan: counted rows, unserviceable items go to the IIR
   await expect(anon.getByRole('heading', { name: 'Physical count' })).toHaveCount(0)
   await other.close()
 
-  // close the count: no more scans
   page.once('dialog', (d) => d.accept())
   await page.getByRole('button', { name: 'Close the count' }).click()
   await expect(page.getByText(/· closed/)).toBeVisible()
   await page.goto(`/q/${chair}`)
   await expect(page.getByRole('heading', { name: 'Office chair', level: 1 })).toBeVisible()
-  await expect(page.getByRole('heading', { name: 'Physical count' })).toHaveCount(0) // closing it stopped counting on this phone
+  await expect(page.getByRole('heading', { name: 'Physical count' })).toHaveCount(0)
 })

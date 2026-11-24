@@ -1,13 +1,10 @@
-// Builds the developer guide: the whole system and codebase, explained from zero.
-//   node scripts/devguide/build-deck.cjs  ->  docs/TRACES-Developer-Guide.pptx   (DEVGUIDE_OUT overrides the path)
-// Same look as the user manual (white slides, Arial, red accent), plus diagrams. Made-up names only: the repo is public.
 const path = require('node:path')
 const pptxgen = require('pptxgenjs')
 
 const OUT = path.resolve(process.env.DEVGUIDE_OUT ?? 'docs/TRACES-Developer-Guide.pptx')
 
 const pres = new pptxgen()
-pres.layout = 'LAYOUT_WIDE' // 13.333 x 7.5 in
+pres.layout = 'LAYOUT_WIDE'
 pres.title = 'TRACES Developer Guide'
 pres.author = 'Supply Unit, DOST Region 1'
 pres.theme = { headFontFace: 'Arial', bodyFontFace: 'Arial' }
@@ -22,7 +19,6 @@ const GREEN = '2E7D32'
 const LINE = 'B8C0C8'
 const MONO = 'Courier New'
 
-// ───────────── layouts ─────────────
 pres.defineSlideMaster({
   title: 'CONTENT',
   background: { color: 'FFFFFF' },
@@ -42,7 +38,6 @@ pres.defineSlideMaster({
   slideNumber: { x: 12.3, y: 7.0, w: 0.5, h: 0.3, fontSize: 10, color: 'DCE3EA', align: 'right' },
 })
 
-// ───────────── helpers ─────────────
 let section = ''
 function content(title) {
   const s = pres.addSlide({ masterName: 'CONTENT', sectionTitle: section })
@@ -58,7 +53,6 @@ function part(title, sub) {
   return s
 }
 
-// items: 'text' or ['Bold term', 'rest of the sentence']
 function bullets(s, items, o = {}) {
   const size = o.size ?? 16
   const runs = []
@@ -78,7 +72,6 @@ function para(s, text, o = {}) {
   s.addText(text, { x: o.x ?? 0.5, y: o.y ?? 1.3, w: o.w ?? 12.3, h: o.h ?? 0.6, fontSize: o.size ?? 16, color: o.color ?? INK, bold: o.bold, italic: o.italic, align: o.align, valign: o.valign ?? 'top', isTextBox: true, margin: 0, fontFace: o.font })
 }
 
-// The motif: a grey panel that says the same thing in everyday words.
 function plain(s, text, o = {}) {
   const x = o.x ?? 0.5, y = o.y ?? 5.6, w = o.w ?? 12.3, h = o.h ?? 1.2
   s.addShape(pres.shapes.ROUNDED_RECTANGLE, { x, y, w, h, fill: { color: PANEL }, line: { color: PANEL }, rectRadius: 0.08, objectName: 'plain words panel' })
@@ -112,7 +105,6 @@ function code(s, text, o = {}) {
   s.addText(text, { x: x + 0.15, y: y + (o.label ? 0.38 : 0.12), w: w - 0.3, h: h - (o.label ? 0.48 : 0.24), fontSize: o.size ?? 13, fontFace: MONO, color: INK, valign: 'top', isTextBox: true, margin: 0 })
 }
 
-// rows[0] is the header
 function table(s, rows, o = {}) {
   const size = o.size ?? 13
   const data = rows.map((r, i) => r.map((c) => ({
@@ -124,7 +116,6 @@ function table(s, rows, o = {}) {
   s.addTable(data, { x: o.x ?? 0.5, y: o.y ?? 1.3, w: o.w ?? 12.3, colW: o.colW, border: { type: 'solid', pt: 0.5, color: 'D5DBE1' }, margin: [0.05, 0.08, 0.05, 0.08], valign: 'middle', autoPage: false })
 }
 
-// ═════════════════════════ front ═════════════════════════
 section = 'Start here'
 pres.addSection({ title: section })
 {
@@ -183,7 +174,6 @@ pres.addSection({ title: section })
   ], { colW: [2.6, 9.7], size: 14 })
 }
 
-// ═════════════════════════ part 1 ═════════════════════════
 part('Part 1. What TRACES does', 'No code yet. If you understand this part, the code will make sense.')
 
 {
@@ -252,7 +242,6 @@ part('Part 1. What TRACES does', 'No code yet. If you understand this part, the 
   plain(s, 'Two kinds of staff accounts, one public page. The public page shows one item at a time and never lists or searches anything.')
 }
 
-// ═════════════════════════ part 2 ═════════════════════════
 part('Part 2. The big picture', 'The four programs that make TRACES, and how the folders are arranged.')
 
 {
@@ -351,7 +340,6 @@ part('Part 2. The big picture', 'The four programs that make TRACES, and how the
   ], { colW: [3.2, 9.1], size: 14 })
 }
 
-// ═════════════════════════ part 3 ═════════════════════════
 part('Part 3. Running it on your laptop', 'From an empty computer to the login page.')
 
 {
@@ -411,7 +399,6 @@ part('Part 3. Running it on your laptop', 'From an empty computer to the login p
   plain(s, '.env holds secrets and is ignored by git. Never commit it, never paste its contents anywhere public.')
 }
 
-// ═════════════════════════ part 4 ═════════════════════════
 part('Part 4. The database', 'Where the truth lives. Learn this part well: the rest of the code follows from it.')
 
 {
@@ -531,7 +518,6 @@ part('Part 4. The database', 'Where the truth lives. Learn this part well: the r
   plain(s, 'A migration is a numbered instruction like "add a column". Every laptop and server runs the same list in the same order, so all databases end up identical.')
 }
 
-// ═════════════════════════ part 5 ═════════════════════════
 part('Part 5. The server', 'What happens between a click and a saved row.')
 
 {
@@ -691,7 +677,6 @@ part('Part 5. The server', 'What happens between a click and a saved row.')
   ], { colW: [2.0, 10.3], size: 13 })
 }
 
-// ═════════════════════════ part 6 ═════════════════════════
 part('Part 6. The shared rules', 'shared/: why a rule is written once and used by both the server and the client.')
 
 {
@@ -730,7 +715,6 @@ part('Part 6. The shared rules', 'shared/: why a rule is written once and used b
   plain(s, 'Property numbers are only suggested (GET /api/property-numbers/next). The user may type another one; the UNIQUE index is the real guard.', { y: 5.4, h: 1.1 })
 }
 
-// ═════════════════════════ part 7 ═════════════════════════
 part('Part 7. The client', 'How the screens get their data and talk back.')
 
 {
@@ -820,7 +804,6 @@ part('Part 7. The client', 'How the screens get their data and talk back.')
   plain(s, 'Write text on screens for Supply staff, not for developers: no "how it works" notes, no hints that read like code comments. Pages must pass the accessibility test and fit a 360 px phone.', { y: 5.4, h: 1.3 })
 }
 
-// ═════════════════════════ part 8 ═════════════════════════
 part('Part 8. Tests', 'How we know a change did not break anything.')
 
 {
@@ -853,7 +836,6 @@ part('Part 8. Tests', 'How we know a change did not break anything.')
   plain(s, 'If you never saw the test fail, you do not know it tests anything. For a bug: first write a test that shows the bug, then fix it.', { y: 5.3, h: 1.1 })
 }
 
-// ═════════════════════════ part 9 ═════════════════════════
 part('Part 9. Doing real work', 'Recipes, rules, and where to look things up.')
 
 {
@@ -956,11 +938,10 @@ part('Part 9. Doing real work', 'Recipes, rules, and where to look things up.')
   ], { placeholder: 'body' })
 }
 
-// pptxgenjs writes folder entries into the zip; cloud viewers can refuse those, so the file is re-zipped without them.
 pres.write({ outputType: 'nodebuffer' }).then(async (buf) => {
   const JSZip = require('jszip')
   const zip = await JSZip.loadAsync(buf)
-  for (const name of Object.keys(zip.files)) if (zip.files[name].dir) delete zip.files[name] // zip.remove() would drop the files inside too
+  for (const name of Object.keys(zip.files)) if (zip.files[name].dir) delete zip.files[name]
   require('node:fs').writeFileSync(OUT, await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' }))
   console.log(`wrote ${OUT}`)
 })

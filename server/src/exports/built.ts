@@ -3,13 +3,10 @@ import ExcelJS from 'exceljs'
 import type { CardData, CountData } from './fill.js'
 import { MONEY, asDate, pageEvery, pesos, ruleAndNumber, sizeRow, toBuffer } from './xlsx.js'
 
-// SPC and RPCSP have no official Excel template, so they are drawn here to match the blank forms
-// (Semi-Expendable Property Card, Report on Physical Count of Semi-Expendable Property).
-
 const thin = { style: 'thin' as const }
 const BOX = { top: thin, left: thin, bottom: thin, right: thin }
 const FONT = { name: 'Times New Roman', size: 10 }
-const MIN_BLANK_ROWS = 14 // blank ruled rows, as on the paper form
+const MIN_BLANK_ROWS = 14
 
 function cell(ws: ExcelJS.Worksheet, addr: string, value: ExcelJS.CellValue, o: Partial<ExcelJS.Style> & { merge?: string; numFmt?: string } = {}) {
   if (o.merge) ws.mergeCells(o.merge)
@@ -35,7 +32,6 @@ const boxRange = (ws: ExcelJS.Worksheet, r1: number, c1: number, r2: number, c2:
 const center = { horizontal: 'center' as const, vertical: 'middle' as const, wrapText: true }
 const heading = { ...FONT, bold: true }
 
-// ───────────────────────── SPC ─────────────────────────
 export async function buildSpc(entityName: string, d: CardData) {
   const { wb, ws } = newSheet('SPC', [12, 22, 7, 13, 14, 24, 7, 18, 9, 14, 24])
   cell(ws, 'A1', 'SEMI-EXPENDABLE PROPERTY CARD', { merge: 'A1:K1', font: { ...heading, size: 12, underline: true }, alignment: center })
@@ -70,7 +66,6 @@ export async function buildSpc(entityName: string, d: CardData) {
   return toBuffer(wb)
 }
 
-// ───────────────────────── RPCSP ─────────────────────────
 export async function buildRpcsp(entityName: string, d: CountData) {
   const { wb, ws } = newSheet('RPCSP', [18, 38, 22, 11, 14, 11, 11, 10, 14, 26])
   cell(ws, 'A1', 'REPORT ON THE PHYSICAL COUNT OF SEMI-EXPENDABLE PROPERTY', { merge: 'A1:J1', font: { ...heading, size: 12 }, alignment: center })
@@ -108,7 +103,6 @@ export async function buildRpcsp(entityName: string, d: CountData) {
     sizeRow(ws, r, ['A', 'B', 'C', 'J'], { perLine: 12.5 })
   })
 
-  // signature block: Certified Correct / Approved / Witnessed
   const sig = last + 2
   const names = (role: string) => d.signatories.filter((s) => s.role === role).map((s) => s.name).join('\n')
   const block = (c1: string, c2: string, label: string, role: string, caption: string) => {
@@ -126,7 +120,6 @@ export async function buildRpcsp(entityName: string, d: CountData) {
   return toBuffer(wb)
 }
 
-// The ICS/PAR list as printed (decision 2026-11-18): No. per form type, 20 rows per sheet, the header row repeats.
 export type IcsParListRow = { rowNo: number; type: 'ICS' | 'PAR'; docNo: string; issuedDate: string; receivedByName: string; status: 'none' | 'generated' | 'signed' }
 const STATUS = { none: 'No PDF', generated: 'Unsigned', signed: 'Signed copy' } as const
 export async function buildIcsParList(d: { entityName: string; rows: IcsParListRow[] }) {
@@ -146,9 +139,6 @@ export async function buildIcsParList(d: { entityName: string; rows: IcsParListR
   return toBuffer(wb)
 }
 
-// ───────────────────────── IIRUP (Appendix 74) / IIRUSP ─────────────────────────
-// Inventory and Inspection Report of Unserviceable Property. Accumulated depreciation, impairment, carrying amount and the whole
-// disposal side are not stored, so they print blank for the inspection; cost columns are worked out from the line.
 export type IirupData = {
   category: 'semi' | 'ppe'; entityName: string; asAt: string; fundCluster: string; officerName: string; officerPosition: string; station: string
   rows: { dateAcquired: string; article: string; description: string; propertyNos: string[]; qty: number; unitValueCentavos: number; totalCostCentavos: number; remarks: string | null }[]
@@ -156,7 +146,6 @@ export type IirupData = {
 export async function buildIirup(d: IirupData) {
   const { wb, ws } = newSheet(d.category === 'ppe' ? 'IIRUP' : 'IIRUSP', [13, 34, 22, 6, 13, 14, 13, 13, 13, 22, 10, 10, 11, 11, 10, 12, 10, 12, 7])
   const title = d.category === 'ppe' ? 'INVENTORY AND INSPECTION REPORT OF UNSERVICEABLE PROPERTY' : 'INVENTORY AND INSPECTION REPORT OF UNSERVICEABLE SEMI-EXPENDABLE PROPERTY'
-  // "Appendix 74" is the PPE form's label; the semi-expendable form (IIRUSP) has its own appendix, so none is printed
   cell(ws, 'A1', title, { merge: d.category === 'ppe' ? 'A1:O1' : 'A1:S1', font: { ...heading, size: 12 }, alignment: center })
   if (d.category === 'ppe') cell(ws, 'P1', 'Appendix 74', { merge: 'P1:S1', font: { ...FONT, italic: true }, alignment: { horizontal: 'right', vertical: 'middle' } })
   cell(ws, 'A2', `As at ${formatLongDate(d.asAt)}`, { merge: 'A2:S2', alignment: center })
@@ -177,7 +166,6 @@ export async function buildIirup(d: IirupData) {
   head('K9', 'DISPOSAL', 'K9:O9'); head('Q9', 'RECORD OF SALES', 'Q9:R9')
   for (const [col, text] of [['K', 'Sale'], ['L', 'Transfer'], ['M', 'Destruction'], ['N', 'Others (Specify)'], ['O', 'Total'], ['Q', 'OR No.'], ['R', 'Amount']]) head(`${col}10`, text)
 
-  // row 11 numbers the columns (1) to (18), as on the form
   for (let c = 1; c <= 18; c++) cell(ws, `${ws.getColumn(c).letter}11`, `(${c})`, { font: { ...FONT, italic: true, size: 9 }, alignment: center })
 
   const last = 11 + Math.max(MIN_BLANK_ROWS, d.rows.length)
@@ -192,7 +180,6 @@ export async function buildIirup(d: IirupData) {
     sizeRow(ws, r, ['B', 'C', 'J'], { perLine: 12.5 })
   })
 
-  // the request, certifications and signatures, as on the form
   const sig = last + 2
   const block = (range: [string, string], text: string, lines: string[]) => {
     cell(ws, `${range[0]}${sig}`, text, { merge: `${range[0]}${sig}:${range[1]}${sig}`, alignment: { vertical: 'top', wrapText: true } })

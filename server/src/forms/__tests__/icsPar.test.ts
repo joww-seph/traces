@@ -21,7 +21,6 @@ const doc = (n: number, over: Partial<FormDoc> = {}): FormDoc => ({
   lines: Array.from({ length: n }, (_, i) => line(i)), ...over,
 })
 
-// text items of a rendered PDF with their top-left page fractions (pdf.js)
 async function textItems(bytes: Uint8Array) {
   const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs')
   const pdf = await pdfjs.getDocument({ data: new Uint8Array(bytes), useSystemFonts: false }).promise
@@ -31,7 +30,7 @@ async function textItems(bytes: Uint8Array) {
     const { width: W, height: H } = page.getViewport({ scale: 1 })
     for (const it of (await page.getTextContent()).items) {
       if (!('str' in it) || !it.str.trim()) continue
-      out.push({ page: p, text: it.str, x: it.transform[4] / W, y: 1 - it.transform[5] / H }) // y: baseline from the top
+      out.push({ page: p, text: it.str, x: it.transform[4] / W, y: 1 - it.transform[5] / H })
     }
   }
   return { items: out, pages: pdf.numPages }
@@ -54,7 +53,7 @@ describe('renderIcsPar layout', () => {
     }
     for (let i = 1; i < r.regions.length; i++) {
       const a = r.regions[i - 1], b = r.regions[i]
-      if (a.page === b.page) expect(b.y).toBeGreaterThanOrEqual(a.y + a.h - 1e-9) // below the previous row
+      if (a.page === b.page) expect(b.y).toBeGreaterThanOrEqual(a.y + a.h - 1e-9)
       else expect(b.page).toBe(a.page + 1)
     }
     expect(r.regions.at(-1)!.page).toBe(r.pageCount)
@@ -81,7 +80,7 @@ describe('renderIcsPar layout', () => {
       expect(hit!.x).toBeGreaterThan(g.x)
       expect(hit!.x).toBeLessThan(g.x + g.w)
     }
-    expect(r.pageCount).toBeGreaterThanOrEqual(2) // the check covered a page-2 row
+    expect(r.pageCount).toBeGreaterThanOrEqual(2)
   })
 
   it('every page repeats the header; the last page has the signature block; "Page x of y" is printed', async () => {
@@ -96,12 +95,11 @@ describe('renderIcsPar layout', () => {
     }
     const last = items.filter((t) => t.page === r.pageCount).map((t) => t.text).join(' ')
     expect(last).toContain('Received from:')
-    expect(last).toContain('Maria S. Santos') // printed as written, not in capitals
+    expect(last).toContain('Maria S. Santos')
     expect(items.filter((t) => t.page < r.pageCount).map((t) => t.text).join(' ')).not.toContain('Received from:')
   })
 
   it('the signature block always takes the last row with it', async () => {
-    // find a count where the footer would not fit under the last row, and check the last row sits on the last page
     for (const n of [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 22]) {
       const r = await renderIcsPar(doc(n), fonts)
       const { items } = await textItems(r.bytes)
@@ -119,7 +117,7 @@ describe('renderIcsPar layout', () => {
     expect(txt).toContain('Amount')
     expect(txt).toContain('PAR No.: 2025-RO-68')
     expect(txt).toContain('Issued by:')
-    expect(txt).toContain('March 1, 2026') // the date acquired of each line
+    expect(txt).toContain('March 1, 2026')
     expect(txt).toContain('48,700.00')
   })
 
@@ -135,7 +133,7 @@ describe('renderIcsPar layout', () => {
     expect(r.pageCount).toBeGreaterThanOrEqual(3)
     expect(r.regions.map((x) => x.lineId)).toEqual(['L1', 'L2'])
     const { items } = await textItems(r.bytes)
-    expect(items.some((t) => t.text === many.at(-1))).toBe(true) // nothing was lost
+    expect(items.some((t) => t.text === many.at(-1))).toBe(true)
     expect(items.find((t) => t.text === 'Received from:')!.page).toBe(r.pageCount)
   })
 })
@@ -147,7 +145,7 @@ describe('wrapText', () => {
     pdf.registerFontkit(fontkit)
     const f = await pdf.embedFont(fonts.regular)
     const no = '1998-05-140-TSE000-RSTL15'
-    const w = f.widthOfTextAtSize('1998-05-140-TSE000-', 8) + 1 // fits up to the 3rd hyphen, not the whole number
+    const w = f.widthOfTextAtSize('1998-05-140-TSE000-', 8) + 1
     const lines = wrapText(no, f, 8, w)
     expect(lines.join('')).toBe(no)
     expect(lines.length).toBeGreaterThan(1)

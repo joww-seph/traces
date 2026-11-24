@@ -105,7 +105,7 @@ describe('roles and live user state', () => {
     const { agent } = await loginAs('supply_admin', app)
     expect((await agent.get('/api/su')).status).toBe(403)
     expect((await agent.get('/api/any')).status).toBe(200)
-    await testPool.query(`UPDATE users SET role='superadmin'`) // role is read from the DB, not the session
+    await testPool.query(`UPDATE users SET role='superadmin'`)
     expect((await agent.get('/api/su')).status).toBe(200)
   })
 
@@ -158,7 +158,6 @@ describe('rate limit', () => {
     const agent = agentFor(app)
     for (let i = 0; i < 10; i++) expect((await login(agent, u.email, 'wrong-wrong-1')).status).toBe(401)
     expect((await login(agent, u.email, PASSWORD)).status).toBe(429)
-    // keyed by IP + email: another email is unaffected
     const other = await makeUser('superadmin')
     expect((await login(agentFor(app), other.email, PASSWORD)).status).toBe(200)
   })

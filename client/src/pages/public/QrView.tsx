@@ -9,7 +9,6 @@ import { TypeBadge } from '@/components/TypeBadge'
 import type { PropertyView } from '@/lib/propertyView'
 import { PageSkeleton } from '@/components/Loading'
 
-// What a scan lands on. No login, read-only, built for a phone first.
 function Notice({ icon, title, children }: { icon: React.ReactNode; title: string; children: React.ReactNode }) {
   return (
     <main className="grid min-h-dvh place-items-center bg-background px-6 py-10">

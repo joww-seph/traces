@@ -73,7 +73,7 @@ describe('dashboard', () => {
     expect((await agent.get('/api/dashboard')).body).toEqual({
       documents: { ICS: 0, PAR: 0 },
       categories: { semi: { properties: 0, mainUnits: 0, valueCentavos: 0 }, ppe: { properties: 0, mainUnits: 0, valueCentavos: 0 } },
-      cards: 0, // one card per main unit (decision 2026-11-18)
+      cards: 0,
       unsignedDocuments: 0,
     })
     const { doc } = await makeDocument(agent)
@@ -83,7 +83,7 @@ describe('dashboard', () => {
     expect(res.body.documents).toEqual({ ICS: 1, PAR: 0 })
     expect(res.body.categories.ppe).toEqual({ properties: 2, mainUnits: 1, valueCentavos: 9645000 })
     expect(res.body.categories.semi).toEqual({ properties: 1, mainUnits: 1, valueCentavos: 4870000 })
-    expect(res.body.unsignedDocuments).toBe(1) // no signed copy yet
+    expect(res.body.unsignedDocuments).toBe(1)
     await signDocument(agent, doc.id)
     expect((await agent.get('/api/dashboard')).body.unsignedDocuments).toBe(0)
   })
