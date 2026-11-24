@@ -170,7 +170,7 @@ try {
   if (values.more) { await seedMore(); process.exit(0) }
   if (values.reset) {
     await db.execute(sql`UPDATE settings SET default_issued_by_officer_id = NULL`)
-    await db.execute(sql`TRUNCATE audit_logs, movements, qr_tokens, properties, line_pdf_regions, document_files, lines, documents RESTART IDENTITY CASCADE`)
+    await db.execute(sql`TRUNCATE audit_logs, count_scans, physical_counts, movements, qr_tokens, properties, line_pdf_regions, document_files, lines, documents RESTART IDENTITY CASCADE`)
     if (!values.officers) {
       await db.execute(sql`DELETE FROM officer_designations`)
       await db.execute(sql`DELETE FROM officers`)
